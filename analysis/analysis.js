@@ -29,12 +29,15 @@
   const csInfo = document.getElementById('cross-section-info');
   const traceStatus = document.getElementById('trace-status');
   const btnTrace = document.getElementById('btn-trace');
+  const btnTraceStations = document.getElementById('btn-trace-stations');
   const btnReset = document.getElementById('btn-reset');
   const sliceZEl = document.getElementById('slice-z');
   const sliceThickEl = document.getElementById('slice-thick');
   const traceZStepEl = document.getElementById('trace-zstep');
   const traceClaimEl = document.getElementById('trace-claim');
   const traceBranchEl = document.getElementById('trace-branch');
+  const traceBudgetEl = document.getElementById('trace-budget');
+  const toggleSpokesEl = document.getElementById('toggle-spokes');
 
   // ── Viewer ──
 
@@ -252,6 +255,9 @@
   traceBranchEl.addEventListener('input', function() {
     document.getElementById('val-branch').textContent = parseInt(this.value);
   });
+  traceBudgetEl.addEventListener('input', function() {
+    document.getElementById('val-budget').textContent = parseInt(this.value);
+  });
 
   // ── Color helpers ──
 
@@ -373,14 +379,196 @@
     }
   });
 
+  // ── Wheel & spoke drawing ──
+
+  function drawStationSpokes(station, color = 0xe8a44a) {
+    const z = station.z;
+    const cx = station.center[0], cy = station.center[1];
+    const boundary = station.boundary; // Nx2 array
+    const n = boundary.length;
+
+    // Rim: closed polyline around boundary at this Z
+    const rimPositions = new Float32Array((n + 1) * 3);
+    for (let i = 0; i <= n; i++) {
+      const bi = i % n;
+      rimPositions[i * 3]     = boundary[bi][0];
+      rimPositions[i * 3 + 1] = boundary[bi][1];
+      rimPositions[i * 3 + 2] = z;
+    }
+    const rimGeo = new THREE.BufferGeometry();
+    rimGeo.setAttribute('position', new THREE.Float32BufferAttribute(rimPositions, 3));
+    const rim = new THREE.Line(rimGeo, new THREE.LineBasicMaterial({
+      color, transparent: true, opacity: 0.7, depthTest: false,
+    }));
+    viewer.addToBoth(rim);
+    state.overlays.push(rim);
+
+    // Spokes: lines from center to each boundary vertex
+    const spokePositions = new Float32Array(n * 6);
+    for (let i = 0; i < n; i++) {
+      spokePositions[i * 6]     = cx;
+      spokePositions[i * 6 + 1] = cy;
+      spokePositions[i * 6 + 2] = z;
+      spokePositions[i * 6 + 3] = boundary[i][0];
+      spokePositions[i * 6 + 4] = boundary[i][1];
+      spokePositions[i * 6 + 5] = z;
+    }
+    const spokeGeo = new THREE.BufferGeometry();
+    spokeGeo.setAttribute('position', new THREE.Float32BufferAttribute(spokePositions, 3));
+    const spokes = new THREE.LineSegments(spokeGeo, new THREE.LineBasicMaterial({
+      color, transparent: true, opacity: 0.25, depthTest: false,
+    }));
+    viewer.addToBoth(spokes);
+    state.overlays.push(spokes);
+  }
+
+  // ── Station trace (progressive polling) ──
+
+  let pollTimer = null;
+
+  function applyProgressUpdate(snap) {
+    // Lightweight: just update claimed colors + centerline
+    restoreColors();
+    clearOverlays();
+
+    if (snap.all_claimed && snap.all_claimed.length > 0) {
+      recolorClaimed(snap.all_claimed, 0x00ff88);
+    }
+
+    if (snap.centerline && snap.centerline.length > 1) {
+      const cl = snap.centerline;
+      const clFlat = new Float32Array(cl.length * 3);
+      for (let i = 0; i < cl.length; i++) {
+        clFlat[i * 3] = cl[i][0]; clFlat[i * 3 + 1] = cl[i][1]; clFlat[i * 3 + 2] = cl[i][2];
+      }
+      addPolyline(clFlat, 0x00ff88);
+      addCentroids(clFlat, 0xffffff, 3);
+    }
+  }
+
+  function applyFinalResult(result) {
+    // Full render with stations + branch flags
+    restoreColors();
+    clearOverlays();
+
+    if (result.all_claimed && result.all_claimed.length > 0) {
+      recolorClaimed(result.all_claimed, 0x00ff88);
+    }
+
+    if (result.centerline && result.centerline.length > 1) {
+      const cl = result.centerline;
+      const clFlat = new Float32Array(cl.length * 3);
+      for (let i = 0; i < cl.length; i++) {
+        clFlat[i * 3] = cl[i][0]; clFlat[i * 3 + 1] = cl[i][1]; clFlat[i * 3 + 2] = cl[i][2];
+      }
+      addPolyline(clFlat, 0x00ff88);
+      addCentroids(clFlat, 0xffffff, 3);
+    }
+
+    if (toggleSpokesEl.checked && result.stations) {
+      const maxSteps = result.steps || result.n_stations || 1;
+      for (const station of result.stations) {
+        if (station.boundary && station.boundary.length > 0) {
+          const t = Math.min(1, station.age / Math.max(maxSteps, 1));
+          const r = Math.round(0xe8 * (1 - t * 0.4));
+          const g = Math.round(0xa4 * (1 - t * 0.3));
+          const b = Math.round(0x4a + t * 0x40);
+          const color = (r << 16) | (g << 8) | b;
+          drawStationSpokes(station, color);
+        }
+      }
+    }
+
+    if (result.branch_flags && result.branch_flags.length > 0) {
+      const bfFlat = new Float32Array(result.branch_flags.length * 3);
+      for (let i = 0; i < result.branch_flags.length; i++) {
+        const bf = result.branch_flags[i];
+        bfFlat[i * 3] = bf.xy[0];
+        bfFlat[i * 3 + 1] = bf.xy[1];
+        bfFlat[i * 3 + 2] = bf.z;
+      }
+      addCentroids(bfFlat, 0xff00ff, 8);
+    }
+  }
+
+  async function pollProgress() {
+    try {
+      const resp = await fetch('/api/trace_stations_progress');
+      const snap = await resp.json();
+
+      const phase = snap.phase || '?';
+      const step = snap.step || 0;
+      const nStations = snap.n_stations || (snap.stations ? snap.stations.length : 0);
+      const nClaimed = snap.all_claimed ? snap.all_claimed.length : 0;
+
+      traceStatus.textContent = `${phase} step=${step} stations=${nStations} claimed=${nClaimed}`;
+
+      if (snap.done) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        btnTraceStations.disabled = false;
+        applyFinalResult(snap);
+        traceStatus.textContent = `done — ${snap.steps || step} steps, ${nStations} stations, ${nClaimed} pts`;
+        refreshSlice();
+      } else if (snap.all_claimed) {
+        applyProgressUpdate(snap);
+      }
+    } catch (e) {
+      traceStatus.textContent = 'poll error: ' + e.message;
+    }
+  }
+
+  btnTraceStations.addEventListener('click', async function() {
+    const b = state.bounds;
+    const seed = [
+      (b.min[0] + b.max[0]) / 2 - 2.25,
+      (b.min[1] + b.max[1]) / 2,
+      b.min[2] + 0.1,
+    ];
+
+    const params = {
+      seed: seed,
+      z_step: parseFloat(traceZStepEl.value),
+      claim_radius: parseFloat(traceClaimEl.value),
+      min_branch_points: parseInt(traceBranchEl.value),
+      nudge_budget: parseInt(traceBudgetEl.value),
+      use_tip_center: true,
+      progress_interval: 1,
+    };
+
+    // Clear previous
+    clearOverlays();
+    restoreColors();
+
+    traceStatus.textContent = 'starting trace...';
+    btnTraceStations.disabled = true;
+
+    try {
+      await fetch('/api/trace_stations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+
+      // Start polling
+      pollTimer = setInterval(pollProgress, 500);
+
+    } catch (e) {
+      traceStatus.textContent = 'error: ' + e.message;
+      btnTraceStations.disabled = false;
+    }
+  });
+
   // ── Reset ──
 
   btnReset.addEventListener('click', async function() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     traceStatus.textContent = 'resetting...';
     await fetch('/api/reset', { method: 'POST' });
     clearOverlays();
     restoreColors();
     refreshSlice();
+    btnTraceStations.disabled = false;
     traceStatus.textContent = 'ready';
   });
 
@@ -460,6 +648,7 @@
     onSliceChange();
 
     btnTrace.disabled = false;
+    btnTraceStations.disabled = false;
     btnReset.disabled = false;
 
     statusEl.textContent = '';

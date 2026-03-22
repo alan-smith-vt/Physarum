@@ -144,6 +144,43 @@ def api_trace():
     result = pipeline.trace_centerline(params['seed'], **kwargs)
     return json_response(result)
 
+@app.route('/api/trace_stations', methods=['POST'])
+def api_trace_stations():
+    """Start a station trace in background thread."""
+    import threading
+
+    params = request.json
+    kwargs = {k: v for k, v in params.items() if k != 'seed'}
+    progress_interval = kwargs.pop('progress_interval', 1)
+
+    # Shared state for progress
+    app.trace_progress = {'phase': 'starting', 'step': 0, 'done': False}
+    app.trace_result = None
+
+    def on_progress(snapshot):
+        app.trace_progress = snapshot
+
+    def run_trace():
+        try:
+            result = pipeline.trace_with_stations(
+                params['seed'],
+                progress_callback=on_progress,
+                progress_interval=progress_interval,
+                **kwargs)
+            app.trace_result = result
+        except Exception as e:
+            app.trace_progress = {'phase': 'error', 'error': str(e), 'done': True}
+
+    t = threading.Thread(target=run_trace, daemon=True)
+    t.start()
+    return jsonify({'status': 'started'})
+
+@app.route('/api/trace_stations_progress')
+def api_trace_stations_progress():
+    """Poll for current trace progress."""
+    progress = getattr(app, 'trace_progress', {'phase': 'idle', 'done': True})
+    return json_response(progress)
+
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
     pipeline.reset()

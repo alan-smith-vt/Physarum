@@ -320,9 +320,18 @@
         <input type="range" id="trace-branch" min="10" max="500" step="10" value="200">
         <span id="val-branch">200</span>
       </div>
+      <div class="slider-row">
+        <label>nudge budget</label>
+        <input type="range" id="trace-budget" min="1" max="50" step="1" value="20">
+        <span id="val-budget">20</span>
+      </div>
+      <label class="check-row">
+        <input type="checkbox" id="toggle-spokes" checked> show wheel &amp; spoke
+      </label>
       <div class="section-body" id="trace-status">ready</div>
       <div class="btn-row">
         <button class="btn" id="btn-trace" disabled>trace</button>
+        <button class="btn" id="btn-trace-stations" disabled>trace + stations</button>
         <button class="btn" id="btn-reset" disabled>reset</button>
       </div>
     </div>
