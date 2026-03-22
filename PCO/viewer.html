@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PCO Viewer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=DM+Sans:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0c0e12;
+    --panel: #13161c;
+    --border: #1e2330;
+    --text: #c8cdd8;
+    --dim: #5a6170;
+    --accent: #e8a44a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #topbar {
+    height: 44px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  #topbar .title {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  #topbar .stat { color: var(--dim); }
+  #topbar .stat b { color: var(--text); font-weight: 400; }
+
+  #viewport {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #controls-hint {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    opacity: 0.6;
+    z-index: 1;
+  }
+
+  #status {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    z-index: 1;
+  }
+
+  #controls-panel {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    z-index: 1;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .slider-row input[type=range] {
+    -webkit-appearance: none;
+    width: 100px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="title">PCO Viewer</div>
+  <div class="stat">points: <b id="stat-points">—</b></div>
+  <div class="stat">nodes: <b id="stat-nodes">—</b></div>
+  <div class="stat">depth: <b id="stat-depth">—</b></div>
+</div>
+
+<div id="viewport">
+  <div id="controls-hint">drag to orbit · scroll to zoom · shift+drag to pan</div>
+  <div id="status">loading...</div>
+  <div id="controls-panel">
+    <div class="slider-row">
+      <label>size</label>
+      <input type="range" id="point-size" min="1" max="5" step="1" value="3">
+      <span id="val-psize">3</span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="pco_viewer.js"></script>
+<script>
+(function() {
+
+  const DEFAULTS = { pointSize: 3 };
+
+  function sliderToSize(v) {
+    return Math.exp(0.5 * v);
+  }
+
+  const statusEl = document.getElementById('status');
+  const container = document.getElementById('viewport');
+
+  // Create viewer
+  const viewer = new PCOViewer(container, {
+    pointSize: sliderToSize(DEFAULTS.pointSize),
+  });
+
+  // Slider
+  document.getElementById('point-size').value = DEFAULTS.pointSize;
+  document.getElementById('val-psize').textContent = DEFAULTS.pointSize;
+  document.getElementById('point-size').addEventListener('input', function() {
+    const v = parseInt(this.value);
+    document.getElementById('val-psize').textContent = v;
+    viewer.setPointSize(sliderToSize(v));
+  });
+
+  // Load and start
+  (async () => {
+    statusEl.textContent = 'loading...';
+    const meta = await viewer.loadFromServer();
+    document.getElementById('stat-points').textContent = meta.total_points.toLocaleString();
+    document.getElementById('stat-nodes').textContent = meta.num_nodes.toLocaleString();
+    document.getElementById('stat-depth').textContent = meta.max_depth;
+    statusEl.textContent = '';
+    viewer.start();
+  })().catch(err => { statusEl.textContent = 'error: ' + err.message; });
+
+})();
+</script>
+</body>
+</html>
