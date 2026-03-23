@@ -3,10 +3,33 @@ Analysis pipeline for filament extraction from point clouds.
 Uses PCO octree node structure for efficient spatial queries.
 """
 
+import os
+import json
 import numpy as np
 from collections import deque
 from PCO import PCOReader, PCOFormat
 from PCO.pco_format import OctreeUtils
+
+# Config defaults — re-read from disk each call so edits take effect without restart
+_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
+_config_cache = None
+_config_mtime = 0
+
+def _load_config():
+    global _config_cache, _config_mtime
+    try:
+        mtime = os.path.getmtime(_CONFIG_PATH)
+    except OSError:
+        mtime = 0
+    if _config_cache is None or mtime != _config_mtime:
+        with open(_CONFIG_PATH) as f:
+            _config_cache = json.load(f)
+        _config_mtime = mtime
+    return _config_cache
+
+def _cfg(section, key):
+    """Get a config default value, hot-reloading if the file changed."""
+    return _load_config()[section][key]
 
 
 class AnalysisPipeline:
@@ -71,6 +94,57 @@ class AnalysisPipeline:
         print(f"  Nodes: {len(self.node_index)}, node size: {self.node_size:.3f}")
         return self
 
+    # ── Node priority for multi-filament ──
+
+    def classify_node_priority(self, seeds, threshold_factor=1.5):
+        """
+        Classify each node as belonging to a specific filament seed or shared.
+
+        For each node, computes distance from node center to each seed (XY only).
+        If one seed is significantly closer (difference > threshold), the node
+        is exclusive to that seed. Otherwise it's shared.
+
+        Args:
+            seeds: list of [x, y, z] seed positions (one per filament)
+            threshold_factor: multiplier on node_size for the distance difference
+                threshold. A node is exclusive to seed i if
+                min_other_dist - dist_i > threshold_factor * node_size.
+
+        Returns:
+            dict mapping node_id -> priority:
+                0, 1, ... = exclusive to that seed index
+                -1 = shared
+        """
+        threshold = threshold_factor * self.node_size
+        seed_xy = np.array([s[:2] for s in seeds])
+        n_seeds = len(seeds)
+
+        node_priority = {}
+        for nid, info in self.node_index.items():
+            gx, gy, gz = info['grid']
+            node_center = self.root_min + (np.array([gx, gy, gz]) + 0.5) * self.node_size
+            center_xy = node_center[:2]
+
+            dists = np.sqrt(((seed_xy - center_xy) ** 2).sum(axis=1))
+            sorted_idx = np.argsort(dists)
+            closest = sorted_idx[0]
+            second = dists[sorted_idx[1]] if n_seeds > 1 else float('inf')
+
+            if second - dists[closest] > threshold:
+                node_priority[nid] = int(closest)
+            else:
+                node_priority[nid] = -1  # shared
+
+        counts = {}
+        for v in node_priority.values():
+            counts[v] = counts.get(v, 0) + 1
+        labels = {-1: 'shared'}
+        for i in range(n_seeds):
+            labels[i] = f'seed_{i}'
+        print(f"Node priority: {', '.join(f'{labels[k]}={v}' for k, v in sorted(counts.items()))}")
+
+        return node_priority
+
     # ── Node utilities ──
 
     def _point_to_grid(self, point):
@@ -99,8 +173,19 @@ class AnalysisPipeline:
                 result.append(g)
         return result
 
+    def _node_blocked(self, nid, claimed_nodes, node_priority=None, filament_id=None):
+        """Check if a node is inaccessible to this filament."""
+        if nid in claimed_nodes:
+            return True
+        if node_priority is not None and filament_id is not None:
+            p = node_priority.get(nid)
+            if p is not None and p != -1 and p != filament_id:
+                return True
+        return False
+
     def _region_grow_nodes(self, center_xy, z, claimed_nodes, density_fraction=0.5,
-                            ref_density=None, prev_region=None):
+                            ref_density=None, prev_region=None,
+                            node_priority=None, filament_id=None):
         """
         BFS region grow through octree nodes at the given Z layer(s).
 
@@ -109,6 +194,11 @@ class AnalysisPipeline:
 
         Uses ref_density for the density threshold if provided,
         otherwise uses the seed node's density.
+
+        node_priority: optional dict {node_id: int} from classify_node_priority.
+            filament_id: which filament is growing (0, 1, ...).
+            Nodes exclusive to another filament are treated as impassable.
+            Shared nodes (-1) are open to all filaments.
         """
         gz_list = self._nodes_in_z_slab(z)
 
@@ -125,7 +215,7 @@ class AnalysisPipeline:
                     key = (gx, gy, gz)
                     if key in self.grid_to_node and key not in visited:
                         nbr = self.grid_to_node[key]
-                        if nbr not in claimed_nodes:
+                        if not self._node_blocked(nbr, claimed_nodes, node_priority, filament_id):
                             queue.append(key)
                             visited.add(key)
                             seed_density = max(seed_density,
@@ -143,7 +233,7 @@ class AnalysisPipeline:
                 key = (gx, gy, gz)
                 if key in self.grid_to_node:
                     nid = self.grid_to_node[key]
-                    if nid not in claimed_nodes:
+                    if not self._node_blocked(nid, claimed_nodes, node_priority, filament_id):
                         queue.append(key)
                         visited.add(key)
                         seed_density = max(seed_density,
@@ -159,7 +249,7 @@ class AnalysisPipeline:
                             key = (gx + dx, gy + dy, gz)
                             if key in self.grid_to_node:
                                 nid = self.grid_to_node[key]
-                                if nid not in claimed_nodes:
+                                if not self._node_blocked(nid, claimed_nodes, node_priority, filament_id):
                                     d = dx*dx + dy*dy
                                     if d < best_dist:
                                         best_dist = d
@@ -180,7 +270,7 @@ class AnalysisPipeline:
         while queue:
             cx, cy, cz = queue.popleft()
             nid = self.grid_to_node.get((cx, cy, cz))
-            if nid is None or nid in claimed_nodes:
+            if nid is None or self._node_blocked(nid, claimed_nodes, node_priority, filament_id):
                 continue
             accepted.append(nid)
 
@@ -192,13 +282,56 @@ class AnalysisPipeline:
                         nkey = (cx + dx, cy + dy, dz_gz)
                         if nkey not in visited and nkey in self.grid_to_node:
                             nbr_nid = self.grid_to_node[nkey]
-                            if nbr_nid not in claimed_nodes:
+                            if not self._node_blocked(nbr_nid, claimed_nodes, node_priority, filament_id):
                                 nbr_density = len(self.node_index[nbr_nid]['indices'])
                                 if nbr_density >= min_density:
                                     visited.add(nkey)
                                     queue.append(nkey)
 
         return accepted
+
+    def _gather_expanded(self, region, z, node_priority=None, filament_id=None):
+        """
+        Gather point indices from region nodes expanded outward by BFS.
+        Stops at missing nodes (void) or nodes blocked by priority.
+        """
+        gz_list = self._nodes_in_z_slab(z)
+        visited = set()
+        queue = deque()
+        expanded_nids = set()
+
+        for nid in region:
+            gx, gy, _ = self.node_index[nid]['grid']
+            for gz in gz_list:
+                key = (gx, gy, gz)
+                if key in self.grid_to_node and key not in visited:
+                    nbr = self.grid_to_node[key]
+                    if not self._node_blocked(nbr, set(), node_priority, filament_id):
+                        visited.add(key)
+                        queue.append(key)
+
+        while queue:
+            cx, cy, cz = queue.popleft()
+            nid = self.grid_to_node.get((cx, cy, cz))
+            if nid is None:
+                continue
+            if self._node_blocked(nid, set(), node_priority, filament_id):
+                continue
+            expanded_nids.add(nid)
+            for dz_gz in gz_list:
+                for dx in [-1, 0, 1]:
+                    for dy in [-1, 0, 1]:
+                        if dx == 0 and dy == 0 and dz_gz == cz:
+                            continue
+                        nkey = (cx + dx, cy + dy, dz_gz)
+                        if nkey not in visited and nkey in self.grid_to_node:
+                            visited.add(nkey)
+                            queue.append(nkey)
+
+        idx = []
+        for nid in expanded_nids:
+            idx.extend(self.node_index[nid]['indices'])
+        return np.array(idx) if idx else np.array([], dtype=int)
 
     # ── Cross section ──
 
@@ -274,10 +407,18 @@ class AnalysisPipeline:
 
     # ── Centerline tracer ──
 
-    def trace_centerline(self, seed, z_step=0.2, claim_radius=0.5,
-                          max_xy_factor=2.0, min_points=3,
-                          slab_thickness=None, heatmap_res=25,
-                          min_branch_points=100):
+    def trace_centerline(self, seed,
+                          z_step=None, claim_radius=None,
+                          max_xy_factor=None, min_points=None,
+                          slab_thickness=None, heatmap_res=None,
+                          min_branch_points=None):
+        z_step = z_step if z_step is not None else _cfg('trajectory', 'z_step')
+        claim_radius = claim_radius if claim_radius is not None else _cfg('trajectory', 'claim_radius')
+        max_xy_factor = max_xy_factor if max_xy_factor is not None else _cfg('trajectory', 'max_xy_factor')
+        min_points = min_points if min_points is not None else _cfg('trajectory', 'min_points')
+        slab_thickness = slab_thickness if slab_thickness is not None else _cfg('trajectory', 'slab_thickness')
+        heatmap_res = heatmap_res if heatmap_res is not None else _cfg('trajectory', 'heatmap_res')
+        min_branch_points = min_branch_points if min_branch_points is not None else _cfg('trajectory', 'min_branch_points')
         """
         Trace a centerline upward from a seed point with:
         - Octree node region growing (coarse spatial filter)
@@ -518,16 +659,36 @@ class AnalysisPipeline:
 
     # ── Station-based trace ──
 
-    def trace_with_stations(self, seed, z_step=0.2, claim_radius=0.5,
-                             max_xy_factor=2.0, min_points=3,
-                             slab_thickness=None, heatmap_res=25,
-                             min_branch_points=100, nudge_budget=20,
-                             n_dirs=40, use_tip_center=True,
-                             max_nudges_per_dir=3, min_density_ratio=0.3,
-                             density_ema_alpha=0.3, lookahead_steps=2,
-                             retract_divisor=8, max_point_loss_pct=0.005,
-                             min_density_improvement=0.001,
-                             progress_callback=None, progress_interval=1):
+    def trace_with_stations(self, seed,
+                             z_step=None, claim_radius=None,
+                             max_xy_factor=None, min_points=None,
+                             slab_thickness=None, heatmap_res=None,
+                             min_branch_points=None, nudge_budget=None,
+                             n_dirs=None, use_tip_center=None,
+                             max_nudges_per_dir=None, min_density_ratio=None,
+                             density_ema_alpha=None, lookahead_steps=None,
+                             retract_divisor=None, max_point_loss_pct=None,
+                             min_density_improvement=None,
+                             progress_callback=None, progress_interval=None,
+                             node_priority=None, filament_id=None):
+        z_step = z_step if z_step is not None else _cfg('trajectory', 'z_step')
+        claim_radius = claim_radius if claim_radius is not None else _cfg('trajectory', 'claim_radius')
+        max_xy_factor = max_xy_factor if max_xy_factor is not None else _cfg('trajectory', 'max_xy_factor')
+        min_points = min_points if min_points is not None else _cfg('trajectory', 'min_points')
+        slab_thickness = slab_thickness if slab_thickness is not None else _cfg('trajectory', 'slab_thickness')
+        heatmap_res = heatmap_res if heatmap_res is not None else _cfg('trajectory', 'heatmap_res')
+        min_branch_points = min_branch_points if min_branch_points is not None else _cfg('trajectory', 'min_branch_points')
+        nudge_budget = nudge_budget if nudge_budget is not None else _cfg('thicken', 'nudge_budget')
+        n_dirs = n_dirs if n_dirs is not None else _cfg('thicken', 'n_dirs')
+        use_tip_center = use_tip_center if use_tip_center is not None else _cfg('thicken', 'use_tip_center')
+        max_nudges_per_dir = max_nudges_per_dir if max_nudges_per_dir is not None else _cfg('thicken', 'max_nudges_per_dir')
+        min_density_ratio = min_density_ratio if min_density_ratio is not None else _cfg('thicken', 'min_density_ratio')
+        density_ema_alpha = density_ema_alpha if density_ema_alpha is not None else _cfg('thicken', 'density_ema_alpha')
+        lookahead_steps = lookahead_steps if lookahead_steps is not None else _cfg('thicken', 'lookahead_steps')
+        retract_divisor = retract_divisor if retract_divisor is not None else _cfg('retraction', 'retract_divisor')
+        max_point_loss_pct = max_point_loss_pct if max_point_loss_pct is not None else _cfg('retraction', 'max_point_loss_pct')
+        min_density_improvement = min_density_improvement if min_density_improvement is not None else _cfg('retraction', 'min_density_improvement')
+        progress_interval = progress_interval if progress_interval is not None else _cfg('progress', 'progress_interval')
         """
         Trace a centerline upward from seed, creating stations at each Z-step.
         Each timestep: tip advances, then all existing stations thicken once.
@@ -642,7 +803,12 @@ class AnalysisPipeline:
         prev_region = None
 
         # Initial region + station at seed
-        region = self._region_grow_nodes(center[:2], center[2], claimed_nodes)
+        priority_kwargs = {}
+        if node_priority is not None and filament_id is not None:
+            priority_kwargs = dict(node_priority=node_priority, filament_id=filament_id)
+
+        region = self._region_grow_nodes(center[:2], center[2], claimed_nodes,
+                                          **priority_kwargs)
         prev_region = region
         if region:
             ref_density = max(len(self.node_index[nid]['indices']) for nid in region)
@@ -677,7 +843,8 @@ class AnalysisPipeline:
             # 1. Tip advancement (same logic as trace_centerline)
             region = self._region_grow_nodes(
                 center[:2], new_z, claimed_nodes,
-                ref_density=ref_density, prev_region=prev_region)
+                ref_density=ref_density, prev_region=prev_region,
+                **priority_kwargs)
             if not region:
                 break
 
@@ -806,6 +973,431 @@ class AnalysisPipeline:
 
         return result
 
+    # ── Multi-filament trace (interleaved) ──
+
+    def trace_multi_filament(self, seeds, threshold_factor=None,
+                              z_step=None, claim_radius=None,
+                              max_xy_factor=None, min_points=None,
+                              slab_thickness=None, heatmap_res=None,
+                              min_branch_points=None, nudge_budget=None,
+                              n_dirs=None, use_tip_center=None,
+                              max_nudges_per_dir=None, min_density_ratio=None,
+                              density_ema_alpha=None, lookahead_steps=None,
+                              retract_divisor=None, max_point_loss_pct=None,
+                              min_density_improvement=None,
+                              progress_callback=None, progress_interval=None):
+        threshold_factor = threshold_factor if threshold_factor is not None else _cfg('multi_filament', 'threshold_factor')
+        z_step = z_step if z_step is not None else _cfg('trajectory', 'z_step')
+        claim_radius = claim_radius if claim_radius is not None else _cfg('trajectory', 'claim_radius')
+        max_xy_factor = max_xy_factor if max_xy_factor is not None else _cfg('trajectory', 'max_xy_factor')
+        min_points = min_points if min_points is not None else _cfg('trajectory', 'min_points')
+        slab_thickness = slab_thickness if slab_thickness is not None else _cfg('trajectory', 'slab_thickness')
+        heatmap_res = heatmap_res if heatmap_res is not None else _cfg('trajectory', 'heatmap_res')
+        min_branch_points = min_branch_points if min_branch_points is not None else _cfg('trajectory', 'min_branch_points')
+        nudge_budget = nudge_budget if nudge_budget is not None else _cfg('thicken', 'nudge_budget')
+        n_dirs = n_dirs if n_dirs is not None else _cfg('thicken', 'n_dirs')
+        use_tip_center = use_tip_center if use_tip_center is not None else _cfg('thicken', 'use_tip_center')
+        max_nudges_per_dir = max_nudges_per_dir if max_nudges_per_dir is not None else _cfg('thicken', 'max_nudges_per_dir')
+        min_density_ratio = min_density_ratio if min_density_ratio is not None else _cfg('thicken', 'min_density_ratio')
+        density_ema_alpha = density_ema_alpha if density_ema_alpha is not None else _cfg('thicken', 'density_ema_alpha')
+        lookahead_steps = lookahead_steps if lookahead_steps is not None else _cfg('thicken', 'lookahead_steps')
+        retract_divisor = retract_divisor if retract_divisor is not None else _cfg('retraction', 'retract_divisor')
+        max_point_loss_pct = max_point_loss_pct if max_point_loss_pct is not None else _cfg('retraction', 'max_point_loss_pct')
+        min_density_improvement = min_density_improvement if min_density_improvement is not None else _cfg('retraction', 'min_density_improvement')
+        progress_interval = progress_interval if progress_interval is not None else _cfg('progress', 'progress_interval')
+        """
+        Interleaved multi-filament trace. Each Z-step:
+          1. Advance each filament's tip one step
+          2. Mediate contested shared-zone claims
+          3. Thicken all stations from all filaments together
+
+        Shares a single claimed_points/claimed_nodes across all filaments.
+        Node priority prevents filaments from seeing each other's exclusive nodes.
+        """
+        from scipy.spatial.distance import cdist
+
+        if slab_thickness is None:
+            slab_thickness = z_step
+
+        node_priority = self.classify_node_priority(seeds, threshold_factor)
+        n_filaments = len(seeds)
+
+        max_xy_step = z_step * max_xy_factor
+        half_slab = slab_thickness / 2.0
+        z_max = float(self.points[:, 2].max())
+        z_coords = self.points[:, 2]
+
+        # Shared state
+        n_points = len(self.points)
+        claimed_points = np.zeros(n_points, dtype=bool)
+        claimed_nodes = set()
+
+        # Per-filament state
+        class FilamentState:
+            def __init__(self, seed, fid):
+                self.fid = fid
+                self.seed = np.array(seed, dtype=np.float32)
+                self.center = self.seed.copy()
+                self.centerline = [self.center.tolist()]
+                self.stations = []
+                self.branch_flags = []
+                self.ref_density = None
+                self.prev_region = None
+                self.alive = True
+                self.step_count = 0
+
+        fils = [FilamentState(s, i) for i, s in enumerate(seeds)]
+        density_decay = 0.9
+
+        # Helpers (closures over shared state)
+        def gather_all(region):
+            idx = []
+            for nid in region:
+                idx.extend(self.node_index[nid]['indices'])
+            return np.array(idx) if idx else np.array([], dtype=int)
+
+        def z_slice_fn(indices, z):
+            if len(indices) == 0:
+                return indices
+            return indices[np.abs(z_coords[indices] - z) <= half_slab]
+
+        def find_peaks(center_xy, pts_xy, max_r, max_peaks=5):
+            gx = np.linspace(center_xy[0] - max_r, center_xy[0] + max_r, heatmap_res)
+            gy = np.linspace(center_xy[1] - max_r, center_xy[1] + max_r, heatmap_res)
+            gxx, gyy = np.meshgrid(gx, gy)
+            grid_flat = np.column_stack([gxx.ravel(), gyy.ravel()])
+            grid_dist_sq = (grid_flat[:, 0] - center_xy[0])**2 + \
+                           (grid_flat[:, 1] - center_xy[1])**2
+            disk_mask = grid_dist_sq <= max_r**2
+            remaining = pts_xy.copy()
+            peaks = []
+            for _ in range(max_peaks):
+                if len(remaining) == 0:
+                    break
+                centroid = remaining.mean(axis=0)
+                dists = cdist(grid_flat[disk_mask], remaining)
+                counts = np.sum(dists <= claim_radius, axis=1)
+                max_count = int(counts.max())
+                if max_count < min_points:
+                    break
+                tied = counts == max_count
+                tied_positions = grid_flat[disk_mask][tied]
+                centroid_dists = (tied_positions[:, 0] - centroid[0])**2 + \
+                                (tied_positions[:, 1] - centroid[1])**2
+                best_pos = tied_positions[np.argmin(centroid_dists)]
+                peaks.append((best_pos.copy(), max_count))
+                d = np.sqrt((remaining[:, 0] - best_pos[0])**2 +
+                           (remaining[:, 1] - best_pos[1])**2)
+                remaining = remaining[d > claim_radius]
+            return peaks
+
+        def get_slab_points(center_xy, z, region, fid):
+            """Get slab indices and XY coords, respecting priority."""
+            expanded = self._gather_expanded(region, z,
+                                              node_priority=node_priority, filament_id=fid)
+            sliced = z_slice_fn(expanded, z)
+            if len(sliced) == 0:
+                return sliced, np.empty((0, 2))
+            return sliced, self.points[sliced][:, :2]
+
+        def build_snapshot(phase, step):
+            fil_snapshots = []
+            for f in fils:
+                fil_mask = np.zeros(n_points, dtype=bool)
+                for s in f.stations:
+                    local_claimed = s.cross_section.claimed
+                    if local_claimed.any():
+                        fil_mask[s.slab_indices[local_claimed]] = True
+                fil_snapshots.append({
+                    'filament_id': f.fid,
+                    'centerline': f.centerline.copy(),
+                    'all_claimed': np.where(fil_mask)[0].tolist(),
+                    'n_stations': len(f.stations),
+                    'steps': f.step_count,
+                })
+
+            return {
+                'phase': phase,
+                'step': int(step),
+                'filaments': fil_snapshots,
+                'done': False,
+            }
+
+        expansion_kwargs = dict(
+            max_nudges_per_dir=max_nudges_per_dir,
+            min_density_ratio=min_density_ratio,
+            density_ema_alpha=density_ema_alpha,
+            lookahead_steps=lookahead_steps,
+        )
+
+        # ── Initial region + station for each filament ──
+
+        for f in fils:
+            region = self._region_grow_nodes(
+                f.center[:2], f.center[2], claimed_nodes,
+                node_priority=node_priority, filament_id=f.fid)
+            f.prev_region = region
+            if region:
+                f.ref_density = max(len(self.node_index[nid]['indices']) for nid in region)
+                slab_idx, slab_xy = get_slab_points(f.center[:2], f.center[2], region, f.fid)
+                if len(slab_idx) > 0:
+                    station = Station(f.center, slab_idx, slab_xy, age=0, n_dirs=n_dirs)
+                    f.stations.append(station)
+
+        # ── Interleaved main loop ──
+
+        global_step = 0
+        while any(f.alive for f in fils):
+            # 1. Advance each living filament's tip one Z-step
+            step_claims = {}  # fid -> claim_idx for mediation
+
+            for f in fils:
+                if not f.alive:
+                    continue
+
+                new_z = f.center[2] + z_step
+                if new_z > z_max:
+                    f.alive = False
+                    continue
+
+                region = self._region_grow_nodes(
+                    f.center[:2], new_z, claimed_nodes,
+                    ref_density=f.ref_density, prev_region=f.prev_region,
+                    node_priority=node_priority, filament_id=f.fid)
+                if not region:
+                    f.alive = False
+                    continue
+
+                all_idx = gather_all(region)
+                sliced = z_slice_fn(all_idx, new_z)
+                unclaimed = sliced[~claimed_points[sliced]]
+                if len(unclaimed) == 0:
+                    f.alive = False
+                    continue
+
+                step_xy = self.points[unclaimed][:, :2]
+                peaks = find_peaks(f.center[:2], step_xy, max_xy_step)
+                if not peaks:
+                    f.alive = False
+                    continue
+
+                best_xy, best_count = peaks[0]
+                displacement = best_xy - f.center[:2]
+                dist = np.linalg.norm(displacement)
+                if dist > max_xy_step:
+                    best_xy = f.center[:2] + displacement * (max_xy_step / dist)
+
+                new_center = np.array([best_xy[0], best_xy[1], new_z], dtype=np.float32)
+
+                # Claim from priority-filtered expanded region
+                expanded_idx = self._gather_expanded(region, new_z,
+                                                      node_priority=node_priority,
+                                                      filament_id=f.fid)
+                expanded_sliced = z_slice_fn(expanded_idx, new_z)
+                expanded_unclaimed = expanded_sliced[~claimed_points[expanded_sliced]]
+                claim_dists = np.linalg.norm(
+                    self.points[expanded_unclaimed][:, :2] - best_xy, axis=1)
+                claim_idx = expanded_unclaimed[claim_dists <= claim_radius]
+
+                if len(claim_idx) < min_points:
+                    f.alive = False
+                    continue
+
+                step_claims[f.fid] = claim_idx
+
+                # Branch flags
+                for peak_xy, peak_count in peaks[1:]:
+                    if peak_count >= min_branch_points:
+                        f.branch_flags.append({
+                            'z': float(new_z),
+                            'xy': peak_xy.tolist(),
+                            'density': int(peak_count),
+                        })
+
+                # Update filament state (center, region) before claiming
+                f.center = new_center
+                f.centerline.append(new_center.tolist())
+                f.prev_region = region
+                f.step_count += 1
+
+                # Update ref density
+                if f.ref_density is not None and region:
+                    current_density = max(len(self.node_index[nid]['indices']) for nid in region)
+                    f.ref_density = density_decay * f.ref_density + (1 - density_decay) * current_density
+
+            # 2. Mediate contested claims in shared zone
+            if len(step_claims) > 1:
+                fids = list(step_claims.keys())
+                all_claim_sets = {fid: set(step_claims[fid].tolist()) for fid in fids}
+
+                # Find points claimed by multiple filaments
+                for i_idx in range(len(fids)):
+                    for j_idx in range(i_idx + 1, len(fids)):
+                        fa, fb = fids[i_idx], fids[j_idx]
+                        contested = all_claim_sets[fa] & all_claim_sets[fb]
+                        if contested:
+                            contested_arr = np.array(list(contested))
+                            contested_pts = self.points[contested_arr][:, :2]
+                            cl_a = np.array(fils[fa].centerline)
+                            cl_b = np.array(fils[fb].centerline)
+                            dist_a = cdist(contested_pts, cl_a[:, :2]).min(axis=1)
+                            dist_b = cdist(contested_pts, cl_b[:, :2]).min(axis=1)
+                            for k, idx in enumerate(contested_arr):
+                                if dist_a[k] <= dist_b[k]:
+                                    all_claim_sets[fb].discard(idx)
+                                else:
+                                    all_claim_sets[fa].discard(idx)
+
+                # Apply mediated claims
+                for fid in fids:
+                    mediated = np.array(list(all_claim_sets[fid]), dtype=int)
+                    if len(mediated) > 0:
+                        claimed_points[mediated] = True
+            else:
+                # Single filament claiming, no mediation needed
+                for fid, claim_idx in step_claims.items():
+                    claimed_points[claim_idx] = True
+
+            # Update claimed_nodes
+            for f in fils:
+                if f.prev_region:
+                    for nid in f.prev_region:
+                        ni = np.array(self.node_index[nid]['indices'])
+                        if np.all(claimed_points[ni]):
+                            claimed_nodes.add(nid)
+
+            # 3. Create new stations for filaments that advanced
+            for f in fils:
+                if f.fid in step_claims and f.prev_region:
+                    slab_idx, slab_xy = get_slab_points(
+                        f.center[:2], f.center[2], f.prev_region, f.fid)
+                    if len(slab_idx) > 0:
+                        station = Station(
+                            f.center, slab_idx, slab_xy,
+                            age=f.step_count, n_dirs=n_dirs)
+                        f.stations.append(station)
+
+            # 4. Thicken all existing stations (except newly created ones)
+            #    Each station excludes points claimed by other filaments' stations
+            for f in fils:
+                # Build global mask of points claimed by OTHER filaments
+                other_global = np.zeros(n_points, dtype=bool)
+                for of in fils:
+                    if of.fid == f.fid:
+                        continue
+                    for os_ in of.stations:
+                        lc = os_.cross_section.claimed
+                        if lc.any():
+                            other_global[os_.slab_indices[lc]] = True
+
+                for s in f.stations[:-1]:
+                    if not s.converged:
+                        excl = other_global[s.slab_indices]
+                        s.thicken(nudge_budget=nudge_budget,
+                                  use_tip_center=use_tip_center,
+                                  excluded=excl,
+                                  **expansion_kwargs)
+
+            global_step += 1
+
+            if progress_callback and global_step % progress_interval == 0:
+                progress_callback(build_snapshot('tracing', global_step))
+
+        # ── Post-trace: converge thickening for all stations ──
+        #    Each station excludes points claimed by other filaments
+
+        # Map each station to its owning filament id
+        station_to_fid = {}
+        for f in fils:
+            for s in f.stations:
+                station_to_fid[id(s)] = f.fid
+
+        all_stations = []
+        for f in fils:
+            all_stations.extend(f.stations)
+
+        max_post_steps = 500
+        for post_step in range(max_post_steps):
+            any_active = False
+
+            # Rebuild per-filament global claimed masks each tick
+            fil_claimed = {}
+            for f in fils:
+                mask = np.zeros(n_points, dtype=bool)
+                for s in f.stations:
+                    lc = s.cross_section.claimed
+                    if lc.any():
+                        mask[s.slab_indices[lc]] = True
+                fil_claimed[f.fid] = mask
+
+            for s in all_stations:
+                if not s.converged:
+                    fid = station_to_fid[id(s)]
+                    # Exclude points claimed by all other filaments
+                    other_mask = np.zeros(n_points, dtype=bool)
+                    for ofid, omask in fil_claimed.items():
+                        if ofid != fid:
+                            other_mask |= omask
+                    excl = other_mask[s.slab_indices]
+                    s.thicken(nudge_budget=nudge_budget,
+                              use_tip_center=use_tip_center,
+                              excluded=excl,
+                              **expansion_kwargs)
+                    any_active = True
+            if not any_active:
+                break
+            if progress_callback and post_step % max(progress_interval * 10, 10) == 0:
+                progress_callback(build_snapshot('thickening', post_step))
+
+        # ── Retraction pass ──
+        if progress_callback:
+            progress_callback(build_snapshot('retracting', 0))
+
+        # Snapshot pre-retraction claims per filament
+        pre_retract = {}
+        for f in fils:
+            claimed = set()
+            for s in f.stations:
+                claimed.update(s.get_global_claimed().tolist())
+            pre_retract[f.fid] = claimed
+
+        for s in all_stations:
+            s.cross_section.retract_pass(s.slab_xy,
+                                          retract_divisor=retract_divisor,
+                                          max_point_loss_pct=max_point_loss_pct,
+                                          min_density_improvement=min_density_improvement)
+
+        # ── Build final result ──
+        filament_results = []
+        for f in fils:
+            all_station_claimed = set()
+            for s in f.stations:
+                all_station_claimed.update(s.get_global_claimed().tolist())
+
+            retracted = pre_retract[f.fid] - all_station_claimed
+
+            filament_results.append({
+                'filament_id': f.fid,
+                'centerline': f.centerline,
+                'stations': [s.to_dict() for s in f.stations],
+                'all_claimed': list(all_station_claimed),
+                'retracted': list(retracted),
+                'branch_flags': f.branch_flags,
+                'steps': f.step_count,
+                'done': True,
+            })
+
+        result = {
+            'filaments': filament_results,
+            'node_priority_threshold': threshold_factor,
+            'done': True,
+        }
+
+        if progress_callback:
+            progress_callback(result)
+
+        return result
+
     # ── Reset ──
 
     def reset(self):
@@ -877,9 +1469,15 @@ class PolarCrossSection:
         r_interp = self.radii[idx_prev] * (1 - t) + self.radii[idx] * t
         return dists <= r_interp
 
-    def thicken_step(self, all_points_xy, nudge_budget=10, center_override=None,
-                     max_nudges_per_dir=3, min_density_ratio=0.3,
-                     density_ema_alpha=0.3, lookahead_steps=2):
+    def thicken_step(self, all_points_xy, nudge_budget=None, center_override=None,
+                     max_nudges_per_dir=None, min_density_ratio=None,
+                     density_ema_alpha=None, lookahead_steps=None,
+                     excluded=None):
+        nudge_budget = nudge_budget if nudge_budget is not None else _cfg('thicken', 'nudge_budget')
+        max_nudges_per_dir = max_nudges_per_dir if max_nudges_per_dir is not None else _cfg('thicken', 'max_nudges_per_dir')
+        min_density_ratio = min_density_ratio if min_density_ratio is not None else _cfg('thicken', 'min_density_ratio')
+        density_ema_alpha = density_ema_alpha if density_ema_alpha is not None else _cfg('thicken', 'density_ema_alpha')
+        lookahead_steps = lookahead_steps if lookahead_steps is not None else _cfg('thicken', 'lookahead_steps')
         """
         One thickening tick.
         center_override: fixed [x,y] center, skips re-centering.
@@ -890,6 +1488,8 @@ class PolarCrossSection:
         lookahead_steps: when a single step fails, check this many additional
             steps ahead. If any has good density, accept the current step
             (bridging a gap). 0 = no lookahead (strict).
+        excluded: optional bool array (same length as all_points_xy) marking
+            points claimed by other filaments — treated as unavailable.
         """
         n_claimed = self.claimed_count
 
@@ -910,8 +1510,11 @@ class PolarCrossSection:
             self.radii = self.radii[sort_idx]
             self.dir_density = self.dir_density[sort_idx] if len(self.dir_density) == len(sort_idx) else self.dir_density
 
-        # 2. Unclaimed points + polar coords
-        unclaimed_idx = np.where(~self.claimed)[0]
+        # 2. Unclaimed points + polar coords (excluding other filaments' claims)
+        available = ~self.claimed
+        if excluded is not None:
+            available = available & ~excluded
+        unclaimed_idx = np.where(available)[0]
         if len(unclaimed_idx) == 0:
             return {'nudges_spent': 0, 'new_claimed': 0, 'total_claimed': n_claimed,
                     'n_dirs': self.n_dirs}
@@ -996,9 +1599,11 @@ class PolarCrossSection:
                         # Truly empty ahead — stop this direction
                         failed[i] = True
 
-        # 6. Claim
+        # 6. Claim (respecting exclusion mask)
         old_count = n_claimed
         self.claimed = self.points_inside_mask(all_points_xy)
+        if excluded is not None:
+            self.claimed &= ~excluded
         self._rescale_directions()
 
         return {
@@ -1008,9 +1613,13 @@ class PolarCrossSection:
             'n_dirs': self.n_dirs,
         }
 
-    def retract_pass(self, all_points_xy, max_iters=500,
-                     retract_divisor=8, max_point_loss_pct=0.005,
-                     min_density_improvement=0.001):
+    def retract_pass(self, all_points_xy, max_iters=None,
+                     retract_divisor=None, max_point_loss_pct=None,
+                     min_density_improvement=None):
+        max_iters = max_iters if max_iters is not None else _cfg('retraction', 'max_retract_iters')
+        retract_divisor = retract_divisor if retract_divisor is not None else _cfg('retraction', 'retract_divisor')
+        max_point_loss_pct = max_point_loss_pct if max_point_loss_pct is not None else _cfg('retraction', 'max_point_loss_pct')
+        min_density_improvement = min_density_improvement if min_density_improvement is not None else _cfg('retraction', 'min_density_improvement')
         """
         Refine boundary inward to remove empty overshoot.
 
@@ -1158,9 +1767,11 @@ class Station:
         # The tip center (XY) at creation — used if use_tip_center=True
         self.tip_center_xy = np.array(center_3d[:2], dtype=np.float64)
 
-    def thicken(self, nudge_budget=10, use_tip_center=False, **expansion_kwargs):
+    def thicken(self, nudge_budget=10, use_tip_center=False, excluded=None,
+                **expansion_kwargs):
         """Run one thickening step. Marks converged after repeated stalls.
         use_tip_center: if True, keep center fixed at the tip position.
+        excluded: optional bool array (slab-local) marking points off-limits.
         expansion_kwargs: passed through to thicken_step (lookahead_mult,
             max_nudges_per_dir, diminishing_factor, min_density_ratio,
             density_ema_alpha)."""
@@ -1172,6 +1783,7 @@ class Station:
         override = self.tip_center_xy if use_tip_center else None
         stats = self.cross_section.thicken_step(self.slab_xy, nudge_budget=nudge_budget,
                                                  center_override=override,
+                                                 excluded=excluded,
                                                  **expansion_kwargs)
 
         if stats['new_claimed'] <= 0:

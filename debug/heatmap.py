@@ -2,8 +2,11 @@
 Debug heatmap: runs the actual trace from analysis.py up to PLOT_STEP,
 then shows the heatmap at that position to debug what the tracer sees.
 
-Run from Physarum folder: python debug_heatmap.py
+Run from Physarum folder: python -m debug.heatmap
 """
+
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import numpy as np
 import matplotlib.pyplot as plt

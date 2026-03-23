@@ -6,8 +6,11 @@ saves it as PCO, then steps through the thickening algorithm
 and plots each step.
 
 Run from Physarum folder:
-    python debug_thicken.py
+    python -m debug.thicken
 """
+
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -512,7 +515,7 @@ def main():
     axes[1][3].axis('off')
     
     plt.tight_layout()
-    out_path = 'thicken_debug.png'
+    out_path = os.path.join(os.path.dirname(__file__), 'images', 'thicken_debug.png')
     plt.savefig(out_path, dpi=150, bbox_inches='tight')
     print(f"\nSaved plot to {out_path}")
     plt.close()

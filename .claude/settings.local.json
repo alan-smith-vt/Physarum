@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"from analysis.server import app; print\\(''server import OK''\\)\")",
+      "Bash(python -m py_compile analysis/analysis.py)",
+      "Bash(python:*)"
+    ]
+  }
+}

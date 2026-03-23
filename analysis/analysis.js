@@ -5,6 +5,25 @@
 (function() {
 
   const DEFAULTS = { pointSize: 1 };
+  let CONFIG = null;
+
+  // Load config and apply to sliders
+  fetch('/config.json').then(r => r.json()).then(cfg => {
+    CONFIG = cfg;
+    const t = cfg.trajectory, th = cfg.thicken;
+    const apply = (el, valEl, v, fmt) => {
+      el.value = v;
+      valEl.textContent = fmt ? fmt(v) : v;
+    };
+    apply(document.getElementById('trace-zstep'),
+          document.getElementById('val-zstep'), t.z_step, v => v.toFixed(2));
+    apply(document.getElementById('trace-claim'),
+          document.getElementById('val-claim'), t.claim_radius, v => v.toFixed(2));
+    apply(document.getElementById('trace-branch'),
+          document.getElementById('val-branch'), t.min_branch_points);
+    apply(document.getElementById('trace-budget'),
+          document.getElementById('val-budget'), th.nudge_budget);
+  }).catch(e => console.warn('config load failed, using HTML defaults:', e));
 
   function sliderToSize(v) {
     return Math.exp(0.5 * v);
@@ -30,6 +49,7 @@
   const traceStatus = document.getElementById('trace-status');
   const btnTrace = document.getElementById('btn-trace');
   const btnTraceStations = document.getElementById('btn-trace-stations');
+  const btnTraceMulti = document.getElementById('btn-trace-multi');
   const btnReset = document.getElementById('btn-reset');
   const sliceZEl = document.getElementById('slice-z');
   const sliceThickEl = document.getElementById('slice-thick');
@@ -288,6 +308,18 @@
     colorAttr.needsUpdate = true;
   }
 
+  function setAllWhite() {
+    const pointCloud = viewer.scene.children.find(c => c.isPoints);
+    if (!pointCloud) return;
+    const colorAttr = pointCloud.geometry.attributes.color;
+    if (!colorAttr) return;
+    const arr = colorAttr.array;
+    for (let i = 0; i < arr.length; i += 3) {
+      arr[i] = 1; arr[i + 1] = 1; arr[i + 2] = 1;
+    }
+    colorAttr.needsUpdate = true;
+  }
+
   // ── Overlay helpers ──
 
   function clearOverlays() {
@@ -355,7 +387,7 @@
       addPolyline(clFlat, 0x00ff88);
       addCentroids(clFlat, 0xffffff, 3);
 
-      // Recolor claimed green
+      // Recolor claimed cyan
       recolorClaimed(result.all_claimed, 0x00ff88);
 
       // Draw branch flag markers (magenta)
@@ -428,7 +460,7 @@
 
   function applyProgressUpdate(snap) {
     // Lightweight: just update claimed colors + centerline
-    restoreColors();
+    setAllWhite();
     clearOverlays();
 
     if (snap.all_claimed && snap.all_claimed.length > 0) {
@@ -448,7 +480,7 @@
 
   function applyFinalResult(result) {
     // Full render with stations + branch flags
-    restoreColors();
+    setAllWhite();
     clearOverlays();
 
     if (result.all_claimed && result.all_claimed.length > 0) {
@@ -559,16 +591,181 @@
     }
   });
 
+  // ── Multi-filament trace ──
+
+  const FILAMENT_COLORS = [0xff4444, 0x4488ff];
+  const FILAMENT_LINE_COLORS = [0xff6666, 0x66aaff];
+
+  function applyMultiResult(result) {
+    setAllWhite();
+    clearOverlays();
+
+    if (!result.filaments) return;
+
+    for (let fi = 0; fi < result.filaments.length; fi++) {
+      const fil = result.filaments[fi];
+      const claimColor = FILAMENT_COLORS[fi % FILAMENT_COLORS.length];
+      const lineColor = FILAMENT_LINE_COLORS[fi % FILAMENT_LINE_COLORS.length];
+
+      if (fil.all_claimed && fil.all_claimed.length > 0) {
+        recolorClaimed(fil.all_claimed, claimColor);
+      }
+
+      if (fil.centerline && fil.centerline.length > 1) {
+        const cl = fil.centerline;
+        const clFlat = new Float32Array(cl.length * 3);
+        for (let i = 0; i < cl.length; i++) {
+          clFlat[i * 3] = cl[i][0]; clFlat[i * 3 + 1] = cl[i][1]; clFlat[i * 3 + 2] = cl[i][2];
+        }
+        addPolyline(clFlat, lineColor);
+        addCentroids(clFlat, 0xffffff, 3);
+      }
+
+      if (toggleSpokesEl.checked && fil.stations) {
+        const maxSteps = fil.steps || fil.n_stations || 1;
+        for (const station of fil.stations) {
+          if (station.boundary && station.boundary.length > 0) {
+            const t = Math.min(1, station.age / Math.max(maxSteps, 1));
+            const baseR = (claimColor >> 16) & 0xff;
+            const baseG = (claimColor >> 8) & 0xff;
+            const baseB = claimColor & 0xff;
+            const r = Math.round(baseR * (1 - t * 0.4));
+            const g = Math.round(baseG * (1 - t * 0.3));
+            const b = Math.round(baseB + t * 0x20);
+            const color = (Math.min(r, 255) << 16) | (Math.min(g, 255) << 8) | Math.min(b, 255);
+            drawStationSpokes(station, color);
+          }
+        }
+      }
+
+      if (fil.branch_flags && fil.branch_flags.length > 0) {
+        const bfFlat = new Float32Array(fil.branch_flags.length * 3);
+        for (let i = 0; i < fil.branch_flags.length; i++) {
+          const bf = fil.branch_flags[i];
+          bfFlat[i * 3] = bf.xy[0];
+          bfFlat[i * 3 + 1] = bf.xy[1];
+          bfFlat[i * 3 + 2] = bf.z;
+        }
+        addCentroids(bfFlat, 0xff00ff, 8);
+      }
+    }
+  }
+
+  let multiMode = false;
+
+  function applyMultiProgress(snap) {
+    setAllWhite();
+    clearOverlays();
+
+    // Progress snapshots now have a filaments array
+    const filaments = snap.filaments || [];
+    for (const f of filaments) {
+      const fid = f.filament_id || 0;
+      if (f.all_claimed && f.all_claimed.length > 0) {
+        recolorClaimed(f.all_claimed, FILAMENT_COLORS[fid % FILAMENT_COLORS.length]);
+      }
+      if (f.centerline && f.centerline.length > 1) {
+        const cl = f.centerline;
+        const clFlat = new Float32Array(cl.length * 3);
+        for (let i = 0; i < cl.length; i++) {
+          clFlat[i * 3] = cl[i][0]; clFlat[i * 3 + 1] = cl[i][1]; clFlat[i * 3 + 2] = cl[i][2];
+        }
+        addPolyline(clFlat, FILAMENT_LINE_COLORS[fid % FILAMENT_LINE_COLORS.length]);
+      }
+    }
+  }
+
+  async function pollMultiProgress() {
+    try {
+      const resp = await fetch('/api/trace_stations_progress');
+      const snap = await resp.json();
+
+      const phase = snap.phase || '?';
+      const step = snap.step || 0;
+
+      if (snap.done && snap.filaments) {
+        // Final multi result
+        clearInterval(pollTimer);
+        pollTimer = null;
+        multiMode = false;
+        btnTraceMulti.disabled = false;
+        applyMultiResult(snap);
+        const totalClaimed = snap.filaments.reduce((s, f) => s + (f.all_claimed ? f.all_claimed.length : 0), 0);
+        const totalSteps = snap.filaments.reduce((s, f) => s + (f.steps || 0), 0);
+        traceStatus.textContent = `done — ${snap.filaments.length} filaments, ${totalSteps} steps, ${totalClaimed} pts`;
+        refreshSlice();
+      } else if (snap.filaments) {
+        // In-progress with per-filament data
+        const alive = snap.filaments.filter(f => f.steps > 0).length;
+        const totalSteps = snap.filaments.reduce((s, f) => s + (f.steps || 0), 0);
+        traceStatus.textContent = `${phase} step=${step} — ${alive} filaments active, ${totalSteps} total steps`;
+        applyMultiProgress(snap);
+      } else {
+        traceStatus.textContent = `${phase} step=${step}`;
+      }
+    } catch (e) {
+      traceStatus.textContent = 'poll error: ' + e.message;
+    }
+  }
+
+  btnTraceMulti.addEventListener('click', async function() {
+    const b = state.bounds;
+    const seedA = [
+      (b.min[0] + b.max[0]) / 2 - 2.25,
+      (b.min[1] + b.max[1]) / 2,
+      b.min[2] + 0.1,
+    ];
+    const seedB = [
+      (b.min[0] + b.max[0]) / 2 + 2.25,
+      (b.min[1] + b.max[1]) / 2,
+      b.min[2] + 0.1,
+    ];
+
+    const params = {
+      seeds: [seedA, seedB],
+      z_step: parseFloat(traceZStepEl.value),
+      claim_radius: parseFloat(traceClaimEl.value),
+      min_branch_points: parseInt(traceBranchEl.value),
+      nudge_budget: parseInt(traceBudgetEl.value),
+      use_tip_center: true,
+      progress_interval: 1,
+    };
+
+    clearOverlays();
+    setAllWhite();
+
+    traceStatus.textContent = 'starting multi-filament trace...';
+    btnTraceMulti.disabled = true;
+    multiMode = true;
+
+    try {
+      await fetch('/api/trace_multi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+
+      pollTimer = setInterval(pollMultiProgress, 500);
+
+    } catch (e) {
+      traceStatus.textContent = 'error: ' + e.message;
+      btnTraceMulti.disabled = false;
+      multiMode = false;
+    }
+  });
+
   // ── Reset ──
 
   btnReset.addEventListener('click', async function() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    multiMode = false;
     traceStatus.textContent = 'resetting...';
     await fetch('/api/reset', { method: 'POST' });
     clearOverlays();
     restoreColors();
     refreshSlice();
     btnTraceStations.disabled = false;
+    btnTraceMulti.disabled = false;
     traceStatus.textContent = 'ready';
   });
 
@@ -649,6 +846,7 @@
 
     btnTrace.disabled = false;
     btnTraceStations.disabled = false;
+    btnTraceMulti.disabled = false;
     btnReset.disabled = false;
 
     statusEl.textContent = '';

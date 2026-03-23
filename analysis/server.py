@@ -60,6 +60,10 @@ def serve_viewer_js():
 def serve_analysis_js():
     return send_file(os.path.join(ANALYSIS_DIR, 'analysis.js'))
 
+@app.route('/config.json')
+def serve_config():
+    return send_file(os.path.join(ANALYSIS_DIR, 'config.json'))
+
 
 # --- PCO data endpoints ---
 
@@ -180,6 +184,39 @@ def api_trace_stations_progress():
     """Poll for current trace progress."""
     progress = getattr(app, 'trace_progress', {'phase': 'idle', 'done': True})
     return json_response(progress)
+
+@app.route('/api/trace_multi', methods=['POST'])
+def api_trace_multi():
+    """Start a multi-filament trace in background thread."""
+    import threading
+
+    params = request.json
+    seeds = params['seeds']
+    kwargs = {k: v for k, v in params.items() if k not in ('seeds',)}
+    progress_interval = kwargs.pop('progress_interval', 1)
+
+    app.trace_progress = {'phase': 'starting', 'step': 0, 'done': False}
+    app.trace_result = None
+
+    def on_progress(snapshot):
+        app.trace_progress = snapshot
+
+    def run_trace():
+        try:
+            result = pipeline.trace_multi_filament(
+                seeds,
+                progress_callback=on_progress,
+                progress_interval=progress_interval,
+                **kwargs)
+            app.trace_result = result
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            app.trace_progress = {'phase': 'error', 'error': str(e), 'done': True}
+
+    t = threading.Thread(target=run_trace, daemon=True)
+    t.start()
+    return jsonify({'status': 'started'})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():

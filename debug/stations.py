@@ -3,8 +3,11 @@ Debug stations: ghost-simulate tip progression to PLOT_STEP,
 create a station at that Z-slab, run thickening to convergence,
 and plot snapshots of the polar curve evolution.
 
-Run from Physarum folder: python debug_stations.py
+Run from Physarum folder: python -m debug.stations
 """
+
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -518,7 +521,7 @@ while plot_idx < n_rows * n_cols:
     plot_idx += 1
 
 plt.tight_layout()
-out_path = 'debug_stations.png'
+out_path = os.path.join(os.path.dirname(__file__), 'images', 'debug_stations.png')
 plt.savefig(out_path, dpi=150, bbox_inches='tight')
 print(f"\nSaved plot to {out_path}")
 plt.close()

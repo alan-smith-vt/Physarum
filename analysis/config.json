@@ -1,0 +1,32 @@
+{
+  "trajectory": {
+    "z_step": 0.05,
+    "claim_radius": 0.5,
+    "max_xy_factor": 2.0,
+    "min_points": 3,
+    "slab_thickness": null,
+    "heatmap_res": 25,
+    "min_branch_points": 100
+  },
+  "thicken": {
+    "nudge_budget": 20,
+    "n_dirs": 40,
+    "use_tip_center": true,
+    "max_nudges_per_dir": 3,
+    "min_density_ratio": 0.3,
+    "density_ema_alpha": 0.3,
+    "lookahead_steps": 2
+  },
+  "retraction": {
+    "retract_divisor": 8,
+    "max_point_loss_pct": 0.005,
+    "min_density_improvement": 0.001,
+    "max_retract_iters": 500
+  },
+  "multi_filament": {
+    "threshold_factor": 1.5
+  },
+  "progress": {
+    "progress_interval": 1
+  }
+}
