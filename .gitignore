@@ -4,3 +4,5 @@ debug/__pycache__/
 debug/images/
 
 *.png
+
+PCO/__pycache__/
