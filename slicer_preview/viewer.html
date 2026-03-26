@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Slice Viewer</title>
+<style>
+  body { margin: 0; background: #0c0e12; overflow: hidden; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 10px; left: 10px; color: #888; font: 12px monospace; }
+</style>
+</head>
+<body>
+<div id="hud">loading...</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(async () => {
+  const hud = document.getElementById('hud');
+
+  /* ── Fetch metadata + binary in parallel ── */
+  const [meta, buf] = await Promise.all([
+    fetch('/meta').then(r => r.json()),
+    fetch('/slices').then(r => r.arrayBuffer())
+  ]);
+
+  /* ── Decode: u32 total, then (u16 x, u16 y, u16 z, u8 v) x total ── */
+  const dv  = new DataView(buf);
+  const total = dv.getUint32(0, true);
+  const pos = new Float32Array(total * 3);
+  const col = new Float32Array(total * 3);
+
+  let off = 4;
+  for (let i = 0; i < total; i++) {
+    const x = dv.getUint16(off,     true);
+    const y = dv.getUint16(off + 2, true);
+    const z = dv.getUint16(off + 4, true);
+    const v = dv.getUint8 (off + 6) / 255;
+    off += 7;
+
+    pos[i*3]   = x;          // slice column  → world X
+    pos[i*3+1] = z;          // layer index   → world Y (up)
+    pos[i*3+2] = y;          // slice row     → world Z (depth)
+
+    col[i*3]   = v;          // warm tint
+    col[i*3+1] = v * 0.65;
+    col[i*3+2] = v * 0.3;
+  }
+
+  hud.textContent =
+    `${total.toLocaleString()} pts  |  ${meta.width}\u00d7${meta.height}\u00d7${meta.num_slices}`;
+
+  /* ── Renderer ── */
+  const renderer = new THREE.WebGLRenderer({ antialias: false });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setClearColor(0x0c0e12);
+  document.body.appendChild(renderer.domElement);
+
+  /* ── Camera + controls ── */
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 1, 2000);
+  const cx = meta.width / 2, cy = meta.num_slices / 2, cz = meta.height / 2;
+  camera.position.set(cx + 250, cy + 100, cz + 300);
+
+  const ctl = new THREE.OrbitControls(camera, renderer.domElement);
+  ctl.target.set(cx, cy, cz);
+  ctl.enableDamping = true;
+  ctl.update();
+
+  /* ── Point cloud ── */
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geom.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+
+  const scene = new THREE.Scene();
+  scene.add(new THREE.Points(geom, new THREE.PointsMaterial({
+    size: 1, vertexColors: true, sizeAttenuation: true
+  })));
+
+  /* ── Loop ── */
+  (function loop() {
+    requestAnimationFrame(loop);
+    ctl.update();
+    renderer.render(scene, camera);
+  })();
+
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+})();
+</script>
+</body>
+</html>

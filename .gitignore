@@ -4,3 +4,7 @@ debug/__pycache__/
 debug/images/
 
 *.png
+
+__pycache__/
+
+_ss/
