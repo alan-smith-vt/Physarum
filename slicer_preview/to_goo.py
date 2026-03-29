@@ -16,6 +16,7 @@ from multiprocessing import Pool
 # ── Patch printer to real resolution BEFORE importing geometry/generate ──
 import printer
 GOO_LAYER_UM = 50.0
+GOO_EXPOSURE_S = 3.75
 printer.PREVIEW_SCALE = 1
 printer.PIXEL_X_UM = printer.REAL_PIXEL_X_UM
 printer.PIXEL_Y_UM = printer.REAL_PIXEL_Y_UM
@@ -182,6 +183,8 @@ def main():
     struct.pack_into('>I', header, NUM_LAYERS_OFFSET, N_SLICES)
     LAYER_HEIGHT_OFFSET = NUM_LAYERS_OFFSET + 4+2+2+1+1 + 4+4+4  # 22 bytes past layerCount
     struct.pack_into('>f', header, LAYER_HEIGHT_OFFSET, GOO_LAYER_UM / 1000.0)
+    EXPOSURE_OFFSET = LAYER_HEIGHT_OFFSET + 4
+    struct.pack_into('>f', header, EXPOSURE_OFFSET, GOO_EXPOSURE_S)
 
     print(f"Writing {OUTPUT}")
     with open(OUTPUT, 'wb') as f:

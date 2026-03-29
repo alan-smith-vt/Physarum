@@ -209,7 +209,7 @@
   mesh.instanceColor  = new THREE.InstancedBufferAttribute(colors, 3);
   scene.add(mesh);
 
-  // ── STL overlay ──
+  /* ── STL overlay (disabled for test piece) ──
   const stlLoader = new THREE.STLLoader();
   stlLoader.load('/stl/whiteboard_box_frame_75mm.stl', (geometry) => {
     geometry.computeVertexNormals();
@@ -224,7 +224,7 @@
     const wire = new THREE.LineSegments(wireGeo, new THREE.LineBasicMaterial({ color: 0x4488cc }));
     wire.rotation.copy(stlMesh.rotation);
     scene.add(wire);
-  });
+  }); */
 
   // makeLabel helper (kept for bed labels)
   function makeLabel(text, color = '#ccc', fontSize = 32) {

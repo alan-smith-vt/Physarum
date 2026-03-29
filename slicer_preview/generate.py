@@ -116,11 +116,8 @@ FRONT_N_COLS = int(115.0 / COL_SPACING) + 1        # 12 columns along X
 col_x = [(i - (FRONT_N_COLS - 1) / 2) * COL_SPACING for i in range(FRONT_N_COLS)]
 PIECES = []
 _stl = stl_piece(STL_FILE, rot_x=-np.pi/2, rot_y=np.pi/2)
-# Side walls: skip corner-adjacent spans (first & last pairs)
 _side_z_pairs = [(col_z[i], col_z[i+1]) for i in range(1, len(col_z) - 2)]
-# Front wall: skip corner-adjacent spans
 _front_x_pairs = [(col_x[i], col_x[i+1]) for i in range(1, len(col_x) - 2)]
-# Back wall: only first 3 and last 3 columns reach the top (hole in between)
 _back_x_pairs = ([(col_x[i], col_x[i+1]) for i in range(1, 3)] +
                  [(col_x[i], col_x[i+1]) for i in range(len(col_x) - 4, len(col_x) - 2)])
 _arch_top_beams(_stl,
@@ -159,6 +156,16 @@ for i in range(len(col_x) - 1):
                                    start_angle=WALL_START,
                                    ref_wall_y_mm=90.0))
 
+# # ── Test lattice: frame + base lattice only ──
+# TEST_SIZE = 35.0
+# COL_SPACING = 2 * np.pi + 2 * 2.0
+# BAR_W = 5.0
+# PIECES = []
+# PIECES.append(solid_frame(outer_x=TEST_SIZE, outer_z=TEST_SIZE,
+#                            bar_w=BAR_W, bar_h=BAR_W))
+# PIECES.append(base_lattice(grid_x_mm=TEST_SIZE, grid_z_mm=TEST_SIZE,
+#                             spacing_mm=COL_SPACING))
+
 # # ── Calibration grid: 3×3, strut thickness (rows) × grayscale exposure (cols) ──
 # CELL_SIZE = 25.0
 # BAR_W = 3.0
@@ -195,7 +202,7 @@ for i in range(len(col_x) - 1):
 #         PIECES.append(frame)
 #         PIECES.append(lattice)
 
-# # ── Test piece: 30×30 mm base frame + lattice + one wall ──
+# # ── Test piece: base frame + lattice + one wall ──
 # HELIX_R = 2.0
 # COL_SPACING = 2 * np.pi + 2 * HELIX_R
 # TEST_SIZE = 35.0
