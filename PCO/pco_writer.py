@@ -134,12 +134,12 @@ class PCOWriter:
             # Write header
             f.write(PCOFormat.MAGIC)#8
             f.write(struct.pack('H', max_depth))#2
-            f.write(struct.pack('fff', *root_min))#12
+            f.write(struct.pack('ddd', *root_min))#24
             f.write(struct.pack('f', root_size))#4
-            f.write(struct.pack('Q', len(points)))#8 (offset 26)
+            f.write(struct.pack('Q', len(points)))#8 (offset 38)
             f.write(struct.pack('B', schema))#1
             f.write(struct.pack('B', bytes_per_point))#1
-            index_offset_pos = f.tell()#returns 36
+            index_offset_pos = f.tell()#returns 48
             f.write(struct.pack('Q', 0))  # Placeholder for index offset
             
             # Write data section
@@ -154,26 +154,26 @@ class PCOWriter:
                 node_data = np.zeros(node_count, dtype=dtype)
                 
                 if schema & PCOFormat.FIELD_XYZ:
-                    node_data['x'] = points[point_indices, 0]
-                    node_data['y'] = points[point_indices, 1]
-                    node_data['z'] = points[point_indices, 2]
-                
+                    node_data['x'] = points[point_indices, 0] - root_min[0]
+                    node_data['y'] = points[point_indices, 1] - root_min[1]
+                    node_data['z'] = points[point_indices, 2] - root_min[2]
+
                 if schema & PCOFormat.FIELD_RGB and colors is not None:
                     node_data['r'] = colors[point_indices, 0]
                     node_data['g'] = colors[point_indices, 1]
                     node_data['b'] = colors[point_indices, 2]
-                
+
                 if schema & PCOFormat.FIELD_INTENSITY and intensities is not None:
                     node_data['intensity'] = intensities[point_indices]
-                
+
                 if schema & PCOFormat.FIELD_NORMAL and normals is not None:
                     node_data['nx'] = normals[point_indices, 0]
                     node_data['ny'] = normals[point_indices, 1]
                     node_data['nz'] = normals[point_indices, 2]
-                
+
                 f.write(node_data.tobytes())
                 index[node_id] = (node_offset, node_count)
-            
+
             # Write index section
             index_start = f.tell()
             f.write(struct.pack('I', len(index)))
@@ -223,7 +223,7 @@ class PCOWriter:
             # Write header
             f.write(PCOFormat.MAGIC)
             f.write(struct.pack('H', max_depth))
-            f.write(struct.pack('fff', *root_min))
+            f.write(struct.pack('ddd', *root_min))
             f.write(struct.pack('f', root_size))
             f.write(struct.pack('Q', 0))  # Total points (unknown yet)
             f.write(struct.pack('B', schema))
@@ -258,11 +258,11 @@ class PCOWriter:
                 f.write(struct.pack('I', count))
                 total_points+=count
                 
-            f.seek(26)
+            f.seek(38)
             f.write(struct.pack('Q', total_points))
-             
+
             # Update header with index offset
-            f.seek(36)  # Position of index_offset field in header
+            f.seek(48)  # Position of index_offset field in header
             f.write(struct.pack('Q', index_start))
 
 
@@ -309,23 +309,23 @@ class PCOWriter:
                 node_data = np.zeros(node_count, dtype=dtype)
                 
                 if schema & PCOFormat.FIELD_XYZ:
-                    node_data['x'] = points[point_indices, 0]
-                    node_data['y'] = points[point_indices, 1]
-                    node_data['z'] = points[point_indices, 2]
-                
+                    node_data['x'] = points[point_indices, 0] - root_min[0]
+                    node_data['y'] = points[point_indices, 1] - root_min[1]
+                    node_data['z'] = points[point_indices, 2] - root_min[2]
+
                 if schema & PCOFormat.FIELD_RGB and colors is not None:
                     node_data['r'] = colors[point_indices, 0]
                     node_data['g'] = colors[point_indices, 1]
                     node_data['b'] = colors[point_indices, 2]
-                
+
                 if schema & PCOFormat.FIELD_INTENSITY and intensities is not None:
                     node_data['intensity'] = intensities[point_indices]
-                
+
                 if schema & PCOFormat.FIELD_NORMAL and normals is not None:
                     node_data['nx'] = normals[point_indices, 0]
                     node_data['ny'] = normals[point_indices, 1]
                     node_data['nz'] = normals[point_indices, 2]
-                
+
                 f.write(node_data.tobytes())
                 index[node_id] = (node_offset, node_count)
             

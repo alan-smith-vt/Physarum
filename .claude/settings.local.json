@@ -3,7 +3,18 @@
     "allow": [
       "Bash(python -c \"from analysis.server import app; print\\(''server import OK''\\)\")",
       "Bash(python -m py_compile analysis/analysis.py)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(taskkill //F //FI \"WINDOWTITLE eq *server.py*\")",
+      "Bash(pkill -f \"python.*slicer_preview/server.py\")",
+      "Bash(python3:*)",
+      "Bash(pkill -f \"slicer_preview/server.py\")",
+      "Bash(pkill -f \"slicer_preview.server\")",
+      "Bash(cp \"E:/GitClones/PCO/PCO/__init__.py\" \"E:/GitClones/Physarum/PCO/__init__.py\")",
+      "Bash(cp \"E:/GitClones/PCO/PCO/pco_format.py\" \"E:/GitClones/Physarum/PCO/pco_format.py\")",
+      "Bash(cp \"E:/GitClones/PCO/PCO/pco_reader.py\" \"E:/GitClones/Physarum/PCO/pco_reader.py\")",
+      "Bash(cp \"E:/GitClones/PCO/PCO/pco_writer.py\" \"E:/GitClones/Physarum/PCO/pco_writer.py\")",
+      "Bash(cp \"E:/GitClones/PCO/PCO/pco_viewer.js\" \"E:/GitClones/Physarum/PCO/pco_viewer.js\")",
+      "Bash(ls:*)"
     ]
   }
 }

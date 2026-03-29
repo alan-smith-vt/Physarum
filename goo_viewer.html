@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOO Viewer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0c;
+    --panel: #111115;
+    --border: #1e1e24;
+    --text: #c8c8d0;
+    --dim: #5a5a66;
+    --accent: #4af;
+    --warn: #fa4;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Space Grotesk', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+  }
+
+  #sidebar {
+    width: 340px;
+    min-width: 340px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header h1 {
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .sidebar-header .sub {
+    color: var(--dim);
+    font-size: 11px;
+  }
+
+  .drop-zone {
+    margin: 16px 20px;
+    padding: 32px 20px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--dim);
+    font-size: 12px;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(68, 170, 255, 0.04);
+  }
+
+  .drop-zone.loaded {
+    border-color: #2a2a30;
+    border-style: solid;
+    padding: 12px 20px;
+    color: var(--text);
+  }
+
+  .drop-zone .filename {
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .drop-zone .filesize {
+    color: var(--dim);
+    margin-top: 2px;
+    font-size: 11px;
+  }
+
+  input[type="file"] { display: none; }
+
+  .section {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--dim);
+    margin-bottom: 12px;
+  }
+
+  .param-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    align-items: baseline;
+  }
+
+  .param-label { color: var(--dim); font-size: 11px; }
+  .param-value { color: #fff; font-size: 12px; text-align: right; font-weight: 400; }
+  .param-value.accent { color: var(--accent); }
+  .param-value.warn { color: var(--warn); }
+
+  #viewport {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #viewport canvas { display: block; }
+
+  #status {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    color: var(--dim);
+    font-size: 11px;
+    pointer-events: none;
+  }
+
+  #loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    background: rgba(10, 10, 12, 0.9);
+    z-index: 10;
+    display: none;
+  }
+
+  #loading-overlay.active { display: flex; }
+
+  #loading-overlay .spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #loading-overlay .progress-text {
+    color: var(--dim);
+    font-size: 12px;
+  }
+
+  #empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--dim);
+    font-size: 13px;
+  }
+
+  #empty-state .icon {
+    font-size: 48px;
+    opacity: 0.15;
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="sidebar-header">
+    <h1>GOO Viewer</h1>
+    <div class="sub">Elegoo .goo file inspector</div>
+  </div>
+
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    Select or drop a .goo file
+  </div>
+  <input type="file" id="fileInput" accept=".goo">
+
+  <div id="params"></div>
+</div>
+
+<div id="viewport">
+  <div id="empty-state">
+    <div class="icon">◻</div>
+    <div>Load a .goo file to view</div>
+  </div>
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div class="progress-text" id="progressText">Decoding layers...</div>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── GOO Parser ──────────────────────────────────────────────────
+
+function parseGoo(buffer) {
+  const data = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+
+  // Read fixed-width string
+  function readStr(offset, len) {
+    let s = '';
+    for (let i = 0; i < len; i++) {
+      const c = data[offset + i];
+      if (c === 0) break;
+      s += String.fromCharCode(c);
+    }
+    return s;
+  }
+
+  const header = {};
+  header.version = readStr(0, 4);
+  header.softwareName = readStr(12, 32);
+  header.softwareVersion = readStr(44, 24);
+  header.fileCreateTime = readStr(68, 24);
+  header.printerName = readStr(92, 32);
+  header.printerType = readStr(124, 32);
+  header.profileName = readStr(156, 32);
+
+  // Print params start at fixed offset 195310 (Saturn 4 Ultra 16K .goo format)
+  let pos = 195310;
+  header.layerCount = view.getUint32(pos, false); pos += 4;
+  header.resX = view.getUint16(pos, false); pos += 2;
+  header.resY = view.getUint16(pos, false); pos += 2;
+  header.mirrorX = data[pos++];
+  header.mirrorY = data[pos++];
+  header.displayWidth = view.getFloat32(pos, false); pos += 4;
+  header.displayHeight = view.getFloat32(pos, false); pos += 4;
+  header.machineZ = view.getFloat32(pos, false); pos += 4;
+  header.layerHeight = view.getFloat32(pos, false); pos += 4;
+  header.exposureTime = view.getFloat32(pos, false); pos += 4;
+  header.delayMode = data[pos++];
+  header.lightOffDelay = view.getFloat32(pos, false); pos += 4;
+  header.bottomWaitAfterCure = view.getFloat32(pos, false); pos += 4;
+  header.bottomWaitAfterLift = view.getFloat32(pos, false); pos += 4;
+  header.bottomWaitBeforeCure = view.getFloat32(pos, false); pos += 4;
+  header.waitAfterCure = view.getFloat32(pos, false); pos += 4;
+  header.waitAfterLift = view.getFloat32(pos, false); pos += 4;
+  header.waitBeforeCure = view.getFloat32(pos, false); pos += 4;
+  header.bottomExposureTime = view.getFloat32(pos, false); pos += 4;
+  header.bottomLayerCount = view.getUint32(pos, false); pos += 4;
+  header.bottomLiftHeight = view.getFloat32(pos, false); pos += 4;
+  header.bottomLiftSpeed = view.getFloat32(pos, false); pos += 4;
+  header.liftHeight = view.getFloat32(pos, false); pos += 4;
+  header.liftSpeed = view.getFloat32(pos, false); pos += 4;
+  header.bottomRetractHeight = view.getFloat32(pos, false); pos += 4;
+  header.bottomRetractSpeed = view.getFloat32(pos, false); pos += 4;
+  header.retractHeight = view.getFloat32(pos, false); pos += 4;
+  header.retractSpeed = view.getFloat32(pos, false); pos += 4;
+  header.bottomLiftHeight2 = view.getFloat32(pos, false); pos += 4;
+  header.bottomLiftSpeed2 = view.getFloat32(pos, false); pos += 4;
+  header.liftHeight2 = view.getFloat32(pos, false); pos += 4;
+  header.liftSpeed2 = view.getFloat32(pos, false); pos += 4;
+  header.bottomRetractHeight2 = view.getFloat32(pos, false); pos += 4;
+  header.bottomRetractSpeed2 = view.getFloat32(pos, false); pos += 4;
+  header.retractHeight2 = view.getFloat32(pos, false); pos += 4;
+  header.retractSpeed2 = view.getFloat32(pos, false); pos += 4;
+  header.bottomLightPWM = view.getUint16(pos, false); pos += 2;
+  header.lightPWM = view.getUint16(pos, false); pos += 2;
+  header.perLayerSettings = data[pos++];
+  header.printTime = view.getUint32(pos, false); pos += 4;
+  header.volume = view.getFloat32(pos, false); pos += 4;
+  header.materialGrams = view.getFloat32(pos, false); pos += 4;
+  header.materialCost = view.getFloat32(pos, false); pos += 4;
+  header.priceCurrency = readStr(pos, 8); pos += 8;
+  header.layerDefAddress = view.getUint32(pos, false); pos += 4;
+  header.grayScaleLevel = data[pos++];
+  header.transitionLayers = view.getUint16(pos, false); pos += 2;
+  header.antiAliasLevel = 0;
+  header.greyLevel = 0;
+  header.blurLevel = 0;
+
+  // Parse layer defs + RLE data
+  const LAYER_DEF_SIZE = 70;
+  const layers = [];
+  pos = header.layerDefAddress;
+
+  for (let n = 0; n < header.layerCount; n++) {
+    const defStart = pos;
+    const layerZ = view.getFloat32(pos + 6, false);
+    const dataLength = view.getUint32(pos + 66, false);
+    const rleStart = pos + LAYER_DEF_SIZE;
+    const rle = data.slice(rleStart, rleStart + dataLength);
+    layers.push({ z: layerZ, rle });
+    pos = rleStart + dataLength + 2;
+  }
+
+  return { header, layers };
+}
+
+// ── GOO RLE Decode ──────────────────────────────────────────────
+
+function gooDecodeLayer(rle, width, height) {
+  const total = width * height;
+  const pixels = new Uint8Array(total);
+  const lastIdx = rle.length - 1;
+  let color = 0;
+  let pixel = 0;
+
+  for (let i = 1; i < lastIdx;) {
+    const b = rle[i];
+    const chunkType = b >> 6;
+    let stride = 0;
+    let si0 = i, si1 = i+1, si2 = i+2, si3 = i+3;
+
+    if (chunkType === 0) {
+      color = 0;
+    } else if (chunkType === 1) {
+      i++; color = rle[i]; si1++; si2++; si3++;
+    } else if (chunkType === 2) {
+      const dt = (rle[i] >> 4) & 3;
+      const dv = rle[i] & 0xF;
+      if (dt === 0) { color = (color + dv) & 0xFF; stride = 1; }
+      else if (dt === 1) { color = (color + dv) & 0xFF; i++; stride = rle[i]; }
+      else if (dt === 2) { color = (color - dv) & 0xFF; stride = 1; }
+      else if (dt === 3) { color = (color - dv) & 0xFF; i++; stride = rle[i]; }
+      i++;
+      const end = Math.min(pixel + stride, total);
+      if (stride > 0) pixels.fill(color, pixel, end);
+      pixel = end;
+      continue;
+    } else {
+      color = 255;
+    }
+
+    // Length encoding for chunk types 0, 1, 3
+    const cl = (rle[si0] >> 4) & 3;
+    if (cl === 0) stride = rle[si0] & 0xF;
+    else if (cl === 1) { stride = (rle[si1] << 4) + (rle[si0] & 0xF); i += 1; }
+    else if (cl === 2) { stride = (rle[si1] << 12) + (rle[si2] << 4) + (rle[si0] & 0xF); i += 2; }
+    else if (cl === 3) { stride = (rle[si1] << 20) + (rle[si2] << 12) + (rle[si3] << 4) + (rle[si0] & 0xF); i += 3; }
+
+    const end = Math.min(pixel + stride, total);
+    if (stride > 0) pixels.fill(color, pixel, end);
+    pixel = end;
+    i++;
+  }
+
+  return pixels;
+}
+
+// ── UI ──────────────────────────────────────────────────────────
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const paramsDiv = document.getElementById('params');
+const progressText = document.getElementById('progressText');
+const loadingOverlay = document.getElementById('loading-overlay');
+const emptyState = document.getElementById('empty-state');
+const statusDiv = document.getElementById('status');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) loadFile(e.target.files[0]); });
+
+function loadFile(file) {
+  dropZone.classList.add('loaded');
+  dropZone.innerHTML = `<div class="filename">${file.name}</div><div class="filesize">${(file.size / 1024 / 1024).toFixed(2)} MB</div>`;
+
+  const reader = new FileReader();
+  reader.onload = e => processFile(e.target.result, file.name);
+  reader.readAsArrayBuffer(file);
+}
+
+function renderParams(h) {
+  const fmt = (v, unit='') => {
+    if (typeof v === 'number') {
+      if (Number.isInteger(v)) return v + unit;
+      return v.toFixed(v < 1 ? 4 : 2) + unit;
+    }
+    return v;
+  };
+
+  const sections = [
+    ['Machine', [
+      ['Printer', h.printerName, ''],
+      ['Software', h.softwareName, ''],
+      ['Resolution', `${h.resX} × ${h.resY}`, 'accent'],
+      ['Display', `${h.displayWidth.toFixed(2)} × ${h.displayHeight.toFixed(2)} mm`, ''],
+      ['Machine Z', fmt(h.machineZ, ' mm'), ''],
+      ['Mirror X / Y', `${h.mirrorX} / ${h.mirrorY}`, ''],
+      ['Anti-alias', h.antiAliasLevel, ''],
+      ['Greyscale', h.grayScaleLevel ? '0-255' : '0-15', ''],
+    ]],
+    ['Print', [
+      ['Layers', h.layerCount, 'accent'],
+      ['Layer height', fmt(h.layerHeight, ' mm'), ''],
+      ['Total height', fmt(h.layerCount * h.layerHeight, ' mm'), 'warn'],
+      ['Exposure', fmt(h.exposureTime, ' s'), ''],
+      ['Bottom exposure', fmt(h.bottomExposureTime, ' s'), ''],
+      ['Bottom layers', h.bottomLayerCount, ''],
+      ['Transition layers', h.transitionLayers, ''],
+      ['Print time', formatTime(h.printTime), ''],
+      ['Light PWM', h.lightPWM, ''],
+      ['Bottom PWM', h.bottomLightPWM, ''],
+    ]],
+    ['Material', [
+      ['Volume', fmt(h.volume, ' mm³'), ''],
+      ['Weight', fmt(h.materialGrams, ' g'), ''],
+      ['Cost', `${h.priceCurrency}${h.materialCost.toFixed(2)}`, ''],
+    ]],
+    ['Timing', [
+      ['Wait before cure', fmt(h.waitBeforeCure, ' s'), ''],
+      ['Wait after cure', fmt(h.waitAfterCure, ' s'), ''],
+      ['Wait after lift', fmt(h.waitAfterLift, ' s'), ''],
+      ['Lift', `${fmt(h.liftHeight)} + ${fmt(h.liftHeight2)} mm`, ''],
+      ['Retract', `${fmt(h.retractHeight)} + ${fmt(h.retractHeight2)} mm`, ''],
+    ]],
+  ];
+
+  paramsDiv.innerHTML = sections.map(([title, params]) => `
+    <div class="section">
+      <div class="section-title">${title}</div>
+      <div class="param-grid">
+        ${params.map(([label, value, cls]) =>
+          `<div class="param-label">${label}</div><div class="param-value ${cls}">${value}</div>`
+        ).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function formatTime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+// ── Three.js Renderer ───────────────────────────────────────────
+
+let scene, camera, renderer, controls, meshGroup;
+
+function initThree() {
+  const container = document.getElementById('viewport');
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 2000);
+  camera.position.set(150, 120, 200);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x0a0a0c, 1);
+  container.appendChild(renderer.domElement);
+
+  // Simple orbit controls (manual)
+  let isDragging = false;
+  let prevX = 0, prevY = 0;
+  let theta = 0.8, phi = 0.6, dist = 280;
+  let targetX = 0, targetY = 0, targetZ = 0;
+
+  function updateCamera() {
+    camera.position.set(
+      targetX + dist * Math.sin(theta) * Math.cos(phi),
+      targetY + dist * Math.sin(phi),
+      targetZ + dist * Math.cos(theta) * Math.cos(phi)
+    );
+    camera.lookAt(targetX, targetY, targetZ);
+  }
+
+  renderer.domElement.addEventListener('mousedown', e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
+  window.addEventListener('mouseup', () => isDragging = false);
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    theta -= (e.clientX - prevX) * 0.005;
+    phi = Math.max(-1.2, Math.min(1.5, phi + (e.clientY - prevY) * 0.005));
+    prevX = e.clientX; prevY = e.clientY;
+    updateCamera();
+  });
+  renderer.domElement.addEventListener('wheel', e => {
+    dist = Math.max(20, Math.min(800, dist + e.deltaY * 0.3));
+    updateCamera();
+  });
+
+  meshGroup = new THREE.Group();
+  scene.add(meshGroup);
+
+  const ambLight = new THREE.AmbientLight(0xffffff, 0.8);
+  scene.add(ambLight);
+
+  updateCamera();
+
+  function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+
+  return { updateCamera, setTarget: (x, y, z) => { targetX = x; targetY = y; targetZ = z; updateCamera(); } };
+}
+
+// ── Build Texture Stack ─────────────────────────────────────────
+
+async function buildStack(goo, ctrl) {
+  const { header, layers } = goo;
+  const W = header.resX;
+  const H = header.resY;
+
+  // Physical dimensions in mm
+  const bedW = header.displayWidth;
+  const bedH = header.displayHeight;
+  const totalZ = header.layerCount * header.layerHeight;
+
+  // Downsample for GPU — 16K is way too much for textures
+  // Find bounding box by sampling several layers (first, last, middle, quartiles)
+  progressText.textContent = 'Finding geometry bounds...';
+  await sleep(10);
+
+  let minCol = W, maxCol = 0, minRow = H, maxRow = 0;
+  const sampleIndices = [...new Set([
+    0, Math.floor(layers.length / 4), Math.floor(layers.length / 2),
+    Math.floor(layers.length * 3 / 4), layers.length - 1
+  ].filter(i => i >= 0 && i < layers.length))];
+
+  for (const si of sampleIndices) {
+    const samplePixels = gooDecodeLayer(layers[si].rle, W, H);
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < W; c++) {
+        if (samplePixels[r * W + c] > 0) {
+          if (c < minCol) minCol = c;
+          if (c > maxCol) maxCol = c;
+          if (r < minRow) minRow = r;
+          if (r > maxRow) maxRow = r;
+        }
+      }
+    }
+  }
+
+  // Add padding
+  const pad = Math.max(Math.floor((maxCol - minCol) * 0.15), 50);
+  minCol = Math.max(0, minCol - pad);
+  maxCol = Math.min(W - 1, maxCol + pad);
+  minRow = Math.max(0, minRow - pad);
+  maxRow = Math.min(H - 1, maxRow + pad);
+
+  const cropW = maxCol - minCol + 1;
+  const cropH = maxRow - minRow + 1;
+
+  // Target texture size (keep it reasonable for GPU)
+  const maxTexSize = 512;
+  const scale = Math.min(maxTexSize / cropW, maxTexSize / cropH, 1);
+  const texW = Math.ceil(cropW * scale);
+  const texH = Math.ceil(cropH * scale);
+
+  // Physical size of cropped region
+  const physW = (cropW / W) * bedW;
+  const physH = (cropH / H) * bedH;
+
+  // Stride: skip layers for performance if there are many
+  const maxLayers = 200;
+  const stride = Math.max(1, Math.floor(layers.length / maxLayers));
+  const selectedIndices = [];
+  for (let i = 0; i < layers.length; i += stride) selectedIndices.push(i);
+
+  // Clear previous
+  while (meshGroup.children.length) {
+    const child = meshGroup.children[0];
+    child.geometry.dispose();
+    child.material.dispose();
+    meshGroup.remove(child);
+  }
+
+  const zScale = 1; // mm per mm
+
+  for (let si = 0; si < selectedIndices.length; si++) {
+    const li = selectedIndices[si];
+    progressText.textContent = `Decoding layer ${si + 1} / ${selectedIndices.length}`;
+    if (si % 5 === 0) await sleep(0);
+
+    const pixels = gooDecodeLayer(layers[li].rle, W, H);
+
+    // Crop and downsample into RGBA texture
+    const rgba = new Uint8Array(texW * texH * 4);
+
+    for (let ty = 0; ty < texH; ty++) {
+      const srcY = minRow + Math.floor(ty / scale);
+      for (let tx = 0; tx < texW; tx++) {
+        const srcX = minCol + Math.floor(tx / scale);
+        const val = pixels[srcY * W + srcX];
+        const idx = (ty * texW + tx) * 4;
+        rgba[idx] = val;
+        rgba[idx + 1] = val;
+        rgba[idx + 2] = val;
+        rgba[idx + 3] = val; // black = transparent, white = opaque
+      }
+    }
+
+    const tex = new THREE.DataTexture(rgba, texW, texH, THREE.RGBAFormat);
+    tex.needsUpdate = true;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+
+    const layerZ = layers[li].z * zScale;
+
+    const geo = new THREE.PlaneGeometry(physW, physH);
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      opacity: Math.min(1.0, stride * 0.7),
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(0, layerZ, 0);
+    mesh.rotation.x = -Math.PI / 2;
+    meshGroup.add(mesh);
+  }
+
+  // Center the camera on the geometry
+  const centerY = totalZ / 2;
+  ctrl.setTarget(0, centerY, 0);
+
+  statusDiv.textContent = `${selectedIndices.length} of ${layers.length} layers displayed (stride ${stride}) | ${texW}×${texH} textures | crop ${cropW}×${cropH}px`;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Main ────────────────────────────────────────────────────────
+
+let threeCtrl = null;
+
+async function processFile(buffer, name) {
+  emptyState.style.display = 'none';
+  loadingOverlay.classList.add('active');
+  progressText.textContent = 'Parsing header...';
+  await sleep(10);
+
+  if (!threeCtrl) threeCtrl = initThree();
+
+  const goo = parseGoo(buffer);
+  renderParams(goo.header);
+
+  await buildStack(goo, threeCtrl);
+
+  loadingOverlay.classList.remove('active');
+}
+</script>
+</body>
+</html>

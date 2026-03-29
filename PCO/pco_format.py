@@ -24,7 +24,7 @@ class PCOFormat:
     
     # Magic number for file format validation
     MAGIC = b'PCLOUD01'
-    HEADER_SIZE = 44
+    HEADER_SIZE = 56
     
     # Schema field definitions (bitmask)
     FIELD_XYZ = 0b0001
@@ -62,7 +62,7 @@ class PCOFormat:
                 raise ValueError(f"Invalid file format. Expected {PCOFormat.MAGIC}, got {magic}")
             
             max_depth = struct.unpack('H', f.read(2))[0]
-            root_min = struct.unpack('fff', f.read(12))
+            root_min = struct.unpack('ddd', f.read(24))
             root_size = struct.unpack('f', f.read(4))[0]
             total_points = struct.unpack('Q', f.read(8))[0]
             schema = struct.unpack('B', f.read(1))[0]
@@ -263,13 +263,13 @@ class OctreeUtils:
         Returns:
             dict with 'root_min' and 'root_size'
         """
-        mins = points.min(axis=0)
-        maxs = points.max(axis=0)
+        mins = points.min(axis=0).astype(np.float64)
+        maxs = points.max(axis=0).astype(np.float64)
         center = (mins + maxs) / 2
         extent = (maxs - mins).max()
         root_size = extent * padding
         root_min = center - root_size / 2
-        
+
         return {
             'root_min': root_min,
             'root_size': root_size
@@ -289,7 +289,7 @@ class DoubleBufferMerge:
         #Init the final file
         self.pco_writer = writer
         self.output_file = open(output_fileName, 'r+b')
-        self.output_file.seek(44) #seek past header
+        self.output_file.seek(PCOFormat.HEADER_SIZE) #seek past header
 
         #Store indices
         self.merged_indices = merged_indices

@@ -6,13 +6,19 @@
 <style>
   body { margin: 0; background: #0c0e12; overflow: hidden; }
   canvas { display: block; }
-  #hud { position: fixed; top: 10px; left: 10px; color: #888; font: 12px monospace; }
+  #hud { position: fixed; top: 10px; left: 10px; color: #888; font: 12px monospace; line-height: 1.6; }
+  #controls-hint {
+    position: fixed; bottom: 14px; right: 14px;
+    font: 10px monospace; color: #5a6170; opacity: 0.5;
+  }
 </style>
 </head>
 <body>
 <div id="hud">loading...</div>
+<div id="controls-hint">drag to orbit &middot; scroll to zoom &middot; shift+drag to pan &middot; WASD to move &middot; ctrl+click to set target &middot; double-click to focus</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script>
 (async () => {
   const hud = document.getElementById('hud');
@@ -23,11 +29,26 @@
     fetch('/slices').then(r => r.arrayBuffer())
   ]);
 
-  /* ── Decode: u32 total, then (u16 x, u16 y, u16 z, u8 v) x total ── */
+  /* ── Physical scale (mm) ── */
+  const px = meta.pixel_x_um / 1000;   // mm per pixel X
+  const py = meta.pixel_y_um / 1000;   // mm per pixel Y
+  const lh = meta.layer_um   / 1000;   // mm per layer
+  const ox = meta.offset_x_mm || 0;    // centering offset X
+  const oy = meta.offset_y_mm || 0;    // vertical offset (build plate clearance)
+  const oz = meta.offset_z_mm || 0;    // centering offset Z
+
+  const xMm = meta.width     * px;     // model extent in mm
+  const zMm = meta.height    * py;
+  const yMm = meta.num_slices * lh;
+
+  /* ── Decode pixels → mm-scale matrices ── */
   const dv  = new DataView(buf);
   const total = dv.getUint32(0, true);
-  const pos = new Float32Array(total * 3);
-  const col = new Float32Array(total * 3);
+
+  hud.textContent = `decoding ${total.toLocaleString()} pixels...`;
+
+  const matrices = new Float32Array(total * 16);
+  const colors   = new Float32Array(total * 3);
 
   let off = 4;
   for (let i = 0; i < total; i++) {
@@ -37,50 +58,345 @@
     const v = dv.getUint8 (off + 6) / 255;
     off += 7;
 
-    pos[i*3]   = x;          // slice column  → world X
-    pos[i*3+1] = z;          // layer index   → world Y (up)
-    pos[i*3+2] = y;          // slice row     → world Z (depth)
+    const m = i * 16;
+    matrices[m]      = 1;
+    matrices[m + 5]  = 1;
+    matrices[m + 10] = 1;
+    matrices[m + 12] = x * px + ox;    // mm (with centering offset)
+    matrices[m + 13] = z * lh + oy;    // mm (layer → up, with Y offset)
+    matrices[m + 14] = y * py + oz;    // mm (with centering offset)
+    matrices[m + 15] = 1;
 
-    col[i*3]   = v;          // warm tint
-    col[i*3+1] = v * 0.65;
-    col[i*3+2] = v * 0.3;
+    colors[i * 3]     = v;           // warm AA tint
+    colors[i * 3 + 1] = v * 0.65;
+    colors[i * 3 + 2] = v * 0.3;
   }
 
-  hud.textContent =
-    `${total.toLocaleString()} pts  |  ${meta.width}\u00d7${meta.height}\u00d7${meta.num_slices}`;
+  hud.innerHTML =
+    `${total.toLocaleString()} voxels  |  ` +
+    `${xMm.toFixed(1)} \u00d7 ${zMm.toFixed(1)} \u00d7 ${yMm.toFixed(1)} mm<br>` +
+    `pixel: ${meta.pixel_x_um}\u00d7${meta.pixel_y_um} \u00b5m  |  layer: ${meta.layer_um} \u00b5m`;
 
   /* ── Renderer ── */
-  const renderer = new THREE.WebGLRenderer({ antialias: false });
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(innerWidth, innerHeight);
   renderer.setClearColor(0x0c0e12);
   document.body.appendChild(renderer.domElement);
 
-  /* ── Camera + controls ── */
-  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 1, 2000);
-  const cx = meta.width / 2, cy = meta.num_slices / 2, cz = meta.height / 2;
-  camera.position.set(cx + 250, cy + 100, cz + 300);
+  /* ── Camera + controls (PCO OrbitControls) ── */
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 1000);
+  const cx = 0, cy = 50, cz = 0;    // model is centered at origin
+  camera.position.set(cx + 100, cy + 80, cz + 150);
 
   const ctl = new THREE.OrbitControls(camera, renderer.domElement);
   ctl.target.set(cx, cy, cz);
   ctl.enableDamping = true;
+  ctl.dampingFactor = 0.08;
   ctl.update();
 
-  /* ── Point cloud ── */
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geom.setAttribute('color',    new THREE.BufferAttribute(col, 3));
-
+  /* ── Scene + lights ── */
   const scene = new THREE.Scene();
-  scene.add(new THREE.Points(geom, new THREE.PointsMaterial({
-    size: 1, vertexColors: true, sizeAttenuation: true
-  })));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(1, 2, 1);
+  scene.add(dirLight);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.3));
 
-  /* ── Loop ── */
-  (function loop() {
+  /* ── Target orb ── */
+  const orbGeo = new THREE.SphereGeometry(0.3, 24, 16);
+  const orbMat = new THREE.MeshPhongMaterial({ color: 0xff3333, depthTest: true, shininess: 60 });
+  const targetOrb = new THREE.Mesh(orbGeo, orbMat);
+  targetOrb.visible = false;
+  scene.add(targetOrb);
+
+  let orbTimeout = null;
+  ctl.addEventListener('start', () => {
+    const s = ctl.currentState;
+    const S = ctl.STATE;
+    if (s === S.ROTATE || s === S.TOUCH_ROTATE || s === S.TOUCH_DOLLY_ROTATE) {
+      targetOrb.visible = true;
+      if (orbTimeout) { clearTimeout(orbTimeout); orbTimeout = null; }
+    }
+  });
+  ctl.addEventListener('end', () => {
+    if (targetOrb.visible) {
+      orbTimeout = setTimeout(() => { targetOrb.visible = false; }, 600);
+    }
+  });
+  ctl.addEventListener('change', () => {
+    targetOrb.position.copy(ctl.target);
+  });
+
+  /* ── Raycasting (iterate instance positions) ── */
+  function raycastVoxel(clientX, clientY) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1
+    );
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(ndc, camera);
+    const ray = raycaster.ray;
+
+    const camDist = camera.position.distanceTo(ctl.target);
+    const PICK_RADIUS = Math.max(0.1, camDist * 0.01);
+    let bestDist = Infinity;
+    let bestPoint = null;
+    const tmpVec = new THREE.Vector3();
+    const diff = new THREE.Vector3();
+
+    for (let i = 0; i < total; i++) {
+      const m = i * 16;
+      tmpVec.set(matrices[m + 12], matrices[m + 13], matrices[m + 14]);
+      const perpDist = ray.distanceToPoint(tmpVec);
+      if (perpDist > PICK_RADIUS) continue;
+      diff.subVectors(tmpVec, ray.origin);
+      const along = diff.dot(ray.direction);
+      if (along < 0) continue;
+      if (along < bestDist) {
+        bestDist = along;
+        bestPoint = new THREE.Vector3(matrices[m + 12], matrices[m + 13], matrices[m + 14]);
+      }
+    }
+    return bestPoint;
+  }
+
+  /* ── Pick / Focus animations ── */
+  let pickAnim = null;
+
+  // Ctrl+click: move orbit target to clicked voxel
+  ctl.addEventListener('picktarget', (e) => {
+    const pt = raycastVoxel(e.clientX, e.clientY);
+    if (!pt) return;
+    pickAnim = {
+      fromTarget: ctl.target.clone(),
+      toTarget: pt,
+      fromCam: null, toCam: null,
+      start: performance.now(), duration: 200,
+    };
+    targetOrb.position.copy(pt);
+    targetOrb.visible = true;
+    if (orbTimeout) clearTimeout(orbTimeout);
+    orbTimeout = setTimeout(() => { targetOrb.visible = false; }, 1200);
+  });
+
+  // Double-click: focus on clicked voxel (move both target + camera)
+  ctl.addEventListener('focustarget', (e) => {
+    const pt = raycastVoxel(e.clientX, e.clientY);
+    if (!pt) return;
+    const FOCUS_DIST = 10;
+    const dir = new THREE.Vector3().subVectors(camera.position, pt).normalize();
+    const newCamPos = new THREE.Vector3().copy(pt).addScaledVector(dir, FOCUS_DIST);
+    pickAnim = {
+      fromTarget: ctl.target.clone(),
+      toTarget: pt,
+      fromCam: camera.position.clone(),
+      toCam: newCamPos,
+      start: performance.now(), duration: 400,
+    };
+    ctl.minDistance = 0.1;
+    targetOrb.position.copy(pt);
+    targetOrb.visible = true;
+    if (orbTimeout) clearTimeout(orbTimeout);
+    orbTimeout = setTimeout(() => { targetOrb.visible = false; }, 4000);
+  });
+
+  /* ── Instanced voxels (non-square: px × lh × py) ── */
+  const box = new THREE.BoxGeometry(px, lh, py);
+  const mat = new THREE.MeshLambertMaterial();
+  const mesh = new THREE.InstancedMesh(box, mat, total);
+
+  mesh.instanceMatrix = new THREE.InstancedBufferAttribute(matrices, 16);
+  mesh.instanceColor  = new THREE.InstancedBufferAttribute(colors, 3);
+  scene.add(mesh);
+
+  // ── STL overlay ──
+  const stlLoader = new THREE.STLLoader();
+  stlLoader.load('/stl/whiteboard_box_frame_75mm.stl', (geometry) => {
+    geometry.computeVertexNormals();
+    const stlMat = new THREE.MeshLambertMaterial({
+      color: 0x4488cc, transparent: true, opacity: 0.35, side: THREE.DoubleSide
+    });
+    const stlMesh = new THREE.Mesh(geometry, stlMat);
+    stlMesh.rotation.x = -Math.PI / 2;
+    stlMesh.rotation.z = Math.PI / 2;
+    scene.add(stlMesh);
+    const wireGeo = new THREE.EdgesGeometry(geometry, 30);
+    const wire = new THREE.LineSegments(wireGeo, new THREE.LineBasicMaterial({ color: 0x4488cc }));
+    wire.rotation.copy(stlMesh.rotation);
+    scene.add(wire);
+  });
+
+  // makeLabel helper (kept for bed labels)
+  function makeLabel(text, color = '#ccc', fontSize = 32) {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 48;
+    const g = c.getContext('2d');
+    g.fillStyle = color;
+    g.font = `${fontSize}px monospace`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(text, 64, 24);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(c), transparent: true, depthTest: true
+    }));
+    return s;
+  }
+
+  /* ── Print bed grid (mm) ── */
+  const pw = meta.plate_w_mm, ph = meta.plate_h_mm;
+  const bedOx = -pw / 2, bedOz = -ph / 2;   // centered at origin
+
+  // Plate outline
+  const plateVerts = [
+    bedOx, -0.01, bedOz,         bedOx + pw, -0.01, bedOz,
+    bedOx + pw, -0.01, bedOz,    bedOx + pw, -0.01, bedOz + ph,
+    bedOx + pw, -0.01, bedOz + ph, bedOx, -0.01, bedOz + ph,
+    bedOx, -0.01, bedOz + ph,    bedOx, -0.01, bedOz,
+  ];
+  const plateGeom = new THREE.BufferGeometry();
+  plateGeom.setAttribute('position', new THREE.Float32BufferAttribute(plateVerts, 3));
+  scene.add(new THREE.LineSegments(plateGeom, new THREE.LineBasicMaterial({ color: 0x445566 })));
+
+  // Bed grid lines every 10mm
+  const bedPts = [];
+  for (let x = 0; x <= pw; x += 10) {
+    bedPts.push(bedOx + x, -0.01, bedOz,  bedOx + x, -0.01, bedOz + ph);
+  }
+  for (let z = 0; z <= ph; z += 10) {
+    bedPts.push(bedOx, -0.01, bedOz + z,  bedOx + pw, -0.01, bedOz + z);
+  }
+  const bedGeom = new THREE.BufferGeometry();
+  bedGeom.setAttribute('position', new THREE.Float32BufferAttribute(bedPts, 3));
+  scene.add(new THREE.LineSegments(bedGeom, new THREE.LineBasicMaterial({ color: 0x181c22 })));
+
+  // Bed tick labels every 50mm
+  for (let x = 0; x <= pw; x += 50) {
+    const lbl = makeLabel(`${x}`);
+    lbl.scale.set(12, 4.5, 1);
+    lbl.position.set(bedOx + x, -0.3, bedOz - 5);
+    scene.add(lbl);
+  }
+  for (let z = 0; z <= ph; z += 50) {
+    const lbl = makeLabel(`${z}`);
+    lbl.scale.set(12, 4.5, 1);
+    lbl.position.set(bedOx - 6, -0.3, bedOz + z);
+    scene.add(lbl);
+  }
+
+  /* ── Axis indicator ── */
+  const axisLen = 15, axisOff = [bedOx + 8, 0, bedOz + 8];
+  const axes = [
+    { dir: [1,0,0], color: 0xcc4444, label: 'X' },
+    { dir: [0,1,0], color: 0x44cc44, label: 'Y' },
+    { dir: [0,0,1], color: 0x4488cc, label: 'Z' },
+  ];
+  axes.forEach(({ dir, color, label }) => {
+    const pts = [
+      new THREE.Vector3(...axisOff),
+      new THREE.Vector3(
+        axisOff[0] + dir[0] * axisLen,
+        axisOff[1] + dir[1] * axisLen,
+        axisOff[2] + dir[2] * axisLen
+      )
+    ];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    scene.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color })));
+    const lbl = makeLabel(label, '#' + color.toString(16).padStart(6, '0'));
+    lbl.scale.set(12, 4.5, 1);
+    lbl.position.set(
+      axisOff[0] + dir[0] * (axisLen + 2),
+      axisOff[1] + dir[1] * (axisLen + 2),
+      axisOff[2] + dir[2] * (axisLen + 2)
+    );
+    scene.add(lbl);
+  });
+
+  /* ── Ruler (mm tick marks alongside model) ── */
+  {
+    // Place ruler at model bounding-box edge
+    const rulerX = ox + xMm + 2;   // just right of model
+    const rulerZ = oz - 2;          // just in front of model
+    const tickLen = 1.5;
+    const majorLen = 3.0;
+    const rulerPts = [];
+
+    // Vertical ruler (Y axis — build height)
+    const yMax = Math.ceil(yMm / 5) * 5;
+    rulerPts.push(rulerX, 0, rulerZ,  rulerX, yMax, rulerZ);  // spine
+    for (let y = 0; y <= yMax; y += 5) {
+      const major = (y % 10 === 0);
+      const len = major ? majorLen : tickLen;
+      rulerPts.push(rulerX, y, rulerZ,  rulerX + len, y, rulerZ);
+    }
+    const rulerGeo = new THREE.BufferGeometry();
+    rulerGeo.setAttribute('position', new THREE.Float32BufferAttribute(rulerPts, 3));
+    scene.add(new THREE.LineSegments(rulerGeo, new THREE.LineBasicMaterial({ color: 0x668866 })));
+
+    // Labels every 10mm on vertical ruler
+    for (let y = 0; y <= yMax; y += 10) {
+      const lbl = makeLabel(`${y}`, '#8a8');
+      lbl.scale.set(8, 3, 1);
+      lbl.position.set(rulerX + majorLen + 3, y, rulerZ);
+      scene.add(lbl);
+    }
+
+    // Horizontal ruler (X axis — width)
+    const xMin = Math.floor(ox / 5) * 5;
+    const xMax = Math.ceil((ox + xMm) / 5) * 5;
+    const hPts = [];
+    hPts.push(xMin, 0, rulerZ,  xMax, 0, rulerZ);  // spine
+    for (let x = xMin; x <= xMax; x += 5) {
+      const major = (x % 10 === 0);
+      const len = major ? majorLen : tickLen;
+      hPts.push(x, 0, rulerZ,  x, 0, rulerZ - len);
+    }
+    const hGeo = new THREE.BufferGeometry();
+    hGeo.setAttribute('position', new THREE.Float32BufferAttribute(hPts, 3));
+    scene.add(new THREE.LineSegments(hGeo, new THREE.LineBasicMaterial({ color: 0x668866 })));
+
+    for (let x = xMin; x <= xMax; x += 10) {
+      const lbl = makeLabel(`${x}`, '#8a8');
+      lbl.scale.set(8, 3, 1);
+      lbl.position.set(x, 0, rulerZ - majorLen - 3);
+      scene.add(lbl);
+    }
+  }
+
+  /* ── Loop (throttled) ── */
+  const TARGET_FPS = 30;
+  const FRAME_MS = 1000 / TARGET_FPS;
+  let lastFrame = 0;
+  (function loop(now) {
     requestAnimationFrame(loop);
+    if (now - lastFrame < FRAME_MS) return;
+    lastFrame = now;
+
+    // Pick/focus animation
+    if (pickAnim) {
+      const t = Math.min(1, (performance.now() - pickAnim.start) / pickAnim.duration);
+      const ease = t * (2 - t);  // ease-out quad
+      ctl.target.lerpVectors(pickAnim.fromTarget, pickAnim.toTarget, ease);
+      if (pickAnim.fromCam && pickAnim.toCam) {
+        camera.position.lerpVectors(pickAnim.fromCam, pickAnim.toCam, ease);
+      }
+      if (t >= 1) pickAnim = null;
+    }
+
+    // Target orb scale (constant screen size)
+    if (targetOrb.visible) {
+      const dist = camera.position.distanceTo(ctl.target);
+      if (dist < 0.03) {
+        targetOrb.visible = false;
+      } else {
+        targetOrb.position.copy(ctl.target);
+        const s = dist > 20 ? 0.01 * dist : Math.max(0.1, 0.074 - 0.0048 * Math.log(dist));
+        targetOrb.scale.setScalar(s);
+      }
+    }
+
     ctl.update();
     renderer.render(scene, camera);
-  })();
+  })(0);
 
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;

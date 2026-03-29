@@ -1,39 +1,56 @@
-"""Stream diamond lattice slices to the Three.js viewer."""
-import time, json
-from flask import Flask, Response, send_from_directory
-from generate import W, H, N_SLICES, PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PLATE_W_PX, PLATE_H_PX, encode_all
+"""Serve pre-generated slice data to the Three.js viewer."""
+import json, os
+from flask import Flask, Response, send_from_directory, send_file
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+SLICES_FILE = os.path.join(SCRIPT_DIR, '_slices.bin')
+META_FILE = os.path.join(SCRIPT_DIR, '_meta.json')
 
 app = Flask(__name__)
 
-print("Generating slices...", flush=True)
-t0 = time.time()
-BLOB = encode_all()
-print(f"Done in {time.time() - t0:.1f}s  ({len(BLOB):,} bytes)")
+# Mtime-based cache — auto-picks up new files without restart
+_cache = {'slices_mtime': 0, 'slices_data': b'',
+          'meta_mtime': 0, 'meta_data': ''}
+
+
+def _read_cached(filepath, key, binary=True):
+    mtime = os.path.getmtime(filepath) if os.path.exists(filepath) else 0
+    if mtime != _cache[f'{key}_mtime']:
+        with open(filepath, 'rb' if binary else 'r') as f:
+            _cache[f'{key}_data'] = f.read()
+        _cache[f'{key}_mtime'] = mtime
+    return _cache[f'{key}_data']
 
 
 @app.route("/")
 def index():
-    return send_from_directory(".", "viewer.html")
+    return send_from_directory(SCRIPT_DIR, "viewer.html")
 
 
-@app.route("/instanced")
-def instanced():
-    return send_from_directory(".", "viewer_instanced.html")
+@app.route("/<path:filename>")
+def static_js(filename):
+    if filename.endswith('.js'):
+        return send_from_directory(SCRIPT_DIR, filename)
+    return "Not found", 404
 
 
 @app.route("/meta")
 def meta():
-    return Response(json.dumps({
-        "width": W, "height": H, "num_slices": N_SLICES,
-        "pixel_x_um": PIXEL_X_UM, "pixel_y_um": PIXEL_Y_UM, "layer_um": LAYER_UM,
-        "plate_w_mm": PLATE_W_PX * PIXEL_X_UM / 1000,
-        "plate_h_mm": PLATE_H_PX * PIXEL_Y_UM / 1000
-    }), mimetype="application/json")
+    data = _read_cached(META_FILE, 'meta', binary=False)
+    return Response(data, mimetype="application/json")
 
 
 @app.route("/slices")
 def slices():
-    return Response(BLOB, mimetype="application/octet-stream")
+    data = _read_cached(SLICES_FILE, 'slices', binary=True)
+    return Response(data, mimetype="application/octet-stream")
+
+
+@app.route("/stl/<path:filename>")
+def stl(filename):
+    return send_file(os.path.join(PROJECT_ROOT, filename),
+                     mimetype="application/octet-stream")
 
 
 if __name__ == "__main__":

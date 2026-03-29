@@ -56,7 +56,7 @@ class PCOReader:
             
             # Read header fields
             max_depth = struct.unpack('H', f.read(2))[0]
-            root_min = struct.unpack('fff', f.read(12))
+            root_min = struct.unpack('ddd', f.read(24))
             root_size = struct.unpack('f', f.read(4))[0]
             total_points = struct.unpack('Q', f.read(8))[0]
             schema = struct.unpack('B', f.read(1))[0]
@@ -111,7 +111,7 @@ class PCOReader:
                 structured_data['x'],
                 structured_data['y'],
                 structured_data['z']
-            ])
+            ]).astype(np.float64) + np.array(self.header['root_min'], dtype=np.float64)
         
         if schema & PCOFormat.FIELD_RGB:
             result['rgb'] = np.column_stack([
