@@ -786,11 +786,16 @@ def horizontal_maypole_braid(y_center_mm, x_start=-57.5, x_end=57.5, helix_r=1.5
 
 def bridge_struts(col_a_z, col_b_z, helix_r=2.0, filament_r=0.35, core_r=0.35,
                   helix_angle=45.0, wall_y_mm=90.0, y_offset=5.0,
-                  offset_x_mm=-60.0, margin=0.5, start_angle=0.0):
+                  offset_x_mm=-60.0, margin=0.5, start_angle=0.0,
+                  taper_mm=0.0, taper_r=None, taper_end=None):
     """Angled struts bridging two spiral columns along the Z axis.
 
     Connects the Z-axis intersection struts between adjacent columns
     with tubes at the same helix angle as the column's internal struts.
+
+    taper_mm/taper_r/taper_end: one-sided taper at end 'a' (min-Z column)
+        or 'b' (max-Z column).  Radius tapers from taper_r at the frame
+        edge to filament_r over taper_mm in Z.
     """
     # Match the column's snapped k
     k_raw = 1.0 / (helix_r * np.tan(np.radians(helix_angle)))
@@ -808,9 +813,14 @@ def bridge_struts(col_a_z, col_b_z, helix_r=2.0, filament_r=0.35, core_r=0.35,
 
     seg_len_sq = gap ** 2 + dy_bridge ** 2
 
-    # Image: thin in X (tube diameter), gap-sized in Z
-    img_x = 2 * filament_r + 2 * margin
-    img_z = gap + 2 * filament_r
+    # Image padding per end (taper end needs more room)
+    _do_taper = taper_mm > 0 and taper_r is not None and taper_end in ('a', 'b')
+    pad_a = taper_r if (_do_taper and taper_end == 'a') else filament_r
+    pad_b = taper_r if (_do_taper and taper_end == 'b') else filament_r
+    max_r = max(pad_a, pad_b)
+
+    img_x = 2 * max_r + 2 * margin
+    img_z = gap + pad_a + pad_b
     W = int(np.ceil(img_x / PX_MM))
     H = int(np.ceil(img_z / PZ_MM))
     N_SLICES = int(np.ceil(wall_y_mm / LY_MM))
@@ -820,7 +830,7 @@ def bridge_struts(col_a_z, col_b_z, helix_r=2.0, filament_r=0.35, core_r=0.35,
     Z2D = (np.arange(H) * PZ_MM)[:, None]
 
     DX_sq = (X2D - cx) ** 2
-    z_local = Z2D - filament_r  # 0 = col A surface, gap = col B surface
+    z_local = Z2D - pad_a  # 0 = col A surface, gap = col B surface
 
     filament_r_sq = filament_r ** 2
 
@@ -860,7 +870,14 @@ def bridge_struts(col_a_z, col_b_z, helix_r=2.0, filament_r=0.35, core_r=0.35,
             near_y = y_a + t * dy
             near_z = t * gap
             dist_sq = DX_sq + (y_mm - near_y) ** 2 + (z_local - near_z) ** 2
-            img[dist_sq <= filament_r_sq] = 255
+
+            if _do_taper:
+                d = near_z if taper_end == 'a' else (gap - near_z)
+                taper_frac = np.clip(d / taper_mm, 0, 1)
+                eff_r_sq = (taper_r + (filament_r - taper_r) * taper_frac) ** 2
+                img[dist_sq <= eff_r_sq] = 255
+            else:
+                img[dist_sq <= filament_r_sq] = 255
 
         return img
 
@@ -869,7 +886,7 @@ def bridge_struts(col_a_z, col_b_z, helix_r=2.0, filament_r=0.35, core_r=0.35,
         W=W, H=H, N_SLICES=N_SLICES,
         OFFSET_X_MM=offset_x_mm - cx,
         OFFSET_Y_MM=y_offset,
-        OFFSET_Z_MM=z_min + helix_r - filament_r,
+        OFFSET_Z_MM=z_min + helix_r - pad_a,
         make_slice=make_slice,
     )
 

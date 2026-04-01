@@ -178,8 +178,15 @@ for side_x in [-60.0, 60.0]:
     PIECES += [quad_spiral_column(offset_x_mm=side_x, offset_z_mm=z,
                                   base_taper_mm=3.5, base_helix_r=1.2, base_filament_r=0.75)
                for z in col_z[1:-1]]
-    PIECES += [bridge_struts(col_z[i], col_z[i+1], offset_x_mm=side_x)
-               for i in range(len(col_z) - 1)]
+    for i in range(len(col_z) - 1):
+        if i == 0:
+            PIECES.append(bridge_struts(col_z[i], col_z[i+1], offset_x_mm=side_x,
+                                        taper_mm=4.0, taper_r=1.5, taper_end='a'))
+        elif i == len(col_z) - 2:
+            PIECES.append(bridge_struts(col_z[i], col_z[i+1], offset_x_mm=side_x,
+                                        taper_mm=4.0, taper_r=1.5, taper_end='b'))
+        else:
+            PIECES.append(bridge_struts(col_z[i], col_z[i+1], offset_x_mm=side_x))
 FRONT_Z = -35.0
 PIECES += [quad_spiral_column(offset_x_mm=x, offset_z_mm=FRONT_Z,
                               start_angle=WALL_START,

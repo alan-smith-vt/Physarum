@@ -16,7 +16,7 @@ from multiprocessing import Pool
 # ── Patch printer to real resolution BEFORE importing geometry/generate ──
 import printer
 GOO_LAYER_UM = 50.0
-GOO_EXPOSURE_S = 3.75
+GOO_EXPOSURE_S = 2.3
 printer.PREVIEW_SCALE = 1
 printer.PIXEL_X_UM = printer.REAL_PIXEL_X_UM
 printer.PIXEL_Y_UM = printer.REAL_PIXEL_Y_UM
