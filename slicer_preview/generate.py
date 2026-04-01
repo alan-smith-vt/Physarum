@@ -106,6 +106,50 @@ def _punch_dot_holes(piece, n_dots, dot_depth_mm=0.5, dot_r=1.0, dot_spacing=3.0
     piece['make_slice'] = _punched
 
 
+def _vault_base(piece, col_x, col_z, vault_mm=2.0):
+    """Checkerboard vault on the base lattice.
+
+    Every other grid intersection (checkerboard by i+j parity) touches the
+    build plate; the rest arch up by vault_mm.  Shape is a smooth cosine
+    egg-carton so arches span naturally between touching nodes.
+    """
+    W_p, H_p = piece['W'], piece['H']
+    ox, oz = piece['OFFSET_X_MM'], piece['OFFSET_Z_MM']
+    oy = piece['OFFSET_Y_MM']
+
+    gx = ox + np.arange(W_p) * PX_MM
+    gz = oz + np.arange(H_p) * PZ_MM
+
+    cx = np.sort(col_x)
+    cz = np.sort(col_z)
+
+    # Continuous column index along X (0 at first col, N-1 at last)
+    ix = np.clip(np.searchsorted(cx, gx), 1, len(cx) - 1)
+    sx = (ix - 1) + np.clip((gx - cx[ix - 1]) / (cx[ix] - cx[ix - 1]), 0, 1)
+
+    # Continuous row index along Z
+    iz = np.clip(np.searchsorted(cz, gz), 1, len(cz) - 1)
+    sz = (iz - 1) + np.clip((gz - cz[iz - 1]) / (cz[iz] - cz[iz - 1]), 0, 1)
+
+    # Egg-carton: 0 at (i+j)-even nodes, vault_mm at (i+j)-odd nodes
+    cos_x = np.cos(np.pi * sx)   # (W,)
+    cos_z = np.cos(np.pi * sz)   # (H,)
+    vault_field = (vault_mm / 2.0) * (1.0 - cos_x[None, :] * cos_z[:, None])
+
+    orig = piece['make_slice']
+    def _vaulted(layer, _orig=orig, _vf=vault_field, _oy=oy, _vm=vault_mm):
+        y_mm = _oy + (layer + 0.5) * LY_MM
+        if y_mm >= _vm:
+            return _orig(layer)
+        img = _orig(layer)
+        mask = y_mm < _vf
+        if mask.any():
+            img = img.copy()
+            img[mask] = 0
+        return img
+    piece['make_slice'] = _vaulted
+
+
 # ── Full box (final print settings) ──
 HELIX_R = 2.0
 COL_SPACING = 2 * np.pi + 2 * HELIX_R   # ≈ 10.283 mm
@@ -119,13 +163,17 @@ _stl = stl_piece(STL_FILE, rot_x=-np.pi/2, rot_y=np.pi/2)
 _side_z_pairs = [(col_z[i], col_z[i+1]) for i in range(1, len(col_z) - 2)]
 _front_x_pairs = [(col_x[i], col_x[i+1]) for i in range(1, len(col_x) - 2)]
 _back_x_pairs = ([(col_x[i], col_x[i+1]) for i in range(1, 3)] +
-                 [(col_x[i], col_x[i+1]) for i in range(len(col_x) - 4, len(col_x) - 2)])
+                 [(col_x[i], col_x[i+1]) for i in range(len(col_x) - 4, len(col_x) - 2)] +
+                 [(col_x[10], 52.68), (13.59, col_x[8]),
+                  (-52.68, col_x[1]), (col_x[3], -13.59)])
 _arch_top_beams(_stl,
     side_walls=[(-60.0, _side_z_pairs), (60.0, _side_z_pairs)],
     front_back_walls=[(-35.0, _front_x_pairs), (35.0, _back_x_pairs)],
     beam_bottom_y=95.0, arch_mm=1.0)
 PIECES.append(_stl)
-PIECES.append(base_lattice(col_x=col_x, col_z=col_z, grid_z_mm=65.0, spacing_mm=COL_SPACING))
+_lattice = base_lattice(col_x=col_x, col_z=col_z, grid_z_mm=65.0, spacing_mm=COL_SPACING)
+_vault_base(_lattice, col_x, col_z, vault_mm=2.0)
+PIECES.append(_lattice)
 for side_x in [-60.0, 60.0]:
     PIECES += [quad_spiral_column(offset_x_mm=side_x, offset_z_mm=z) for z in col_z[1:-1]]
     PIECES += [bridge_struts(col_z[i], col_z[i+1], offset_x_mm=side_x)

@@ -12,3 +12,7 @@ _ss/
 # Generated slicer output
 slicer_preview/_slices.bin
 slicer_preview/_meta.json
+
+*.goo
+
+*.stl

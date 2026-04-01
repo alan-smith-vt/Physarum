@@ -50,6 +50,17 @@
   const matrices = new Float32Array(total * 16);
   const colors   = new Float32Array(total * 3);
 
+  // Jet colormap: blue → cyan → green → yellow → red
+  function jet(t) {
+    t = Math.max(0, Math.min(1, t));
+    if (t < 0.25) return [0, 4 * t, 1];
+    if (t < 0.5)  return [0, 1, 1 - 4 * (t - 0.25)];
+    if (t < 0.75) return [4 * (t - 0.5), 1, 0];
+    return [1, 1 - 4 * (t - 0.75), 0];
+  }
+
+  const JET_MAX = 2.0;  // mm — height range for jet coloring
+
   let off = 4;
   for (let i = 0; i < total; i++) {
     const x = dv.getUint16(off,     true);
@@ -67,9 +78,17 @@
     matrices[m + 14] = y * py + oz;    // mm (with centering offset)
     matrices[m + 15] = 1;
 
-    colors[i * 3]     = v;           // warm AA tint
-    colors[i * 3 + 1] = v * 0.65;
-    colors[i * 3 + 2] = v * 0.3;
+    const height = z * lh + oy;
+    if (height < JET_MAX) {
+      const [jr, jg, jb] = jet(height / JET_MAX);
+      colors[i * 3]     = jr * v;
+      colors[i * 3 + 1] = jg * v;
+      colors[i * 3 + 2] = jb * v;
+    } else {
+      colors[i * 3]     = v;           // warm AA tint
+      colors[i * 3 + 1] = v * 0.65;
+      colors[i * 3 + 2] = v * 0.3;
+    }
   }
 
   hud.innerHTML =
@@ -163,10 +182,16 @@
   /* ── Pick / Focus animations ── */
   let pickAnim = null;
 
-  // Ctrl+click: move orbit target to clicked voxel
+  // Ctrl+click: move orbit target to clicked voxel + show coordinates
+  const coordDiv = document.createElement('div');
+  coordDiv.style.cssText = 'position:fixed;bottom:14px;left:14px;font:13px monospace;color:#0f0;background:rgba(0,0,0,0.6);padding:4px 8px;border-radius:4px;display:none;user-select:all';
+  document.body.appendChild(coordDiv);
+
   ctl.addEventListener('picktarget', (e) => {
     const pt = raycastVoxel(e.clientX, e.clientY);
     if (!pt) return;
+    coordDiv.textContent = `X=${pt.x.toFixed(2)}  Y=${pt.y.toFixed(2)}  Z=${pt.z.toFixed(2)}`;
+    coordDiv.style.display = 'block';
     pickAnim = {
       fromTarget: ctl.target.clone(),
       toTarget: pt,

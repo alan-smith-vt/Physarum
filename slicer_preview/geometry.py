@@ -378,6 +378,7 @@ def quad_spiral_column(helix_r=2.0, filament_r=0.35, core_r=0.35,
     def make_slice(layer):
         y_mm = (layer + 0.5) * LY_MM
         img = np.zeros((H, W), np.uint8)
+
         # Solid core
         img[DIST_CENTER_SQ <= core_r_sq] = 255
         # Spiral filaments
