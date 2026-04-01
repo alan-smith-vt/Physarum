@@ -323,7 +323,9 @@ def diagonal_rope(x_start=-57.5, x_end=57.5, helix_r=1.0, filament_r=1.0,
 def quad_spiral_column(helix_r=2.0, filament_r=0.35, core_r=0.35,
                        helix_angle=45.0, wall_y_mm=90.0, y_offset=5.0,
                        offset_x_mm=-60.0, offset_z_mm=0.0, margin=1.0,
-                       start_angle=0.0, ref_wall_y_mm=None):
+                       start_angle=0.0, ref_wall_y_mm=None,
+                       base_taper_mm=0.0, base_helix_r=None,
+                       base_filament_r=None):
     """Four helical filaments around a solid core, two pairs CW+CCW.
 
     Args:
@@ -333,6 +335,9 @@ def quad_spiral_column(helix_r=2.0, filament_r=0.35, core_r=0.35,
         helix_angle: spiral angle in degrees (0=horizontal ring, 90=vertical)
         start_angle: base angle of first filament pair (radians)
         ref_wall_y_mm: reference height for k-snapping (defaults to wall_y_mm)
+        base_taper_mm: taper zone height from bottom (0 = no taper)
+        base_helix_r: helix radius at bottom (tapers to helix_r)
+        base_filament_r: filament radius at bottom (tapers to filament_r)
     """
     if ref_wall_y_mm is None:
         ref_wall_y_mm = wall_y_mm
@@ -367,30 +372,51 @@ def quad_spiral_column(helix_r=2.0, filament_r=0.35, core_r=0.35,
     # Pairs (1,4) & (2,3) meet at y = (2m-1)*π/(2k), angles {0, π}
     # Combined: every π/(2k), alternating angle sets
     int_step = np.pi / (2 * k)
+    tan_angle = np.tan(np.radians(helix_angle))
     dr = helix_r - core_r
-    dy_strut = dr * np.tan(np.radians(helix_angle))
+    dy_strut = dr * tan_angle
     seg_len_sq = dr ** 2 + dy_strut ** 2
 
     # Precompute pixel offsets from center
     DX = X2D - cx
     DZ = Z2D - cz
 
+    _do_taper = (base_taper_mm > 0 and base_helix_r is not None
+                 and base_filament_r is not None)
+
     def make_slice(layer):
         y_mm = (layer + 0.5) * LY_MM
         img = np.zeros((H, W), np.uint8)
+
+        # Per-layer taper: helix_r and filament_r both interpolate
+        if _do_taper and y_mm < base_taper_mm:
+            frac = y_mm / base_taper_mm
+            ehr = base_helix_r + (helix_r - base_helix_r) * frac
+            efr = base_filament_r + (filament_r - base_filament_r) * frac
+            efr_sq = efr ** 2
+            edr = ehr - core_r
+            edy = edr * tan_angle
+            esl = edr ** 2 + edy ** 2
+        else:
+            ehr = helix_r
+            efr = filament_r
+            efr_sq = filament_r_sq
+            edr = dr
+            edy = dy_strut
+            esl = seg_len_sq
 
         # Solid core
         img[DIST_CENTER_SQ <= core_r_sq] = 255
         # Spiral filaments
         for theta0, ki in filaments:
             theta = theta0 + ki * y_mm
-            fx = cx + helix_r * np.cos(theta)
-            fz = cz + helix_r * np.sin(theta)
+            fx = cx + ehr * np.cos(theta)
+            fz = cz + ehr * np.sin(theta)
             dist_sq = (X2D - fx) ** 2 + (Z2D - fz) ** 2
-            img[dist_sq <= filament_r_sq] = 255
+            img[dist_sq <= efr_sq] = 255
         # Struts: 3D distance to angled line segment
-        m_lo = int(np.floor((y_mm - dy_strut - filament_r) / int_step))
-        m_hi = int(np.ceil((y_mm + dy_strut + filament_r) / int_step))
+        m_lo = int(np.floor((y_mm - edy - efr) / int_step))
+        m_hi = int(np.ceil((y_mm + edy + efr) / int_step))
         for m in range(max(0, m_lo), m_hi + 1):
             y_int = m * int_step
             if m % 2 == 0:
@@ -404,20 +430,20 @@ def quad_spiral_column(helix_r=2.0, filament_r=0.35, core_r=0.35,
                 along = DX * cos_a + DZ * sin_a
                 perp_sq = (DX * sin_a - DZ * cos_a) ** 2
                 for sign in (+1, -1):
-                    y_core = y_int + sign * dy_strut
-                    if y_mm < min(y_int, y_core) - filament_r:
+                    y_core = y_int + sign * edy
+                    if y_mm < min(y_int, y_core) - efr:
                         continue
-                    if y_mm > max(y_int, y_core) + filament_r:
+                    if y_mm > max(y_int, y_core) + efr:
                         continue
-                    # Segment: (core_r, y_core) → (helix_r, y_int) in (along, y)
+                    # Segment: (core_r, y_core) → (ehr, y_int) in (along, y)
                     D_y = y_int - y_core
                     # Project pixel onto segment (parameter t)
-                    t = np.clip(((along - core_r) * dr +
-                                 (y_mm - y_core) * D_y) / seg_len_sq, 0.0, 1.0)
-                    near_r = core_r + t * dr
+                    t = np.clip(((along - core_r) * edr +
+                                 (y_mm - y_core) * D_y) / esl, 0.0, 1.0)
+                    near_r = core_r + t * edr
                     near_y = y_core + t * D_y
                     dist_sq = (along - near_r) ** 2 + perp_sq + (y_mm - near_y) ** 2
-                    img[dist_sq <= filament_r_sq] = 255
+                    img[dist_sq <= efr_sq] = 255
         return img
 
     return dict(

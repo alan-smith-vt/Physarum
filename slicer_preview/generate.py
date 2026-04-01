@@ -175,12 +175,16 @@ _lattice = base_lattice(col_x=col_x, col_z=col_z, grid_z_mm=65.0, spacing_mm=COL
 _vault_base(_lattice, col_x, col_z, vault_mm=2.0)
 PIECES.append(_lattice)
 for side_x in [-60.0, 60.0]:
-    PIECES += [quad_spiral_column(offset_x_mm=side_x, offset_z_mm=z) for z in col_z[1:-1]]
+    PIECES += [quad_spiral_column(offset_x_mm=side_x, offset_z_mm=z,
+                                  base_taper_mm=3.5, base_helix_r=1.2, base_filament_r=0.75)
+               for z in col_z[1:-1]]
     PIECES += [bridge_struts(col_z[i], col_z[i+1], offset_x_mm=side_x)
                for i in range(len(col_z) - 1)]
 FRONT_Z = -35.0
 PIECES += [quad_spiral_column(offset_x_mm=x, offset_z_mm=FRONT_Z,
-                              start_angle=WALL_START) for x in col_x]
+                              start_angle=WALL_START,
+                              base_taper_mm=3.5, base_helix_r=1.2, base_filament_r=0.75)
+           for x in col_x]
 PIECES += [bridge_struts_x(col_x[i], col_x[i+1], offset_z_mm=FRONT_Z,
                             start_angle=WALL_START)
            for i in range(len(col_x) - 1)]
@@ -196,7 +200,9 @@ for x in col_x:
 for x, h in zip(col_x, back_col_h):
     PIECES.append(quad_spiral_column(offset_x_mm=x, offset_z_mm=BACK_Z,
                                      wall_y_mm=h, start_angle=WALL_START,
-                                     ref_wall_y_mm=90.0))
+                                     ref_wall_y_mm=90.0,
+                                     base_taper_mm=3.5, base_helix_r=1.2,
+                                     base_filament_r=0.75))
 for i in range(len(col_x) - 1):
     h = min(back_col_h[i], back_col_h[i+1])
     PIECES.append(bridge_struts_x(col_x[i], col_x[i+1],
