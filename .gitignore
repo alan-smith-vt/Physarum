@@ -14,5 +14,6 @@ slicer_preview/_slices.bin
 slicer_preview/_meta.json
 
 *.goo
-
+*.bin
 *.stl
+*.ply
