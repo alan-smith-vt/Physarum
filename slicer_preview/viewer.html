@@ -78,12 +78,18 @@
     matrices[m + 14] = y * py + oz;    // mm (with centering offset)
     matrices[m + 15] = 1;
 
-    const height = z * lh + oy;
-    if (height < JET_MAX) {
-      const [jr, jg, jb] = jet(height / JET_MAX);
-      colors[i * 3]     = jr * v;
-      colors[i * 3 + 1] = jg * v;
-      colors[i * 3 + 2] = jb * v;
+    const vRaw = dv.getUint8(off - 1);   // raw byte (re-read before /255)
+    if (vRaw >= 1 && vRaw <= 10) {
+      // Island / unsupported overhang — bright blue
+      const b = vRaw / 10;
+      colors[i * 3]     = 0.15 * b;
+      colors[i * 3 + 1] = 0.4  * b;
+      colors[i * 3 + 2] = 1.0  * b;
+    } else if (vRaw === 128) {
+      // Support structure — teal
+      colors[i * 3]     = 0.2;
+      colors[i * 3 + 1] = 0.8;
+      colors[i * 3 + 2] = 0.7;
     } else {
       colors[i * 3]     = v;           // warm AA tint
       colors[i * 3 + 1] = v * 0.65;

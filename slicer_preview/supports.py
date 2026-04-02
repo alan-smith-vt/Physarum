@@ -38,7 +38,7 @@ SAMPLE_SPACING_MM = 3.0       # overhang sampling grid spacing
 MAX_BRANCH_ANGLE_DEG = 40.0   # max angle from vertical for branch movement
 MERGE_DISTANCE_MM = 0.3       # branches merge only when essentially touching
 ATTRACTION_FACTOR = 0.15      # fraction of distance moved per layer (before cap)
-GAP_LAYERS = 2                # empty layers between tip and model
+GAP_LAYERS = 0                # layers of gap between support tip and model
 TIP_TAPER_MM = 1.5            # length of thin→branch taper
 BASE_FLARE_MM = 1.5           # flare height on build plate
 BASE_FLARE_MULT = 1.6         # radius multiplier at the very base
@@ -50,11 +50,15 @@ MAX_STEP_MM = np.tan(np.radians(MAX_BRANCH_ANGLE_DEG)) * LY_MM
 
 # ── Overhang detection ──────────────────────────────────────────────
 
+ISLAND_GRAY = 5               # voxel value for island overlay (viewer maps 1-10 → blue)
+
+
 def _detect_overhangs_raw(make_slice, W, H, N_SLICES):
     """Single bottom-to-top pass detecting overhang sample points.
 
-    Returns list of (x_local_mm, z_local_mm, start_layer, floor_layer).
-    Coordinates are in local pixel-mm space (no global offset applied).
+    Returns (support_points, island_layers) where:
+      support_points: list of (x_local_mm, z_local_mm, start_layer, floor_layer)
+      island_layers:  dict  layer → bool mask (H, W) of ALL overhang pixels
     """
     sample_x = max(1, int(round(SAMPLE_SPACING_MM / PX_MM)))
     sample_z = max(1, int(round(SAMPLE_SPACING_MM / PZ_MM)))
@@ -63,6 +67,7 @@ def _detect_overhangs_raw(make_slice, W, H, N_SLICES):
     solid_height = np.full((H, W), -1, dtype=np.int32)
     prev = np.zeros((H, W), dtype=np.uint8)
     points = []
+    island_layers = {}
 
     print("  Scanning layers for overhangs ...", flush=True)
     for layer in range(N_SLICES):
@@ -71,6 +76,10 @@ def _detect_overhangs_raw(make_slice, W, H, N_SLICES):
         if layer > 0:
             overhang = (curr > 0) & (prev == 0)
             if overhang.any():
+                # Store full overhang mask for island visualization
+                island_layers[layer] = overhang
+
+                # Subsample for support placement
                 sampled = np.zeros_like(overhang)
                 sampled[::sample_z, ::sample_x] = True
                 sampled &= overhang
@@ -91,11 +100,54 @@ def _detect_overhangs_raw(make_slice, W, H, N_SLICES):
         prev = curr
 
         if (layer + 1) % 200 == 0 or layer + 1 == N_SLICES:
-            print(f"    {layer+1}/{N_SLICES}  ({len(points)} support points)",
+            print(f"    {layer+1}/{N_SLICES}  ({len(points)} support points, "
+                  f"{len(island_layers)} island layers)",
                   flush=True)
 
-    print(f"  {len(points)} overhang sample points", flush=True)
-    return points
+    print(f"  {len(points)} overhang sample points, "
+          f"{len(island_layers)} layers with islands", flush=True)
+    return points, island_layers
+
+
+def _make_island_piece(island_layers, W, H, N_SLICES, offset_y_mm_global):
+    """Create a piece that overlays island pixels on the model.
+
+    Renders overhang pixels with ISLAND_GRAY (value 1-10) so the viewer
+    shows them in blue.
+    """
+    if not island_layers:
+        return None
+
+    min_layer = min(island_layers.keys())
+    max_layer = max(island_layers.keys())
+    n_slices = max_layer - min_layer + 1
+    piece_offset_y = offset_y_mm_global + min_layer * LY_MM
+
+    # Pre-encode masks
+    masks = {}
+    gray = np.uint8(ISLAND_GRAY)
+    for layer, mask in island_layers.items():
+        local = layer - min_layer
+        img = np.zeros((H, W), dtype=np.uint8)
+        img[mask] = gray
+        masks[local] = img
+
+    def make_slice(layer, _masks=masks, _H=H, _W=W):
+        if layer in _masks:
+            return _masks[layer]
+        return np.zeros((_H, _W), dtype=np.uint8)
+
+    n_pixels = sum(m.sum() for m in island_layers.values())
+    print(f"  Island overlay: {len(island_layers)} layers, "
+          f"~{n_pixels:,} overhang pixels", flush=True)
+
+    return dict(
+        W=W, H=H, N_SLICES=n_slices,
+        OFFSET_X_MM=0.0,   # same as model origin (pixel coords are model-local)
+        OFFSET_Y_MM=piece_offset_y,
+        OFFSET_Z_MM=0.0,
+        make_slice=make_slice,
+    )
 
 
 # ── Build centerlines with continuous branch paths ──────────────────
@@ -307,11 +359,23 @@ def _make_support_piece(skeleton, offset_y_mm_global):
 
 def generate_supports(make_slice, W, H, N_SLICES,
                       offset_x_mm, offset_y_mm, offset_z_mm):
-    """Analyze model overhangs and return support piece dicts."""
-    raw_points = _detect_overhangs_raw(make_slice, W, H, N_SLICES)
+    """Analyze model overhangs and return support + island-overlay pieces."""
+    raw_points, island_layers = _detect_overhangs_raw(make_slice, W, H, N_SLICES)
+    pieces = []
+
+    # Island overlay (blue in viewer) — always generated if overhangs exist
+    if island_layers:
+        island_piece = _make_island_piece(island_layers, W, H, N_SLICES,
+                                          offset_y_mm)
+        if island_piece:
+            # Offsets must match the model's global origin
+            island_piece['OFFSET_X_MM'] = offset_x_mm
+            island_piece['OFFSET_Z_MM'] = offset_z_mm
+            pieces.append(island_piece)
+
     if not raw_points:
         print("No overhangs detected — no supports needed.")
-        return []
+        return pieces
 
     world_points = [
         (offset_x_mm + x, offset_z_mm + z, sl, fl)
@@ -327,11 +391,12 @@ def generate_supports(make_slice, W, H, N_SLICES,
 
     skeleton = _build_centerlines(world_points, make_slice, W, H,
                                    offset_x_mm, offset_z_mm)
-    if not skeleton:
-        return []
+    if skeleton:
+        piece = _make_support_piece(skeleton, offset_y_mm)
+        if piece:
+            pieces.append(piece)
 
-    piece = _make_support_piece(skeleton, offset_y_mm)
-    return [piece] if piece else []
+    return pieces
 
 
 # ── Standalone entry point ──────────────────────────────────────────
