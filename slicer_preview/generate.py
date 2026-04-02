@@ -18,6 +18,9 @@ SLICES_FILE = os.path.join(SCRIPT_DIR, '_slices.bin')
 META_FILE = os.path.join(SCRIPT_DIR, '_meta.json')
 STL_FILE = os.path.join(PROJECT_ROOT, 'whiteboard_box_frame_75mm.stl')
 
+# ── Config ──
+GENERATE_SUPPORTS = False     # set True to add tree supports after slicing
+
 
 def _arch_top_beams(piece, side_walls, front_back_walls,
                     beam_w=10.0, beam_bottom_y=95.0, arch_mm=3.0):
@@ -393,9 +396,24 @@ def encode_all():
     return struct.pack('<I', total) + b''.join(all_chunks)
 
 
-if __name__ == '__main__':
-    print("Generating slices...", flush=True)
-    t0 = time.time()
+def _write_output():
+    """Encode all pieces and write _slices.bin + _meta.json."""
+    global OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM, W, H, N_SLICES
+
+    if GENERATE_SUPPORTS:
+        from supports import generate_supports
+        print("Generating tree supports ...", flush=True)
+        support_pieces = generate_supports(
+            make_global_slice, W, H, N_SLICES,
+            OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM)
+        if support_pieces:
+            PIECES.extend(support_pieces)
+            OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM, W, H, N_SLICES = \
+                _compute_globals(PIECES)
+            print(f"  Added {len(support_pieces)} support piece(s), "
+                  f"new bounds: {W}×{H} px, {N_SLICES} layers")
+
+    print("Encoding slices...", flush=True)
     blob = encode_all()
 
     with open(SLICES_FILE, 'wb') as f:
@@ -413,4 +431,11 @@ if __name__ == '__main__':
     with open(META_FILE, 'w') as f:
         json.dump(meta, f)
 
+    return blob
+
+
+if __name__ == '__main__':
+    print("Generating slices...", flush=True)
+    t0 = time.time()
+    blob = _write_output()
     print(f"Done in {time.time() - t0:.1f}s  ({len(blob):,} bytes)")
