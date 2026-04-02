@@ -100,13 +100,17 @@ def _detect_overhangs_raw(make_slice, W, H, N_SLICES):
 
 # ── Build centerlines with continuous branch paths ──────────────────
 
-def _build_centerlines(overhang_points):
+def _build_centerlines(overhang_points, make_model_slice,
+                       model_W, model_H, offset_x_mm, offset_z_mm):
     """Top-to-bottom descent building connected branch centerlines.
 
     Each branch moves laterally toward its nearest neighbor each layer,
     capped by MAX_STEP_MM (derived from the max branch angle).  Branches
     only merge when they physically converge to within MERGE_DISTANCE_MM,
     so every centerline traces a continuous, printable diagonal path.
+
+    At each layer, branches whose current position falls inside solid
+    model geometry are terminated — supports never penetrate the part.
 
     Returns
     -------
@@ -145,6 +149,21 @@ def _build_centerlines(overhang_points):
             aw = np.concatenate([aw, np.ones(n)])
             af = np.concatenate([af, np.array([p[2] for p in pts], dtype=np.int32)])
             ab = np.concatenate([ab, np.full(n, layer, dtype=np.int32)])
+
+        if len(ax) == 0:
+            continue
+
+        # ── collision check: kill branches inside solid model ──
+        model_img = make_model_slice(layer)
+        px_x = np.round((ax - offset_x_mm) / PX_MM).astype(np.int32)
+        px_z = np.round((az - offset_z_mm) / PZ_MM).astype(np.int32)
+        in_bounds = (px_x >= 0) & (px_x < model_W) & (px_z >= 0) & (px_z < model_H)
+        inside_model = np.zeros(len(ax), dtype=bool)
+        inside_model[in_bounds] = model_img[px_z[in_bounds], px_x[in_bounds]] > 0
+        alive = ~inside_model
+        if not alive.all():
+            ax, az, aw = ax[alive], az[alive], aw[alive]
+            af, ab = af[alive], ab[alive]
 
         if len(ax) == 0:
             continue
@@ -306,7 +325,8 @@ def generate_supports(make_slice, W, H, N_SLICES,
     print(f"  Global offset: x={offset_x_mm:.2f} y={offset_y_mm:.4f} "
           f"z={offset_z_mm:.2f} mm")
 
-    skeleton = _build_centerlines(world_points)
+    skeleton = _build_centerlines(world_points, make_slice, W, H,
+                                   offset_x_mm, offset_z_mm)
     if not skeleton:
         return []
 
