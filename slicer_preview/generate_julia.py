@@ -24,6 +24,9 @@ SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 SLICES_FILE = os.path.join(SCRIPT_DIR, '_slices.bin')
 META_FILE   = os.path.join(SCRIPT_DIR, '_meta.json')
 
+# ── Config ──
+GENERATE_SUPPORTS = False     # set True to add tree supports after slicing
+
 # ── Julia parameters ──────────────────────────────────────────────────────────
 # Classic "quaternion Julia" shape; swap in any of the alternatives below.
 C = np.array([-0.2,  0.8,  0.0,  0.0], dtype=np.float64)
@@ -123,6 +126,41 @@ OFFSET_Z_MM = p['OFFSET_Z_MM']
 W, H, N_SLICES = p['W'], p['H'], p['N_SLICES']
 
 
+def _compute_globals(pieces):
+    extents = [(p['OFFSET_X_MM'], p['OFFSET_Y_MM'], p['OFFSET_Z_MM'],
+                p['OFFSET_X_MM'] + p['W'] * PX_MM,
+                p['OFFSET_Y_MM'] + p['N_SLICES'] * LY_MM,
+                p['OFFSET_Z_MM'] + p['H'] * PZ_MM) for p in pieces]
+    ox = min(e[0] for e in extents)
+    oy = min(e[1] for e in extents)
+    oz = min(e[2] for e in extents)
+    w = int(np.ceil((max(e[3] for e in extents) - ox) / PX_MM))
+    h = int(np.ceil((max(e[5] for e in extents) - oz) / PZ_MM))
+    n = int(np.ceil((max(e[4] for e in extents) - oy) / LY_MM))
+    return ox, oy, oz, w, h, n
+
+
+def make_global_slice(layer):
+    """Composite all pieces into a single (H, W) image for the given global layer."""
+    img = np.zeros((H, W), dtype=np.uint8)
+    for p in PIECES:
+        dx = round((p['OFFSET_X_MM'] - OFFSET_X_MM) / PX_MM)
+        dz = round((p['OFFSET_Z_MM'] - OFFSET_Z_MM) / PZ_MM)
+        dy = round((p['OFFSET_Y_MM'] - OFFSET_Y_MM) / LY_MM)
+        local_layer = layer - dy
+        if local_layer < 0 or local_layer >= p['N_SLICES']:
+            continue
+        piece_img = p['make_slice'](local_layer)
+        ph, pw = piece_img.shape
+        sx, sz = max(0, -dx), max(0, -dz)
+        ex, ez = min(pw, W - dx), min(ph, H - dz)
+        if sx >= ex or sz >= ez:
+            continue
+        region = img[dz + sz:dz + ez, dx + sx:dx + ex]
+        np.maximum(region, piece_img[sz:ez, sx:ex], out=region)
+    return img
+
+
 def encode_all():
     all_chunks = []
     total = 0
@@ -141,10 +179,24 @@ def encode_all():
     return struct.pack('<I', total) + b''.join(all_chunks)
 
 
-if __name__ == '__main__':
-    print(f"Quaternion Julia set  c={C.tolist()}  max_iter={MAX_ITER}", flush=True)
-    print(f"Volume: {2*EXTENT_MM:.0f}³ mm  →  {W}×{H}×{N_SLICES} voxels", flush=True)
-    t0 = time.time()
+def _write_output():
+    """Encode all pieces and write _slices.bin + _meta.json."""
+    global OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM, W, H, N_SLICES
+
+    if GENERATE_SUPPORTS:
+        from supports import generate_supports
+        print("Generating tree supports ...", flush=True)
+        support_pieces = generate_supports(
+            make_global_slice, W, H, N_SLICES,
+            OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM)
+        if support_pieces:
+            PIECES.extend(support_pieces)
+            OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM, W, H, N_SLICES = \
+                _compute_globals(PIECES)
+            print(f"  Added {len(support_pieces)} support piece(s), "
+                  f"new bounds: {W}×{H} px, {N_SLICES} layers")
+
+    print("Encoding slices...", flush=True)
     blob = encode_all()
 
     with open(SLICES_FILE, 'wb') as f:
@@ -164,4 +216,12 @@ if __name__ == '__main__':
     with open(META_FILE, 'w') as f:
         json.dump(meta, f)
 
+    return blob
+
+
+if __name__ == '__main__':
+    print(f"Quaternion Julia set  c={C.tolist()}  max_iter={MAX_ITER}", flush=True)
+    print(f"Volume: {2*EXTENT_MM:.0f}³ mm  →  {W}×{H}×{N_SLICES} voxels", flush=True)
+    t0 = time.time()
+    blob = _write_output()
     print(f"Done in {time.time()-t0:.1f}s  ({len(blob):,} bytes)", flush=True)
