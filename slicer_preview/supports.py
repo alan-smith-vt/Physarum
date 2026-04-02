@@ -4,20 +4,15 @@ Analyzes a voxel model (from generate.py or generate_julia.py) to detect
 overhanging regions, then builds branching tree supports down to the build
 plate or the nearest solid surface below.
 
-Two-pass algorithm (inspired by Cura tree supports):
-  Pass 1 — Centerlines:
-    1. Detect overhang pixels (solid with nothing directly below)
-    2. Subsample overhang regions on a regular grid
-    3. Drop branch centerlines from each sample point, descending layer by layer
-    4. Attract nearby branches toward each other as they descend
-    5. Merge branches that converge within a threshold distance
-    6. Record center positions + merge weight per layer
-
-  Pass 2 — Radius assignment:
-    Walk the stored centerlines and assign radii from the topology:
-    - weight (number of original tips merged) → base radius
-    - tip taper near the overhang contact
-    - base flare near the build plate for adhesion
+Algorithm (inspired by Cura tree supports):
+  1. Detect overhang pixels (solid with nothing directly below)
+  2. Subsample overhang regions on a regular grid
+  3. Drop branch centerlines from each sample point, descending layer by layer
+  4. Each layer, branches move laterally toward their nearest neighbor,
+     limited by a maximum branch angle from vertical
+  5. Branches merge only when they physically converge (< MERGE_DISTANCE_MM)
+  6. The lateral movement over many layers produces smooth diagonal curves
+     that join into shared trunks — no teleportation
 
 Usage (standalone — re-encodes _slices.bin with supports included):
     cd slicer_preview && python supports.py
@@ -40,13 +35,17 @@ TIP_RADIUS_MM = 0.25          # thin contact point at overhang
 BRANCH_RADIUS_MM = 0.5        # single-branch radius after taper
 TRUNK_RADIUS_MM = 1.2         # maximum radius (many merges)
 SAMPLE_SPACING_MM = 3.0       # overhang sampling grid spacing
-MERGE_DISTANCE_MM = 5.0       # branches merge when closer than this
-ATTRACTION_FACTOR = 0.03      # per-layer lateral pull toward neighbors
+MAX_BRANCH_ANGLE_DEG = 40.0   # max angle from vertical for branch movement
+MERGE_DISTANCE_MM = 0.3       # branches merge only when essentially touching
+ATTRACTION_FACTOR = 0.15      # fraction of distance moved per layer (before cap)
 GAP_LAYERS = 2                # empty layers between tip and model
 TIP_TAPER_MM = 1.5            # length of thin→branch taper
 BASE_FLARE_MM = 1.5           # flare height on build plate
 BASE_FLARE_MULT = 1.6         # radius multiplier at the very base
 MIN_SUPPORT_HEIGHT_MM = 0.5   # ignore overhangs with tiny gaps
+
+# Max lateral step per layer, derived from branch angle
+MAX_STEP_MM = np.tan(np.radians(MAX_BRANCH_ANGLE_DEG)) * LY_MM
 
 
 # ── Overhang detection ──────────────────────────────────────────────
@@ -99,18 +98,20 @@ def _detect_overhangs_raw(make_slice, W, H, N_SLICES):
     return points
 
 
-# ── Pass 1: build centerlines ───────────────────────────────────────
+# ── Build centerlines with continuous branch paths ──────────────────
 
 def _build_centerlines(overhang_points):
-    """Top-to-bottom descent building branch centerlines.
+    """Top-to-bottom descent building connected branch centerlines.
 
-    Only tracks positions and merge weight — no radius computation.
+    Each branch moves laterally toward its nearest neighbor each layer,
+    capped by MAX_STEP_MM (derived from the max branch angle).  Branches
+    only merge when they physically converge to within MERGE_DISTANCE_MM,
+    so every centerline traces a continuous, printable diagonal path.
 
     Returns
     -------
     skeleton : dict  layer → (xs, zs, weights, birth_layers, floor_layers)
-        All numpy arrays.  weight = number of original tips merged into
-        this branch.
+        All numpy arrays.
     """
     if not overhang_points:
         return {}
@@ -121,18 +122,21 @@ def _build_centerlines(overhang_points):
 
     max_layer = max(starts_at.keys())
 
-    # Active branch state (no radius here)
+    # Active branch state
     ax = np.empty(0, dtype=np.float64)
     az = np.empty(0, dtype=np.float64)
-    aw = np.empty(0, dtype=np.float64)   # merge weight (starts at 1)
+    aw = np.empty(0, dtype=np.float64)   # merge weight
     af = np.empty(0, dtype=np.int32)     # floor layer
     ab = np.empty(0, dtype=np.int32)     # birth layer
 
     skeleton = {}
 
-    print("  Pass 1: building centerlines (top → bottom) ...", flush=True)
+    print(f"  Building centerlines (top → bottom, "
+          f"max_step={MAX_STEP_MM:.4f} mm/layer, "
+          f"merge_dist={MERGE_DISTANCE_MM} mm) ...", flush=True)
+
     for layer in range(max_layer, -1, -1):
-        # ── add new tips starting at this layer ──
+        # ── add new tips ──
         if layer in starts_at:
             pts = starts_at[layer]
             n = len(pts)
@@ -145,11 +149,11 @@ def _build_centerlines(overhang_points):
         if len(ax) == 0:
             continue
 
-        # ── record this layer's centerlines ──
+        # ── record this layer ──
         skeleton[layer] = (ax.copy(), az.copy(), aw.copy(),
                            ab.copy(), af.copy())
 
-        # ── attract toward nearest neighbor ──
+        # ── attract toward nearest neighbor (angle-limited) ──
         if len(ax) > 1:
             dx = ax[:, None] - ax[None, :]
             dz = az[:, None] - az[None, :]
@@ -159,27 +163,34 @@ def _build_centerlines(overhang_points):
             nearest = np.argmin(dist, axis=1)
             nd = dist[np.arange(len(ax)), nearest]
 
+            # direction toward nearest
             toward_x = ax[nearest] - ax
             toward_z = az[nearest] - az
             norm = np.maximum(nd, 1e-9)
 
-            in_range = nd < MERGE_DISTANCE_MM * 3
-            step = ATTRACTION_FACTOR * np.minimum(nd, 1.0)
-            ax += np.where(in_range, step * toward_x / norm, 0.0)
-            az += np.where(in_range, step * toward_z / norm, 0.0)
+            # step = fraction of distance, capped by max angle
+            step = np.minimum(nd * ATTRACTION_FACTOR, MAX_STEP_MM)
 
-            # ── merge close branches ──
+            ax += step * toward_x / norm
+            az += step * toward_z / norm
+
+            # ── merge branches that have converged ──
+            # recompute distances after movement
+            dx2 = ax[:, None] - ax[None, :]
+            dz2 = az[:, None] - az[None, :]
+            dist2 = np.sqrt(dx2 ** 2 + dz2 ** 2)
+            np.fill_diagonal(dist2, np.inf)
+
             merged = np.zeros(len(ax), dtype=bool)
             for i in range(len(ax)):
                 if merged[i]:
                     continue
-                close = (dist[i] < MERGE_DISTANCE_MM) & ~merged
+                close = (dist2[i] < MERGE_DISTANCE_MM) & ~merged
                 close[i] = False
                 if not close.any():
                     continue
                 partners = np.where(close)[0]
                 idxs = np.concatenate([[i], partners])
-                # weighted-average position (heavier branches pull more)
                 w = aw[idxs]
                 w_sum = w.sum()
                 ax[i] = (ax[idxs] * w).sum() / w_sum
@@ -207,55 +218,18 @@ def _build_centerlines(overhang_points):
     return skeleton
 
 
-# ── Pass 2: assign radii from topology ──────────────────────────────
-
-def _assign_radii(skeleton):
-    """Convert skeleton (centerlines + weights) into renderable tree.
-
-    Returns dict  layer → (xs, zs, rs)  with radii in mm.
-    """
-    if not skeleton:
-        return {}
-
-    taper_layers = max(1, int(round(TIP_TAPER_MM / LY_MM)))
-    flare_layers = max(1, int(round(BASE_FLARE_MM / LY_MM)))
-
-    tree = {}
-
-    print("  Pass 2: assigning radii ...", flush=True)
-    for layer, (xs, zs, weights, births, floors) in skeleton.items():
-        # ── weight → base radius (area-preserving) ──
-        # single tip = BRANCH_RADIUS_MM, more merges → wider, capped
-        weight_r = BRANCH_RADIUS_MM * np.sqrt(weights)
-        weight_r = np.minimum(weight_r, TRUNK_RADIUS_MM)
-
-        # ── tip taper: thin contact that widens over taper_layers ──
-        age = (births - layer).astype(np.float64)  # 0 at birth, grows
-        taper_frac = np.clip(age / taper_layers, 0.0, 1.0)
-        r = TIP_RADIUS_MM + (weight_r - TIP_RADIUS_MM) * taper_frac
-
-        # ── base flare near build plate ──
-        flare_frac = np.clip(1.0 - layer / flare_layers, 0.0, 1.0)
-        r = r * (1.0 + (BASE_FLARE_MULT - 1.0) * flare_frac)
-
-        tree[layer] = (xs.copy(), zs.copy(), r)
-
-    return tree
-
-
-# ── Piece generation ────────────────────────────────────────────────
+# ── Piece generation (1px centerlines for debugging) ────────────────
 
 def _make_support_piece(skeleton, offset_y_mm_global):
-    """Create a piece dict from the skeleton, rendering single-pixel centerlines.
+    """Create a piece dict rendering single-pixel centerlines.
 
-    Draws 1px dots at each branch center so the tree structure can be
-    validated before thickening is added.  Uses SUPPORT_GRAY (128) so
-    supports are visually distinct from the model (255).
+    Draws 1px dots at each branch center per layer.  Since branches
+    move gradually each layer, the dots trace continuous diagonal paths
+    in 3D.  Uses SUPPORT_GRAY so supports are visually distinct.
     """
     if not skeleton:
         return None
 
-    # Collect all center positions for bounding box
     all_xs, all_zs = [], []
     for xs, zs, _w, _b, _f in skeleton.values():
         all_xs.append(xs)
@@ -276,7 +250,7 @@ def _make_support_piece(skeleton, offset_y_mm_global):
     N_SLICES = max_layer - min_layer + 1
     piece_offset_y = offset_y_mm_global + min_layer * LY_MM
 
-    # Pre-convert to pixel coords relative to piece origin
+    # Pre-convert to pixel coords
     tree_px = {}
     gray = np.uint8(SUPPORT_GRAY)
     for layer, (xs, zs, _w, _b, _f) in skeleton.items():
@@ -289,14 +263,11 @@ def _make_support_piece(skeleton, offset_y_mm_global):
         img = np.zeros((_H, _W), dtype=np.uint8)
         if layer not in _tree_px:
             return img
-
         pxs, pzs = _tree_px[layer]
-        # clamp to image bounds
         valid = (pxs >= 0) & (pxs < _W) & (pzs >= 0) & (pzs < _H)
         img[pzs[valid], pxs[valid]] = _gray
         return img
 
-    # Debug stats
     print(f"  Support piece: {W}x{H} px, {N_SLICES} layers "
           f"(global layers {min_layer}..{max_layer})")
     print(f"  Bounding box: x=[{bb_x0:.1f}, {bb_x1:.1f}] "
@@ -317,30 +288,17 @@ def _make_support_piece(skeleton, offset_y_mm_global):
 
 def generate_supports(make_slice, W, H, N_SLICES,
                       offset_x_mm, offset_y_mm, offset_z_mm):
-    """Analyze model overhangs and return support piece dicts.
-
-    Parameters
-    ----------
-    make_slice : callable(layer) → uint8 (H, W)
-    W, H, N_SLICES : int
-    offset_x_mm, offset_y_mm, offset_z_mm : float
-
-    Returns
-    -------
-    list of piece dicts (empty if no supports needed).
-    """
+    """Analyze model overhangs and return support piece dicts."""
     raw_points = _detect_overhangs_raw(make_slice, W, H, N_SLICES)
     if not raw_points:
         print("No overhangs detected — no supports needed.")
         return []
 
-    # convert pixel-space mm to world mm
     world_points = [
         (offset_x_mm + x, offset_z_mm + z, sl, fl)
         for x, z, sl, fl in raw_points
     ]
 
-    # Debug: show overhang layer range
     start_layers = [p[2] for p in world_points]
     floor_layers = [p[3] for p in world_points]
     print(f"  Overhang start layers: {min(start_layers)}..{max(start_layers)}")
