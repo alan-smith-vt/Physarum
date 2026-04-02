@@ -245,78 +245,69 @@ def _assign_radii(skeleton):
 
 # ── Piece generation ────────────────────────────────────────────────
 
-def _make_support_piece(tree):
-    """Create a piece dict from the final tree (layer → xs, zs, rs).
+def _make_support_piece(skeleton, offset_y_mm_global):
+    """Create a piece dict from the skeleton, rendering single-pixel centerlines.
 
-    Outputs SUPPORT_GRAY instead of 255 so supports are visually distinct.
+    Draws 1px dots at each branch center so the tree structure can be
+    validated before thickening is added.  Uses SUPPORT_GRAY (128) so
+    supports are visually distinct from the model (255).
     """
-    if not tree:
+    if not skeleton:
         return None
 
-    # tight bounding box (mm)
-    all_x_lo, all_x_hi = [], []
-    all_z_lo, all_z_hi = [], []
-    for xs, zs, rs in tree.values():
-        all_x_lo.append((xs - rs).min())
-        all_x_hi.append((xs + rs).max())
-        all_z_lo.append((zs - rs).min())
-        all_z_hi.append((zs + rs).max())
+    # Collect all center positions for bounding box
+    all_xs, all_zs = [], []
+    for xs, zs, _w, _b, _f in skeleton.values():
+        all_xs.append(xs)
+        all_zs.append(zs)
 
-    bb_x0 = min(all_x_lo) - 1.0
-    bb_x1 = max(all_x_hi) + 1.0
-    bb_z0 = min(all_z_lo) - 1.0
-    bb_z1 = max(all_z_hi) + 1.0
+    cat_x = np.concatenate(all_xs)
+    cat_z = np.concatenate(all_zs)
+    bb_x0 = cat_x.min() - 2.0
+    bb_x1 = cat_x.max() + 2.0
+    bb_z0 = cat_z.min() - 2.0
+    bb_z1 = cat_z.max() + 2.0
 
     W = int(np.ceil((bb_x1 - bb_x0) / PX_MM))
     H = int(np.ceil((bb_z1 - bb_z0) / PZ_MM))
 
-    min_layer = min(tree.keys())
-    max_layer = max(tree.keys())
+    min_layer = min(skeleton.keys())
+    max_layer = max(skeleton.keys())
     N_SLICES = max_layer - min_layer + 1
-    offset_y_mm = min_layer * LY_MM
+    piece_offset_y = offset_y_mm_global + min_layer * LY_MM
 
     # Pre-convert to pixel coords relative to piece origin
     tree_px = {}
     gray = np.uint8(SUPPORT_GRAY)
-    for layer, (xs, zs, rs) in tree.items():
+    for layer, (xs, zs, _w, _b, _f) in skeleton.items():
         local_layer = layer - min_layer
-        px_cx = (xs - bb_x0) / PX_MM
-        px_cz = (zs - bb_z0) / PZ_MM
-        px_rx = np.maximum(rs / PX_MM, 1.0)
-        px_rz = np.maximum(rs / PZ_MM, 1.0)
-        tree_px[local_layer] = (px_cx, px_cz, px_rx, px_rz)
+        px_x = np.round((xs - bb_x0) / PX_MM).astype(np.int32)
+        px_z = np.round((zs - bb_z0) / PZ_MM).astype(np.int32)
+        tree_px[local_layer] = (px_x, px_z)
 
     def make_slice(layer, _tree_px=tree_px, _H=H, _W=W, _gray=gray):
         img = np.zeros((_H, _W), dtype=np.uint8)
         if layer not in _tree_px:
             return img
 
-        cxs, czs, rxs, rzs = _tree_px[layer]
-        for i in range(len(cxs)):
-            cx, cz = cxs[i], czs[i]
-            rx, rz = rxs[i], rzs[i]
-            irx, irz = int(np.ceil(rx)), int(np.ceil(rz))
-
-            x0 = max(0, int(cx) - irx)
-            x1 = min(_W, int(cx) + irx + 1)
-            z0 = max(0, int(cz) - irz)
-            z1 = min(_H, int(cz) + irz + 1)
-            if x0 >= x1 or z0 >= z1:
-                continue
-
-            xx = np.arange(x0, x1, dtype=np.float64) - cx
-            zz = np.arange(z0, z1, dtype=np.float64) - cz
-            mask = (xx[None, :] ** 2 / (rx * rx) +
-                    zz[:, None] ** 2 / (rz * rz)) <= 1.0
-
-            img[z0:z1, x0:x1][mask] = _gray
-
+        pxs, pzs = _tree_px[layer]
+        # clamp to image bounds
+        valid = (pxs >= 0) & (pxs < _W) & (pzs >= 0) & (pzs < _H)
+        img[pzs[valid], pxs[valid]] = _gray
         return img
+
+    # Debug stats
+    print(f"  Support piece: {W}x{H} px, {N_SLICES} layers "
+          f"(global layers {min_layer}..{max_layer})")
+    print(f"  Bounding box: x=[{bb_x0:.1f}, {bb_x1:.1f}] "
+          f"z=[{bb_z0:.1f}, {bb_z1:.1f}] mm")
+    print(f"  OFFSET_Y_MM={piece_offset_y:.4f} "
+          f"(global_oy={offset_y_mm_global:.4f}, min_layer={min_layer})")
 
     return dict(
         W=W, H=H, N_SLICES=N_SLICES,
         OFFSET_X_MM=bb_x0,
-        OFFSET_Y_MM=offset_y_mm,
+        OFFSET_Y_MM=piece_offset_y,
         OFFSET_Z_MM=bb_z0,
         make_slice=make_slice,
     )
@@ -349,12 +340,19 @@ def generate_supports(make_slice, W, H, N_SLICES,
         for x, z, sl, fl in raw_points
     ]
 
+    # Debug: show overhang layer range
+    start_layers = [p[2] for p in world_points]
+    floor_layers = [p[3] for p in world_points]
+    print(f"  Overhang start layers: {min(start_layers)}..{max(start_layers)}")
+    print(f"  Floor layers: {min(floor_layers)}..{max(floor_layers)}")
+    print(f"  Global offset: x={offset_x_mm:.2f} y={offset_y_mm:.4f} "
+          f"z={offset_z_mm:.2f} mm")
+
     skeleton = _build_centerlines(world_points)
     if not skeleton:
         return []
 
-    tree = _assign_radii(skeleton)
-    piece = _make_support_piece(tree)
+    piece = _make_support_piece(skeleton, offset_y_mm)
     return [piece] if piece else []
 
 
