@@ -8,7 +8,7 @@ PLATE_W_PX      = 15120      # plate resolution, pixels
 PLATE_H_PX      = 6230
 
 # ── Preview downsampling ──
-PREVIEW_SCALE = 1
+PREVIEW_SCALE = 8
 
 PIXEL_X_UM = REAL_PIXEL_X_UM * PREVIEW_SCALE   # 112 µm effective
 PIXEL_Y_UM = REAL_PIXEL_Y_UM * PREVIEW_SCALE   # 152 µm effective
