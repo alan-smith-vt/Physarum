@@ -30,7 +30,7 @@ MODEL_GROUNDED_GRAY = 200     # viewer renders yellow/orange (sits on model surf
 MIN_MODEL_GROUNDED_VOL_MM3 = 0.5  # minimum volume to keep a model-grounded island
 CLEARANCE_LAYERS = 1          # layers of gap between support and model
 CLEARANCE_XZ_MM = 0.4         # lateral clearance around model surfaces
-LATTICE_SPACING_MM = 3.0      # distance between lattice struts
+LATTICE_SPACING_MM = 5.0      # TPMS period (mm) — tune here
 SUPPORT_DOWNSAMPLE = 2        # layer step for model scanning (1 = full res, 2 = half)
 
 
