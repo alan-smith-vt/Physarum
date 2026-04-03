@@ -17,7 +17,7 @@ Tuning:
 import struct, json, time, os
 import numpy as np
 
-from printer import PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PX_MM, PZ_MM, LY_MM
+from printer import PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PLATE_W_PX, PLATE_H_PX, PX_MM, PZ_MM, LY_MM
 from helpers import encode_surface_voxels
 
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
@@ -38,15 +38,17 @@ C = np.array([-0.2,  0.8,  0.0,  0.0], dtype=np.float64)
 MAX_ITER  = 16      # 12–20 gives good results; higher = sharper, slower
 ESCAPE_R  = 2.0     # standard escape radius for quadratic Julia sets
 EXTENT_MM = 15.0    # half-side of the cube (→ 30 mm total per axis)
+QSPACE    = 1.6     # Julia space half-extent (set can exceed |q|=1 for some c)
 
 
 # ── Piece builder ─────────────────────────────────────────────────────────────
 
 def quaternion_julia_piece(extent_mm=EXTENT_MM, c=C,
-                           max_iter=MAX_ITER, escape_r=ESCAPE_R):
+                           max_iter=MAX_ITER, escape_r=ESCAPE_R,
+                           qspace=QSPACE):
     """Return a piece dict representing the 3D Quaternion Julia set.
 
-    The Julia space cube  [-1, 1]³  maps to the printer cube
+    The Julia space cube  [-qspace, qspace]³  maps to the printer cube
         X ∈ [-extent_mm, +extent_mm]
         Y ∈ [         0, 2*extent_mm]   (build direction)
         Z ∈ [-extent_mm, +extent_mm]
@@ -63,18 +65,17 @@ def quaternion_julia_piece(extent_mm=EXTENT_MM, c=C,
     px_local  = np.arange(W, dtype=np.float64) * PX_MM   # 0 … size_mm  (W,)
     pz_local  = np.arange(H, dtype=np.float64) * PZ_MM   # 0 … size_mm  (H,)
 
-    # Map local coords to Julia space [-1, 1]
-    # OFFSET_X_MM = -extent_mm, so global x = -extent_mm + px_local
-    qx_row = (px_local - extent_mm) / extent_mm           # (W,)
-    qz_col = (pz_local - extent_mm) / extent_mm           # (H,)
+    # Map local coords to Julia space [-qspace, qspace]
+    qx_row = (px_local - extent_mm) / extent_mm * qspace  # (W,)
+    qz_col = (pz_local - extent_mm) / extent_mm * qspace  # (H,)
 
     c0, c1, c2, c3 = float(c[0]), float(c[1]), float(c[2]), float(c[3])
     er2 = escape_r * escape_r
 
     def make_slice(layer):
-        # Y coord in Julia space: Y goes 0 → 2*extent_mm → qy ∈ [-1, +1]
+        # Y coord in Julia space: Y goes 0 → 2*extent_mm → qy ∈ [-qspace, +qspace]
         y_mm = (layer + 0.5) * LY_MM
-        qy   = (y_mm - extent_mm) / extent_mm
+        qy   = (y_mm - extent_mm) / extent_mm * qspace
 
         # Quaternion: q = qx + qy·i + qz·j + 0·k  (broadcast → (H, W))
         a = np.broadcast_to(qx_row[None, :], (H, W)).copy()
@@ -185,7 +186,7 @@ def _write_output():
 
     if GENERATE_SUPPORTS:
         from supports import generate_supports
-        print("Generating tree supports ...", flush=True)
+        print("Generating supports ...", flush=True)
         support_pieces = generate_supports(
             make_global_slice, W, H, N_SLICES,
             OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM)
@@ -209,6 +210,8 @@ def _write_output():
         "pixel_x_um":  PIXEL_X_UM,
         "pixel_y_um":  PIXEL_Y_UM,
         "layer_um":    LAYER_UM,
+        "plate_w_mm":  PLATE_W_PX * 14.0 / 1000,
+        "plate_h_mm":  PLATE_H_PX * 19.0 / 1000,
         "offset_x_mm": OFFSET_X_MM,
         "offset_y_mm": OFFSET_Y_MM,
         "offset_z_mm": OFFSET_Z_MM,

@@ -19,7 +19,7 @@ META_FILE = os.path.join(SCRIPT_DIR, '_meta.json')
 STL_FILE = os.path.join(PROJECT_ROOT, 'whiteboard_box_frame_75mm.stl')
 
 # ── Config ──
-GENERATE_SUPPORTS = False     # set True to add tree supports after slicing
+GENERATE_SUPPORTS = False     # set True to add supports after slicing
 
 
 def _arch_top_beams(piece, side_walls, front_back_walls,
@@ -402,7 +402,7 @@ def _write_output():
 
     if GENERATE_SUPPORTS:
         from supports import generate_supports
-        print("Generating tree supports ...", flush=True)
+        print("Generating supports ...", flush=True)
         support_pieces = generate_supports(
             make_global_slice, W, H, N_SLICES,
             OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM)
