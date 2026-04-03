@@ -1,18 +1,14 @@
-"""Generate tree-like support structures for 3D printing.
+"""Generate lattice support structures for 3D printing.
 
-Analyzes a voxel model (from generate.py or generate_julia.py) to detect
-overhanging regions, then builds branching tree supports down to the build
-plate or the nearest solid surface below.
+Fills the model bounding box with a regular lattice, then subtracts
+a clearance shell around the model so supports don't fuse to the part.
 
-Algorithm (inspired by Cura tree supports):
-  1. Detect overhang pixels (solid with nothing directly below)
-  2. Subsample overhang regions on a regular grid
-  3. Drop branch centerlines from each sample point, descending layer by layer
-  4. Each layer, branches move laterally toward their nearest neighbor,
-     limited by a maximum branch angle from vertical
-  5. Branches merge only when they physically converge (< MERGE_DISTANCE_MM)
-  6. The lateral movement over many layers produces smooth diagonal curves
-     that join into shared trunks — no teleportation
+Algorithm:
+  1. Generate a lattice filling the model's bounding box
+  2. For each layer, compute the model slice and dilate it by a clearance
+     margin to create an exclusion zone
+  3. Subtract the exclusion zone from the lattice
+  4. Output the remaining lattice as a support piece
 
 Usage (standalone — re-encodes _slices.bin with supports included):
     cd slicer_preview && python supports.py
@@ -30,373 +26,217 @@ sys.path.insert(0, SCRIPT_DIR)
 from printer import PX_MM, PZ_MM, LY_MM, PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PLATE_W_PX, PLATE_H_PX
 
 # ── Support Parameters ──────────────────────────────────────────────
-SUPPORT_GRAY = 128            # grayscale value (model uses 255)
-TIP_RADIUS_MM = 0.25          # thin contact point at overhang
-BRANCH_RADIUS_MM = 0.5        # single-branch radius after taper
-TRUNK_RADIUS_MM = 1.2         # maximum radius (many merges)
-SAMPLE_SPACING_MM = 3.0       # overhang sampling grid spacing
-MAX_BRANCH_ANGLE_DEG = 40.0   # max angle from vertical for branch movement
-MERGE_DISTANCE_MM = 0.3       # branches merge only when essentially touching
-ATTRACTION_FACTOR = 0.15      # fraction of distance moved per layer (before cap)
-GAP_LAYERS = 0                # layers of gap between support tip and model
-TIP_TAPER_MM = 1.5            # length of thin→branch taper
-BASE_FLARE_MM = 1.5           # flare height on build plate
-BASE_FLARE_MULT = 1.6         # radius multiplier at the very base
-MIN_SUPPORT_HEIGHT_MM = 0.5   # ignore overhangs with tiny gaps
-
-# Max lateral step per layer, derived from branch angle
-MAX_STEP_MM = np.tan(np.radians(MAX_BRANCH_ANGLE_DEG)) * LY_MM
+SUPPORT_GRAY = 128            # grayscale value (viewer renders as teal)
+CLEARANCE_LAYERS = 2          # layers of gap between support and model
+CLEARANCE_XZ_MM = 0.5         # lateral clearance around model surfaces
+LATTICE_SPACING_MM = 3.0      # distance between lattice struts
+STRUT_THICKNESS_MM = 0.4      # strut cross-section diameter
+TIE_SPACING_LAYERS = None     # computed: horizontal ties every N layers
+TIE_SPACING_MM = 3.0          # vertical distance between horizontal ties
 
 
-# ── Overhang detection ──────────────────────────────────────────────
+# ── Lattice generation ──────────────────────────────────────────────
 
-ISLAND_GRAY = 5               # voxel value for island overlay (viewer maps 1-10 → blue)
+def _make_lattice_slice_fn(W, H, N_SLICES):
+    """Build a diamond/grid lattice filling a W×H×N_SLICES volume.
 
+    Returns a callable  make_lattice(layer) → uint8 (H, W)
+    that generates the lattice pattern for each layer.
 
-def _detect_overhangs_raw(make_slice, W, H, N_SLICES):
-    """Single bottom-to-top pass detecting overhang sample points.
-
-    Returns (support_points, island_layers) where:
-      support_points: list of (x_local_mm, z_local_mm, start_layer, floor_layer)
-      island_layers:  dict  layer → bool mask (H, W) of ALL overhang pixels
+    Pattern: vertical columns on a grid + diagonal ties between them.
     """
-    sample_x = max(1, int(round(SAMPLE_SPACING_MM / PX_MM)))
-    sample_z = max(1, int(round(SAMPLE_SPACING_MM / PZ_MM)))
-    min_gap_layers = max(1, int(round(MIN_SUPPORT_HEIGHT_MM / LY_MM)))
+    spacing_px_x = max(2, int(round(LATTICE_SPACING_MM / PX_MM)))
+    spacing_px_z = max(2, int(round(LATTICE_SPACING_MM / PZ_MM)))
+    strut_r_x = max(1, int(round(STRUT_THICKNESS_MM / 2 / PX_MM)))
+    strut_r_z = max(1, int(round(STRUT_THICKNESS_MM / 2 / PZ_MM)))
+    tie_layers = max(2, int(round(TIE_SPACING_MM / LY_MM)))
 
-    solid_height = np.full((H, W), -1, dtype=np.int32)
-    prev = np.zeros((H, W), dtype=np.uint8)
-    points = []
-    island_layers = {}
+    # Precompute column positions
+    col_xs = np.arange(0, W, spacing_px_x)
+    col_zs = np.arange(0, H, spacing_px_z)
 
-    print("  Scanning layers for overhangs ...", flush=True)
-    for layer in range(N_SLICES):
-        curr = make_slice(layer)
+    # Vertical columns mask (same every layer)
+    vert_mask = np.zeros((H, W), dtype=bool)
+    for cx in col_xs:
+        x0 = max(0, cx - strut_r_x)
+        x1 = min(W, cx + strut_r_x + 1)
+        for cz in col_zs:
+            z0 = max(0, cz - strut_r_z)
+            z1 = min(H, cz + strut_r_z + 1)
+            vert_mask[z0:z1, x0:x1] = True
 
-        if layer > 0:
-            overhang = (curr > 0) & (prev == 0)
-            if overhang.any():
-                # Store full overhang mask for island visualization
-                island_layers[layer] = overhang
+    # Horizontal tie layers: struts along X at each col_z, and along Z at each col_x
+    def _tie_mask():
+        mask = np.zeros((H, W), dtype=bool)
+        # X-direction ties (horizontal bars at each Z column position)
+        for cz in col_zs:
+            z0 = max(0, cz - strut_r_z)
+            z1 = min(H, cz + strut_r_z + 1)
+            mask[z0:z1, :] = True
+        # Z-direction ties (horizontal bars at each X column position)
+        for cx in col_xs:
+            x0 = max(0, cx - strut_r_x)
+            x1 = min(W, cx + strut_r_x + 1)
+            mask[:, x0:x1] = True
+        return mask
 
-                # Subsample for support placement
-                sampled = np.zeros_like(overhang)
-                sampled[::sample_z, ::sample_x] = True
-                sampled &= overhang
+    tie_mask = _tie_mask()
 
-                zs, xs = np.nonzero(sampled)
-                if len(xs) > 0:
-                    floors = solid_height[zs, xs]
-                    floor_layers = np.where(floors >= 0, floors + 1, 0)
-                    start_layer = max(0, layer - 1 - GAP_LAYERS)
-
-                    for x, z, fl in zip(xs.tolist(), zs.tolist(),
-                                        floor_layers.tolist()):
-                        if start_layer - fl >= min_gap_layers:
-                            points.append((x * PX_MM, z * PZ_MM,
-                                           start_layer, fl))
-
-        solid_height[curr > 0] = layer
-        prev = curr
-
-        if (layer + 1) % 200 == 0 or layer + 1 == N_SLICES:
-            print(f"    {layer+1}/{N_SLICES}  ({len(points)} support points, "
-                  f"{len(island_layers)} island layers)",
-                  flush=True)
-
-    print(f"  {len(points)} overhang sample points, "
-          f"{len(island_layers)} layers with islands", flush=True)
-    return points, island_layers
-
-
-def _make_island_piece(island_layers, W, H, N_SLICES, offset_y_mm_global):
-    """Create a piece that overlays island pixels on the model.
-
-    Renders overhang pixels with ISLAND_GRAY (value 1-10) so the viewer
-    shows them in blue.
-    """
-    if not island_layers:
-        return None
-
-    min_layer = min(island_layers.keys())
-    max_layer = max(island_layers.keys())
-    n_slices = max_layer - min_layer + 1
-    piece_offset_y = offset_y_mm_global + min_layer * LY_MM
-
-    # Pre-encode masks
-    masks = {}
-    gray = np.uint8(ISLAND_GRAY)
-    for layer, mask in island_layers.items():
-        local = layer - min_layer
+    # Diagonal ties: connect adjacent columns with X-shaped bracing
+    # Diagonals shift position linearly with layer within each tie_layers period
+    def make_lattice(layer):
         img = np.zeros((H, W), dtype=np.uint8)
-        img[mask] = gray
-        masks[local] = img
 
-    def make_slice(layer, _masks=masks, _H=H, _W=W):
-        if layer in _masks:
-            return _masks[layer]
-        return np.zeros((_H, _W), dtype=np.uint8)
+        # Vertical columns — always present
+        img[vert_mask] = SUPPORT_GRAY
 
-    n_pixels = sum(m.sum() for m in island_layers.values())
-    print(f"  Island overlay: {len(island_layers)} layers, "
-          f"~{n_pixels:,} overhang pixels", flush=True)
+        # Horizontal ties at regular intervals
+        phase = layer % tie_layers
+        if phase < max(1, strut_r_z):
+            img[tie_mask] = SUPPORT_GRAY
 
-    return dict(
-        W=W, H=H, N_SLICES=n_slices,
-        OFFSET_X_MM=0.0,   # same as model origin (pixel coords are model-local)
-        OFFSET_Y_MM=piece_offset_y,
-        OFFSET_Z_MM=0.0,
-        make_slice=make_slice,
-    )
+        # Diagonal bracing between tie layers
+        # Shift columns by a fraction of spacing per layer to create diagonals
+        period = tie_layers
+        t = (layer % period) / period  # 0..1 within period
+        if layer % (period * 2) >= period:
+            t = 1.0 - t  # zigzag
 
+        shift_x = int(round(t * spacing_px_x))
+        shift_z = int(round(t * spacing_px_z))
 
-# ── Build centerlines with continuous branch paths ──────────────────
+        if shift_x != 0 or shift_z != 0:
+            shifted = np.roll(np.roll(vert_mask, shift_x, axis=1),
+                              shift_z, axis=0)
+            img[shifted] = SUPPORT_GRAY
 
-def _build_centerlines(overhang_points, make_model_slice,
-                       model_W, model_H, offset_x_mm, offset_z_mm):
-    """Top-to-bottom descent building connected branch centerlines.
-
-    Each branch moves laterally toward its nearest neighbor each layer,
-    capped by MAX_STEP_MM (derived from the max branch angle).  Branches
-    only merge when they physically converge to within MERGE_DISTANCE_MM,
-    so every centerline traces a continuous, printable diagonal path.
-
-    At each layer, branches whose current position falls inside solid
-    model geometry are terminated — supports never penetrate the part.
-
-    Returns
-    -------
-    skeleton : dict  layer → (xs, zs, weights, birth_layers, floor_layers)
-        All numpy arrays.
-    """
-    if not overhang_points:
-        return {}
-
-    starts_at = {}
-    for x_mm, z_mm, start_layer, floor_layer in overhang_points:
-        starts_at.setdefault(start_layer, []).append((x_mm, z_mm, floor_layer))
-
-    max_layer = max(starts_at.keys())
-
-    # Active branch state
-    ax = np.empty(0, dtype=np.float64)
-    az = np.empty(0, dtype=np.float64)
-    aw = np.empty(0, dtype=np.float64)   # merge weight
-    af = np.empty(0, dtype=np.int32)     # floor layer
-    ab = np.empty(0, dtype=np.int32)     # birth layer
-
-    skeleton = {}
-
-    print(f"  Building centerlines (top → bottom, "
-          f"max_step={MAX_STEP_MM:.4f} mm/layer, "
-          f"merge_dist={MERGE_DISTANCE_MM} mm) ...", flush=True)
-
-    for layer in range(max_layer, -1, -1):
-        # ── add new tips ──
-        if layer in starts_at:
-            pts = starts_at[layer]
-            n = len(pts)
-            ax = np.concatenate([ax, np.array([p[0] for p in pts])])
-            az = np.concatenate([az, np.array([p[1] for p in pts])])
-            aw = np.concatenate([aw, np.ones(n)])
-            af = np.concatenate([af, np.array([p[2] for p in pts], dtype=np.int32)])
-            ab = np.concatenate([ab, np.full(n, layer, dtype=np.int32)])
-
-        if len(ax) == 0:
-            continue
-
-        # ── collision check: kill branches inside solid model ──
-        model_img = make_model_slice(layer)
-        px_x = np.round((ax - offset_x_mm) / PX_MM).astype(np.int32)
-        px_z = np.round((az - offset_z_mm) / PZ_MM).astype(np.int32)
-        in_bounds = (px_x >= 0) & (px_x < model_W) & (px_z >= 0) & (px_z < model_H)
-        inside_model = np.zeros(len(ax), dtype=bool)
-        inside_model[in_bounds] = model_img[px_z[in_bounds], px_x[in_bounds]] > 0
-        alive = ~inside_model
-        if not alive.all():
-            ax, az, aw = ax[alive], az[alive], aw[alive]
-            af, ab = af[alive], ab[alive]
-
-        if len(ax) == 0:
-            continue
-
-        # ── record this layer ──
-        skeleton[layer] = (ax.copy(), az.copy(), aw.copy(),
-                           ab.copy(), af.copy())
-
-        # ── attract toward nearest neighbor (angle-limited) ──
-        if len(ax) > 1:
-            dx = ax[:, None] - ax[None, :]
-            dz = az[:, None] - az[None, :]
-            dist = np.sqrt(dx ** 2 + dz ** 2)
-            np.fill_diagonal(dist, np.inf)
-
-            nearest = np.argmin(dist, axis=1)
-            nd = dist[np.arange(len(ax)), nearest]
-
-            # direction toward nearest
-            toward_x = ax[nearest] - ax
-            toward_z = az[nearest] - az
-            norm = np.maximum(nd, 1e-9)
-
-            # step = fraction of distance, capped by max angle
-            step = np.minimum(nd * ATTRACTION_FACTOR, MAX_STEP_MM)
-
-            ax += step * toward_x / norm
-            az += step * toward_z / norm
-
-            # ── merge branches that have converged ──
-            # recompute distances after movement
-            dx2 = ax[:, None] - ax[None, :]
-            dz2 = az[:, None] - az[None, :]
-            dist2 = np.sqrt(dx2 ** 2 + dz2 ** 2)
-            np.fill_diagonal(dist2, np.inf)
-
-            merged = np.zeros(len(ax), dtype=bool)
-            for i in range(len(ax)):
-                if merged[i]:
-                    continue
-                close = (dist2[i] < MERGE_DISTANCE_MM) & ~merged
-                close[i] = False
-                if not close.any():
-                    continue
-                partners = np.where(close)[0]
-                idxs = np.concatenate([[i], partners])
-                w = aw[idxs]
-                w_sum = w.sum()
-                ax[i] = (ax[idxs] * w).sum() / w_sum
-                az[i] = (az[idxs] * w).sum() / w_sum
-                aw[i] = w_sum
-                af[i] = min(af[i], af[partners].min())
-                ab[i] = max(ab[i], ab[partners].max())
-                merged[partners] = True
-
-            if merged.any():
-                keep = ~merged
-                ax, az, aw = ax[keep], az[keep], aw[keep]
-                af, ab = af[keep], ab[keep]
-
-        # ── kill branches that reached their floor ──
-        alive = layer > af
-        ax, az, aw = ax[alive], az[alive], aw[alive]
-        af, ab = af[alive], ab[alive]
-
-        if (max_layer - layer + 1) % 200 == 0:
-            print(f"    layer {layer}  ({len(ax)} active branches)", flush=True)
-
-    total_nodes = sum(len(xs) for xs, _, _, _, _ in skeleton.values())
-    print(f"  Centerlines: {len(skeleton)} layers, {total_nodes} nodes", flush=True)
-    return skeleton
-
-
-# ── Piece generation (1px centerlines for debugging) ────────────────
-
-def _make_support_piece(skeleton, offset_y_mm_global):
-    """Create a piece dict rendering single-pixel centerlines.
-
-    Draws 1px dots at each branch center per layer.  Since branches
-    move gradually each layer, the dots trace continuous diagonal paths
-    in 3D.  Uses SUPPORT_GRAY so supports are visually distinct.
-    """
-    if not skeleton:
-        return None
-
-    all_xs, all_zs = [], []
-    for xs, zs, _w, _b, _f in skeleton.values():
-        all_xs.append(xs)
-        all_zs.append(zs)
-
-    cat_x = np.concatenate(all_xs)
-    cat_z = np.concatenate(all_zs)
-    bb_x0 = cat_x.min() - 2.0
-    bb_x1 = cat_x.max() + 2.0
-    bb_z0 = cat_z.min() - 2.0
-    bb_z1 = cat_z.max() + 2.0
-
-    W = int(np.ceil((bb_x1 - bb_x0) / PX_MM))
-    H = int(np.ceil((bb_z1 - bb_z0) / PZ_MM))
-
-    min_layer = min(skeleton.keys())
-    max_layer = max(skeleton.keys())
-    N_SLICES = max_layer - min_layer + 1
-    piece_offset_y = offset_y_mm_global + min_layer * LY_MM
-
-    # Pre-convert to pixel coords
-    tree_px = {}
-    gray = np.uint8(SUPPORT_GRAY)
-    for layer, (xs, zs, _w, _b, _f) in skeleton.items():
-        local_layer = layer - min_layer
-        px_x = np.round((xs - bb_x0) / PX_MM).astype(np.int32)
-        px_z = np.round((zs - bb_z0) / PZ_MM).astype(np.int32)
-        tree_px[local_layer] = (px_x, px_z)
-
-    def make_slice(layer, _tree_px=tree_px, _H=H, _W=W, _gray=gray):
-        img = np.zeros((_H, _W), dtype=np.uint8)
-        if layer not in _tree_px:
-            return img
-        pxs, pzs = _tree_px[layer]
-        valid = (pxs >= 0) & (pxs < _W) & (pzs >= 0) & (pzs < _H)
-        img[pzs[valid], pxs[valid]] = _gray
         return img
 
-    print(f"  Support piece: {W}x{H} px, {N_SLICES} layers "
-          f"(global layers {min_layer}..{max_layer})")
-    print(f"  Bounding box: x=[{bb_x0:.1f}, {bb_x1:.1f}] "
-          f"z=[{bb_z0:.1f}, {bb_z1:.1f}] mm")
-    print(f"  OFFSET_Y_MM={piece_offset_y:.4f} "
-          f"(global_oy={offset_y_mm_global:.4f}, min_layer={min_layer})")
+    return make_lattice
 
-    return dict(
-        W=W, H=H, N_SLICES=N_SLICES,
-        OFFSET_X_MM=bb_x0,
-        OFFSET_Y_MM=piece_offset_y,
-        OFFSET_Z_MM=bb_z0,
-        make_slice=make_slice,
-    )
+
+# ── Clearance dilation ──────────────────────────────────────────────
+
+def _dilate_mask(mask, r_x, r_z):
+    """Fast approximate dilation using separable box filters."""
+    if r_x == 0 and r_z == 0:
+        return mask
+
+    out = mask.copy()
+    # Dilate along X
+    if r_x > 0:
+        for dx in range(1, r_x + 1):
+            out[:, dx:] |= mask[:, :-dx]
+            out[:, :-dx] |= mask[:, dx:]
+    # Dilate along Z
+    if r_z > 0:
+        tmp = out.copy()
+        for dz in range(1, r_z + 1):
+            out[dz:, :] |= tmp[:-dz, :]
+            out[:-dz, :] |= tmp[dz:, :]
+    return out
 
 
 # ── Public API ──────────────────────────────────────────────────────
 
 def generate_supports(make_slice, W, H, N_SLICES,
                       offset_x_mm, offset_y_mm, offset_z_mm):
-    """Analyze model overhangs and return support + island-overlay pieces."""
-    raw_points, island_layers = _detect_overhangs_raw(make_slice, W, H, N_SLICES)
-    pieces = []
+    """Generate lattice supports with model clearance subtraction.
 
-    # Island overlay (blue in viewer) — always generated if overhangs exist
-    if island_layers:
-        island_piece = _make_island_piece(island_layers, W, H, N_SLICES,
-                                          offset_y_mm)
-        if island_piece:
-            # Offsets must match the model's global origin
-            island_piece['OFFSET_X_MM'] = offset_x_mm
-            island_piece['OFFSET_Z_MM'] = offset_z_mm
-            pieces.append(island_piece)
+    Returns list of piece dicts.
+    """
+    clearance_r_x = max(1, int(round(CLEARANCE_XZ_MM / PX_MM)))
+    clearance_r_z = max(1, int(round(CLEARANCE_XZ_MM / PZ_MM)))
+    make_lattice = _make_lattice_slice_fn(W, H, N_SLICES)
 
-    if not raw_points:
-        print("No overhangs detected — no supports needed.")
-        return pieces
+    print(f"  Lattice: {LATTICE_SPACING_MM}mm spacing, "
+          f"{STRUT_THICKNESS_MM}mm struts", flush=True)
+    print(f"  Clearance: {CLEARANCE_XZ_MM}mm XZ, "
+          f"{CLEARANCE_LAYERS} layers vertical", flush=True)
 
-    world_points = [
-        (offset_x_mm + x, offset_z_mm + z, sl, fl)
-        for x, z, sl, fl in raw_points
-    ]
+    # We need model slices offset by CLEARANCE_LAYERS above and below
+    # to carve out the vertical clearance.  Cache a sliding window.
+    # exclusion[layer] = dilated union of model slices in
+    #   [layer - CLEARANCE_LAYERS, layer + CLEARANCE_LAYERS]
+    #
+    # Process layer by layer, maintaining a ring buffer of model slices.
 
-    start_layers = [p[2] for p in world_points]
-    floor_layers = [p[3] for p in world_points]
-    print(f"  Overhang start layers: {min(start_layers)}..{max(start_layers)}")
-    print(f"  Floor layers: {min(floor_layers)}..{max(floor_layers)}")
-    print(f"  Global offset: x={offset_x_mm:.2f} y={offset_y_mm:.4f} "
-          f"z={offset_z_mm:.2f} mm")
+    window = 2 * CLEARANCE_LAYERS + 1
+    model_cache = {}  # layer → bool mask (only keep what's in the window)
 
-    skeleton = _build_centerlines(world_points, make_slice, W, H,
-                                   offset_x_mm, offset_z_mm)
-    if skeleton:
-        piece = _make_support_piece(skeleton, offset_y_mm)
-        if piece:
-            pieces.append(piece)
+    # Precompute the support slices layer by layer
+    support_slices = {}
 
-    return pieces
+    print(f"  Subtracting model from lattice ({N_SLICES} layers) ...",
+          flush=True)
+    t0 = time.time()
+
+    for layer in range(N_SLICES):
+        # Load model slices into cache for the window
+        for l in range(max(0, layer - CLEARANCE_LAYERS),
+                       min(N_SLICES, layer + CLEARANCE_LAYERS + 1)):
+            if l not in model_cache:
+                model_cache[l] = make_slice(l) > 0
+
+        # Evict old entries outside the window
+        evict_below = layer - CLEARANCE_LAYERS - 1
+        if evict_below in model_cache:
+            del model_cache[evict_below]
+
+        # Build exclusion zone: union of model in vertical window, then dilate XZ
+        exclusion = np.zeros((H, W), dtype=bool)
+        for l in range(max(0, layer - CLEARANCE_LAYERS),
+                       min(N_SLICES, layer + CLEARANCE_LAYERS + 1)):
+            exclusion |= model_cache[l]
+
+        exclusion = _dilate_mask(exclusion, clearance_r_x, clearance_r_z)
+
+        # Generate lattice and subtract exclusion
+        lattice = make_lattice(layer)
+        lattice[exclusion] = 0
+
+        # Only store non-empty layers
+        if lattice.any():
+            support_slices[layer] = lattice
+
+        if (layer + 1) % 200 == 0 or layer + 1 == N_SLICES:
+            elapsed = time.time() - t0
+            print(f"    {layer+1}/{N_SLICES}  "
+                  f"({len(support_slices)} non-empty support layers)  "
+                  f"[{elapsed:.1f}s]", flush=True)
+
+    if not support_slices:
+        print("  No support material needed (model fills lattice everywhere).")
+        return []
+
+    min_layer = min(support_slices.keys())
+    max_layer = max(support_slices.keys())
+    n_slices = max_layer - min_layer + 1
+    piece_offset_y = offset_y_mm + min_layer * LY_MM
+
+    # Build the piece
+    local_slices = {}
+    for layer, img in support_slices.items():
+        local_slices[layer - min_layer] = img
+
+    empty = np.zeros((H, W), dtype=np.uint8)
+
+    def make_support_slice(layer, _s=local_slices, _e=empty):
+        return _s.get(layer, _e)
+
+    total_voxels = sum(int(img.astype(bool).sum()) for img in support_slices.values())
+    elapsed = time.time() - t0
+    print(f"  Support lattice: {len(support_slices)} layers, "
+          f"~{total_voxels:,} voxels, {elapsed:.1f}s", flush=True)
+
+    piece = dict(
+        W=W, H=H, N_SLICES=n_slices,
+        OFFSET_X_MM=offset_x_mm,
+        OFFSET_Y_MM=piece_offset_y,
+        OFFSET_Z_MM=offset_z_mm,
+        make_slice=make_support_slice,
+    )
+    return [piece]
 
 
 # ── Standalone entry point ──────────────────────────────────────────
@@ -410,7 +250,7 @@ def main():
     META_FILE = os.path.join(SCRIPT_DIR, '_meta.json')
 
     print("=" * 60)
-    print("Tree Support Generator")
+    print("Lattice Support Generator")
     print("=" * 60)
     print(f"Model: {W}×{H} px, {N_SLICES} layers")
     print(f"Pixel pitch: {PX_MM:.4f} × {PZ_MM:.4f} mm, layer: {LY_MM:.4f} mm")
