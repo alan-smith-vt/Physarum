@@ -26,6 +26,7 @@ from printer import PX_MM, PZ_MM, LY_MM, PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PLATE
 
 # ── Support Parameters ──────────────────────────────────────────────
 SUPPORT_GRAY = 128            # grayscale value (viewer renders as teal)
+FLOATER_GRAY = 5              # viewer maps 1-10 → blue (disconnected pieces)
 CLEARANCE_LAYERS = 1          # layers of gap between support and model
 CLEARANCE_XZ_MM = 0.2         # lateral clearance around model surfaces
 LATTICE_SPACING_MM = 3.0      # distance between lattice struts
@@ -166,17 +167,17 @@ def generate_supports(make_slice, W, H, N_SLICES,
     n_layers_with_support = 0
 
     for layer in range(max_model_layer + 1):
-        # # Height-map cull: only keep lattice below model surface
-        # below_model = layer < height_map
-        # if not below_model.any():
-        #     continue
+        # Height-map cull: only keep lattice below model surface
+        below_model = layer < height_map
+        if not below_model.any():
+            continue
 
         # Generate lattice
         lattice = _lattice_for_layer(layer, vert_mask, tie_mask,
                                      sp_x, sp_z, sr_z, tie_ly)
 
-        # # Mask to only below model
-        # lattice[~below_model] = 0
+        # Mask to only below model
+        lattice[~below_model] = 0
 
         # Build exclusion zone from model slices in vertical window
         lo = max(0, layer - CLEARANCE_LAYERS)
@@ -209,8 +210,58 @@ def generate_supports(make_slice, W, H, N_SLICES,
         print("  No support material needed.")
         return []
 
+    # ── Pass 3: detect floaters via bottom-up flood fill ──
+    print(f"  Pass 3: detecting floaters ...", flush=True)
+    t2 = time.time()
+
     min_layer = min(support_slices.keys())
     max_layer = max(support_slices.keys())
+    n_floater_voxels = 0
+
+    # connected_below tracks which XZ pixels at the previous layer
+    # were reachable from the build plate
+    connected_below = np.zeros((H, W), dtype=bool)
+
+    for layer in range(min_layer, max_layer + 1):
+        if layer not in support_slices:
+            connected_below[:] = False
+            continue
+
+        support_mask = support_slices[layer] > 0
+
+        # Seed: pixels connected from below (vertical continuity)
+        layer_connected = support_mask & connected_below
+
+        # Layer 0 (build plate): all support is grounded
+        if layer == min_layer:
+            layer_connected = support_mask.copy()
+
+        # Propagate horizontally through support pixels in this layer.
+        # Iterate single-pixel dilation until stable so connectivity
+        # floods through horizontal ties between columns.
+        while True:
+            prev_count = int(layer_connected.sum())
+            dilated = _dilate_mask(layer_connected, 1, 1)
+            layer_connected |= support_mask & dilated
+            if int(layer_connected.sum()) == prev_count:
+                break
+
+        # Mark disconnected pixels
+        floaters = support_mask & ~layer_connected
+        if floaters.any():
+            n_float = int(floaters.sum())
+            n_floater_voxels += n_float
+            img = support_slices[layer].copy()
+            img[floaters] = FLOATER_GRAY
+            support_slices[layer] = img
+
+        connected_below = layer_connected
+
+    elapsed2 = time.time() - t2
+    print(f"  Floaters: {n_floater_voxels:,} voxels marked [{elapsed2:.1f}s]",
+          flush=True)
+
+    # ── Build piece ──
     n_slices = max_layer - min_layer + 1
     piece_offset_y = offset_y_mm + min_layer * LY_MM
 
@@ -227,7 +278,8 @@ def generate_supports(make_slice, W, H, N_SLICES,
     total_voxels = sum(int((img > 0).sum()) for img in local_slices.values())
     elapsed = time.time() - t0
     print(f"  Done: {n_layers_with_support} layers, "
-          f"~{total_voxels:,} support voxels, {elapsed:.1f}s total", flush=True)
+          f"~{total_voxels:,} support voxels "
+          f"({n_floater_voxels:,} floaters), {elapsed:.1f}s total", flush=True)
 
     piece = dict(
         W=W, H=H, N_SLICES=n_slices,
