@@ -30,7 +30,86 @@ from generate_julia import (quaternion_julia_piece, make_global_slice,
                              _compute_globals, PIECES,
                              W, H, N_SLICES,
                              OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM)
-from to_goo import goo_encode_placed
+
+
+def goo_encode_placed(img, x0, y0, plate_w, plate_h):
+    """RLE-encode a small image placed on a large plate without allocating the full plate."""
+    h, w = img.shape
+    right_pad = plate_w - x0 - w
+    between = right_pad + x0
+
+    runs = []
+    prefix = y0 * plate_w + x0
+    if prefix > 0:
+        runs.append((0, prefix))
+
+    for r in range(h):
+        row = img[r]
+        changes = np.flatnonzero(row[1:] != row[:-1]) + 1
+        starts = np.concatenate(([0], changes))
+        lens = np.diff(np.concatenate((starts, [w])))
+        cols = row[starts]
+        for c, l in zip(cols.tolist(), lens.tolist()):
+            runs.append((c, l))
+        if r < h - 1:
+            if between > 0:
+                runs.append((0, between))
+        else:
+            suffix = right_pad + (plate_h - y0 - h) * plate_w
+            if suffix > 0:
+                runs.append((0, suffix))
+
+    merged = [runs[0]]
+    for c, l in runs[1:]:
+        if c == merged[-1][0]:
+            merged[-1] = (c, merged[-1][1] + l)
+        else:
+            merged.append((c, l))
+
+    rle = bytearray([0x55])
+    prev_color = 0
+
+    for cur, stride in merged:
+        first = len(rle)
+        rle.append(0)
+        diff = abs(cur - prev_color)
+        if diff <= 0xF and stride <= 255 and 0 < cur < 255:
+            rle[first] = (0b10 << 6) | (diff & 0xF)
+            if stride > 1:
+                rle[first] |= 0x1 << 4
+                rle.append(stride & 0xFF)
+            if cur < prev_color:
+                rle[first] |= 0x1 << 5
+        else:
+            if cur == 255:
+                rle[first] |= 0b11 << 6
+            elif cur > 0:
+                rle[first] |= 0b01 << 6
+                rle.append(cur)
+            rle[first] |= stride & 0xF
+            if stride <= 0xF:
+                prev_color = cur; continue
+            if stride <= 0xFFF:
+                rle[first] |= 0b01 << 4
+                rle.append((stride >> 4) & 0xFF)
+                prev_color = cur; continue
+            if stride <= 0xFFFFF:
+                rle[first] |= 0b10 << 4
+                rle.append((stride >> 12) & 0xFF)
+                rle.append((stride >> 4) & 0xFF)
+                prev_color = cur; continue
+            if stride <= 0xFFFFFFF:
+                rle[first] |= 0b11 << 4
+                rle.append((stride >> 20) & 0xFF)
+                rle.append((stride >> 12) & 0xFF)
+                rle.append((stride >> 4) & 0xFF)
+        prev_color = cur
+
+    checksum = 0
+    for b in rle[1:]:
+        checksum = (checksum + b) & 0xFF
+    rle.append((~checksum) & 0xFF)
+    return bytes(rle)
 
 TEMPLATE = Path(__file__).parent.parent / 'Siraya Tech Test Model 2021 v5.STL_0.05_2_2026_03_28_20_51_00.goo'
 OUTPUT   = Path(__file__).parent / 'julia.goo'
