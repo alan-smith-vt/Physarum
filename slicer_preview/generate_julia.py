@@ -109,7 +109,7 @@ def quaternion_julia_piece(extent_mm=EXTENT_MM, c=C,
     return dict(
         W=W, H=H, N_SLICES=N_SLICES,
         OFFSET_X_MM=-extent_mm,
-        OFFSET_Y_MM=0.0,
+        OFFSET_Y_MM=-4.0,
         OFFSET_Z_MM=-extent_mm,
         make_slice=make_slice,
     )
