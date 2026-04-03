@@ -45,7 +45,8 @@ QSPACE    = 1.6     # Julia space half-extent (set can exceed |q|=1 for some c)
 
 def quaternion_julia_piece(extent_mm=EXTENT_MM, c=C,
                            max_iter=MAX_ITER, escape_r=ESCAPE_R,
-                           qspace=QSPACE):
+                           qspace=QSPACE,
+                           px_mm=None, pz_mm=None, ly_mm=None):
     """Return a piece dict representing the 3D Quaternion Julia set.
 
     The Julia space cube  [-qspace, qspace]³  maps to the printer cube
@@ -55,15 +56,21 @@ def quaternion_julia_piece(extent_mm=EXTENT_MM, c=C,
 
     Each call to make_slice(layer) tests every pixel in the XZ plane at
     that Y-height and returns 255 for points inside the Julia set.
+
+    Optional px_mm/pz_mm/ly_mm override the printer module defaults
+    (used to build low-res scan pieces for support generation).
     """
+    _px = px_mm or PX_MM
+    _pz = pz_mm or PZ_MM
+    _ly = ly_mm or LY_MM
     size_mm   = 2.0 * extent_mm
-    W         = int(np.ceil(size_mm / PX_MM))
-    H         = int(np.ceil(size_mm / PZ_MM))
-    N_SLICES  = int(np.ceil(size_mm / LY_MM))
+    W         = int(np.ceil(size_mm / _px))
+    H         = int(np.ceil(size_mm / _pz))
+    N_SLICES  = int(np.ceil(size_mm / _ly))
 
     # Local pixel → global mm (offset applied externally via OFFSET_*_MM)
-    px_local  = np.arange(W, dtype=np.float64) * PX_MM   # 0 … size_mm  (W,)
-    pz_local  = np.arange(H, dtype=np.float64) * PZ_MM   # 0 … size_mm  (H,)
+    px_local  = np.arange(W, dtype=np.float64) * _px   # 0 … size_mm  (W,)
+    pz_local  = np.arange(H, dtype=np.float64) * _pz   # 0 … size_mm  (H,)
 
     # Map local coords to Julia space [-qspace, qspace]
     qx_row = (px_local - extent_mm) / extent_mm * qspace  # (W,)
@@ -86,7 +93,7 @@ def quaternion_julia_piece(extent_mm=EXTENT_MM, c=C,
 
     def make_slice(layer):
         # Y coord in Julia space
-        y_mm = (layer + 0.5) * LY_MM
+        y_mm = (layer + 0.5) * _ly
         qy   = (y_mm - extent_mm) / extent_mm * qspace
 
         # Early termination: if minimum possible |q|² at this layer
@@ -339,18 +346,12 @@ def _write_output():
         from supports import generate_supports, SCAN_SCALE, SCAN_LAYER_STEP
         print("Generating supports ...", flush=True)
         # Build a low-res Julia piece for fast model scanning
-        from printer import REAL_PIXEL_X_UM, REAL_PIXEL_Y_UM, REAL_LAYER_UM, PREVIEW_SCALE
-        scan_scale = SCAN_SCALE * PREVIEW_SCALE  # total downsample from real
-        scan_piece = quaternion_julia_piece()
-        # The piece was already built at current PREVIEW_SCALE.
-        # For scanning we want it even coarser — rebuild at SCAN_SCALE× coarser.
-        import printer as _pr
-        _orig_px, _orig_pz, _orig_ly = _pr.PX_MM, _pr.PZ_MM, _pr.LY_MM
-        _pr.PX_MM = PX_MM * SCAN_SCALE
-        _pr.PZ_MM = PZ_MM * SCAN_SCALE
-        _pr.LY_MM = LY_MM * SCAN_LAYER_STEP
-        scan_piece = quaternion_julia_piece()
-        _pr.PX_MM, _pr.PZ_MM, _pr.LY_MM = _orig_px, _orig_pz, _orig_ly
+        scan_piece = quaternion_julia_piece(
+            px_mm=PX_MM * SCAN_SCALE,
+            pz_mm=PZ_MM * SCAN_SCALE,
+            ly_mm=LY_MM * SCAN_LAYER_STEP)
+        print(f"  Scan piece: {scan_piece['W']}×{scan_piece['H']} px, "
+              f"{scan_piece['N_SLICES']} layers", flush=True)
 
         support_pieces = generate_supports(
             make_global_slice, W, H, N_SLICES,
