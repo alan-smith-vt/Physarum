@@ -268,11 +268,12 @@ def generate_supports(make_slice, W, H, N_SLICES,
     print(f"  Pass 2: {elapsed2:.1f}s", flush=True)
 
     # ── Pass 3A: plate-grounded flood fill ──
-    print(f"  Pass 3: classifying support ...", flush=True)
+    print(f"  Pass 3A: plate-grounded flood fill ...", flush=True)
     t3 = time.time()
 
     min_layer = min(support_slices.keys())
     max_layer = max(support_slices.keys())
+    n_total_layers = max_layer - min_layer + 1
 
     plate_connected = np.zeros((H, W), dtype=bool)
     layer_data = {}
@@ -297,7 +298,14 @@ def generate_supports(make_slice, W, H, N_SLICES,
         plate_connected = layer_connected
         layer_data[layer] = (support_slices[layer], layer_connected)
 
+        done = layer - min_layer + 1
+        if done % 200 == 0 or done == n_total_layers:
+            elapsed = time.time() - t3
+            print(f"    3A: {done}/{n_total_layers}  [{elapsed:.1f}s]", flush=True)
+
     # ── Pass 3B: model-grounded flood fill ──
+    print(f"  Pass 3B: model-grounded flood fill ...", flush=True)
+    t3b = time.time()
     model_connected = np.zeros((H, W), dtype=bool)
 
     # Rebuild a lightweight model presence check from the height map
@@ -341,7 +349,14 @@ def generate_supports(make_slice, W, H, N_SLICES,
         out[model_grounded] = MODEL_GROUNDED_GRAY
         layer_data[layer] = out
 
+        done = layer - min_layer + 1
+        if done % 200 == 0 or done == n_total_layers:
+            elapsed = time.time() - t3b
+            print(f"    3B: {done}/{n_total_layers}  [{elapsed:.1f}s]", flush=True)
+
     # ── Pass 3C: volume-filter model-grounded components ──
+    print(f"  Pass 3C: volume-filtering model-grounded ...", flush=True)
+    t3c = time.time()
     voxel_vol_mm3 = PX_MM * PZ_MM * LY_MM
     min_voxels = max(1, int(round(MIN_MODEL_GROUNDED_VOL_MM3 / voxel_vol_mm3)))
 
@@ -417,6 +432,12 @@ def generate_supports(make_slice, W, H, N_SLICES,
 
         label_maps[layer] = labels
         prev_labels = labels
+
+        done = layer - min_layer + 1
+        if done % 200 == 0 or done == n_total_layers:
+            elapsed = time.time() - t3c
+            print(f"    3C: {done}/{n_total_layers}  "
+                  f"({next_id-1} components)  [{elapsed:.1f}s]", flush=True)
 
     surviving_roots = set()
     for root, vol in uf.size.items():
