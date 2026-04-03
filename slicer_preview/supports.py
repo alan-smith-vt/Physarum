@@ -178,13 +178,16 @@ def generate_supports(make_slice, W, H, N_SLICES,
     sx, sz, _, _ = _tpms_init(W, H)
 
     # ── Pass 2: generate lattice, subtract clearance ──
-    print(f"  Pass 2: lattice + subtraction ...", flush=True)
+    # Only generate supports at or above the build plate (y >= 0)
+    plate_layer = max(0, int(round(-offset_y_mm / LY_MM)))
+    print(f"  Pass 2: lattice + subtraction (layers {plate_layer}..{max_model_layer}) ...",
+          flush=True)
     t1 = time.time()
 
     support_slices = {}
     n_layers_with_support = 0
 
-    for layer in range(max_model_layer + 1):
+    for layer in range(plate_layer, max_model_layer + 1):
         # Height-map cull: only keep lattice below model surface
         below_model = layer < height_map
         if not below_model.any():
