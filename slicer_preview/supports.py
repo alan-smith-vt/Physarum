@@ -31,8 +31,7 @@ MIN_MODEL_GROUNDED_VOL_MM3 = 0.5  # minimum volume to keep a model-grounded isla
 CLEARANCE_LAYERS = 1          # layers of gap between support and model
 CLEARANCE_XZ_MM = 0.4         # lateral clearance around model surfaces
 LATTICE_SPACING_MM = 3.0      # distance between lattice struts
-STRUT_THICKNESS_MM = 0.4      # strut cross-section diameter
-TIE_SPACING_MM = 3.0          # vertical distance between horizontal ties
+SUPPORT_DOWNSAMPLE = 2        # layer step for model scanning (1 = full res, 2 = half)
 
 
 # ── TPMS Lattice generation ─────────────────────────────────────────
@@ -127,25 +126,51 @@ def generate_supports(make_slice, W, H, N_SLICES,
           f"{CLEARANCE_LAYERS} layer(s) vertical", flush=True)
 
     # ── Pass 1: scan model, build height map + cache slices ──
-    print(f"  Pass 1: scanning model ({N_SLICES} layers) ...", flush=True)
+    # Downsample layer scanning: only compute every SUPPORT_DOWNSAMPLE-th
+    # layer.  Height map uses the sampled layers; clearance uses nearest
+    # cached slice.  Cuts model slice calls by SUPPORT_DOWNSAMPLE×.
+    step = max(1, SUPPORT_DOWNSAMPLE)
+    sampled_layers = list(range(0, N_SLICES, step))
+    # Always include the last layer for accurate height map
+    if sampled_layers[-1] != N_SLICES - 1:
+        sampled_layers.append(N_SLICES - 1)
+
+    print(f"  Pass 1: scanning model ({len(sampled_layers)}/{N_SLICES} layers, "
+          f"step={step}) ...", flush=True)
     t0 = time.time()
 
-    height_map = np.full((H, W), -1, dtype=np.int32)  # max solid layer per pixel
-    model_slices = []  # list of bool arrays, indexed by layer
+    height_map = np.full((H, W), -1, dtype=np.int32)
+    model_cache = {}  # layer → bool mask (only sampled layers)
 
-    for layer in range(N_SLICES):
+    for i, layer in enumerate(sampled_layers):
         solid = make_slice(layer) > 0
-        model_slices.append(solid)
+        model_cache[layer] = solid
         height_map[solid] = layer
 
-        if (layer + 1) % 200 == 0 or layer + 1 == N_SLICES:
+        if (i + 1) % 100 == 0 or i + 1 == len(sampled_layers):
             elapsed = time.time() - t0
-            print(f"    {layer+1}/{N_SLICES}  [{elapsed:.1f}s]", flush=True)
+            print(f"    {i+1}/{len(sampled_layers)} sampled  [{elapsed:.1f}s]",
+                  flush=True)
 
     max_model_layer = int(height_map.max())
     if max_model_layer < 0:
         print("  No model geometry found.")
         return []
+
+    # Build sorted list of cached layer indices for nearest-neighbor lookup
+    cached_layers = np.array(sorted(model_cache.keys()), dtype=np.int32)
+
+    def _nearest_model_slice(layer):
+        """Return the cached model slice nearest to the given layer."""
+        idx = np.searchsorted(cached_layers, layer)
+        if idx >= len(cached_layers):
+            return model_cache[int(cached_layers[-1])]
+        if idx == 0:
+            return model_cache[int(cached_layers[0])]
+        # Pick closer of the two neighbors
+        if layer - cached_layers[idx - 1] <= cached_layers[idx] - layer:
+            return model_cache[int(cached_layers[idx - 1])]
+        return model_cache[int(cached_layers[idx])]
 
     print(f"  Height map: max layer {max_model_layer}, "
           f"{(height_map >= 0).sum():,} solid pixels", flush=True)
@@ -171,12 +196,12 @@ def generate_supports(make_slice, W, H, N_SLICES,
         # Mask to only below model
         lattice[~below_model] = 0
 
-        # Build exclusion zone from model slices in vertical window
+        # Build exclusion zone from cached model slices in vertical window
         lo = max(0, layer - CLEARANCE_LAYERS)
         hi = min(N_SLICES, layer + CLEARANCE_LAYERS + 1)
         exclusion = np.zeros((H, W), dtype=bool)
         for l in range(lo, hi):
-            exclusion |= model_slices[l]
+            exclusion |= _nearest_model_slice(l)
 
         # Dilate XZ
         if clearance_r_x > 0 or clearance_r_z > 0:
@@ -196,7 +221,7 @@ def generate_supports(make_slice, W, H, N_SLICES,
                   f"[{elapsed:.1f}s]", flush=True)
 
     if not support_slices:
-        del model_slices
+        del model_cache
         print("  No support material needed.")
         return []
 
@@ -245,7 +270,7 @@ def generate_supports(make_slice, W, H, N_SLICES,
         nearby_model = np.zeros((H, W), dtype=bool)
         for l in range(max(0, layer - CLEARANCE_LAYERS - 1), layer):
             if l < len(model_slices):
-                nearby_model |= model_slices[l]
+                nearby_model |= _nearest_model_slice(l)
         if nearby_model.any() and (clearance_r_x > 0 or clearance_r_z > 0):
             nearby_model = _dilate_mask(nearby_model, clearance_r_x + 1,
                                         clearance_r_z + 1)
@@ -271,7 +296,7 @@ def generate_supports(make_slice, W, H, N_SLICES,
         out[model_grounded] = MODEL_GROUNDED_GRAY
         layer_data[layer] = out
 
-    del model_slices
+    del model_cache
 
     # ── Pass 3C: measure model-grounded connected components ──
     # Bottom-up flood fill through MODEL_GROUNDED_GRAY pixels only,
