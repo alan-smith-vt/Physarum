@@ -30,8 +30,8 @@ CLEARANCE_LAYERS = 1          # vertical gap (layers at full res)
 CLEARANCE_XZ_MM = 0.4         # lateral clearance (mm)
 LATTICE_SPACING_MM = 3.0      # TPMS period (mm)
 TPMS_THRESHOLD = 0.3          # iso-surface thickness
-SCAN_SCALE = 4                # spatial downsample factor for model scanning
-SCAN_LAYER_STEP = 4           # layer step for model scanning
+SCAN_SCALE = 2                # spatial downsample factor for model scanning
+SCAN_LAYER_STEP = 1           # layer step for model scanning (1 = every layer)
 N_WORKERS = 8                 # parallel workers for pass 2
 
 
