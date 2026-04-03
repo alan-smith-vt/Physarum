@@ -37,7 +37,7 @@ C = np.array([-0.2,  0.8,  0.0,  0.0], dtype=np.float64)
 
 MAX_ITER  = 16      # 12–20 gives good results; higher = sharper, slower
 ESCAPE_R  = 2.0     # standard escape radius for quadratic Julia sets
-EXTENT_MM = 15.0    # half-side of the cube (→ 30 mm total per axis)
+EXTENT_MM = 30.0    # half-side of the cube (→ 60 mm total per axis)
 QSPACE    = 1.6     # Julia space half-extent (set can exceed |q|=1 for some c)
 
 
@@ -109,7 +109,7 @@ def quaternion_julia_piece(extent_mm=EXTENT_MM, c=C,
     return dict(
         W=W, H=H, N_SLICES=N_SLICES,
         OFFSET_X_MM=-extent_mm,
-        OFFSET_Y_MM=-4.0,
+        OFFSET_Y_MM=-8.0,
         OFFSET_Z_MM=-extent_mm,
         make_slice=make_slice,
     )
