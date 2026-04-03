@@ -150,48 +150,7 @@ def generate_supports(make_slice, W, H, N_SLICES,
     print(f"  Height map: max layer {max_model_layer}, "
           f"{(height_map >= 0).sum():,} solid pixels", flush=True)
 
-    # ── Cell-aware height map ──
-    # Coarse height per grid cell, dilated by 1 cell so a TPMS unit cell
-    # stays as long as any neighboring cell needs support.
-    sx, sz, sp_x, sp_z = _tpms_init(W, H)
-    col_xs = np.arange(0, W, sp_x)
-    col_zs = np.arange(0, H, sp_z)
-    n_cx, n_cz = len(col_xs), len(col_zs)
-
-    # Max model layer per grid cell region
-    cell_height = np.full((n_cz, n_cx), -1, dtype=np.int32)
-    for ci, cx in enumerate(col_xs):
-        x0 = max(0, cx - sp_x // 2)
-        x1 = min(W, cx + sp_x // 2 + 1)
-        for cj, cz in enumerate(col_zs):
-            z0 = max(0, cz - sp_z // 2)
-            z1 = min(H, cz + sp_z // 2 + 1)
-            region = height_map[z0:z1, x0:x1]
-            if region.size > 0:
-                cell_height[cj, ci] = int(region.max())
-
-    # Dilate by 1 cell (max of 3×3 neighborhood)
-    padded = np.pad(cell_height, 1, mode='constant', constant_values=-1)
-    dilated_ch = cell_height.copy()
-    for dz in range(-1, 2):
-        for dx in range(-1, 2):
-            dilated_ch = np.maximum(
-                dilated_ch,
-                padded[1 + dz:n_cz + 1 + dz, 1 + dx:n_cx + 1 + dx])
-
-    # Expand back to per-pixel effective height map
-    effective_height = np.full((H, W), -1, dtype=np.int32)
-    for ci, cx in enumerate(col_xs):
-        x0 = max(0, cx - sp_x // 2)
-        x1 = min(W, cx + (sp_x + 1) // 2 + 1)
-        for cj, cz in enumerate(col_zs):
-            z0 = max(0, cz - sp_z // 2)
-            z1 = min(H, cz + (sp_z + 1) // 2 + 1)
-            effective_height[z0:z1, x0:x1] = np.maximum(
-                effective_height[z0:z1, x0:x1],
-                dilated_ch[cj, ci])
-
-    print(f"  Cell-aware height: {n_cx}×{n_cz} grid cells", flush=True)
+    sx, sz, _, _ = _tpms_init(W, H)
 
     # ── Pass 2: generate lattice, subtract clearance ──
     print(f"  Pass 2: lattice + subtraction ...", flush=True)
@@ -201,15 +160,15 @@ def generate_supports(make_slice, W, H, N_SLICES,
     n_layers_with_support = 0
 
     for layer in range(max_model_layer + 1):
-        # Cell-aware height cull
-        below_model = layer < effective_height
+        # Height-map cull: only keep lattice below model surface
+        below_model = layer < height_map
         if not below_model.any():
             continue
 
         # Generate TPMS lattice
         lattice = _tpms_lidinoid(layer, sx, sz)
 
-        # Mask to only below model (cell-aware)
+        # Mask to only below model
         lattice[~below_model] = 0
 
         # Build exclusion zone from model slices in vertical window
