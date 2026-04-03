@@ -26,8 +26,8 @@ from printer import PX_MM, PZ_MM, LY_MM, PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PLATE
 
 # ── Support Parameters ──────────────────────────────────────────────
 SUPPORT_GRAY = 128            # grayscale value (viewer renders as teal)
-FLOATER_GRAY = 5              # viewer maps 1-10 → blue (disconnected, nothing below)
 MODEL_GROUNDED_GRAY = 200     # viewer renders yellow/orange (sits on model surface)
+MIN_MODEL_GROUNDED_VOL_MM3 = 0.5  # minimum volume to keep a model-grounded island
 CLEARANCE_LAYERS = 1          # layers of gap between support and model
 CLEARANCE_XZ_MM = 0.2         # lateral clearance around model surfaces
 LATTICE_SPACING_MM = 3.0      # distance between lattice struts
@@ -200,21 +200,16 @@ def generate_supports(make_slice, W, H, N_SLICES,
         print("  No support material needed.")
         return []
 
-    # ── Pass 3: detect floaters + classify by what's below ──
-    # Two flood fills:
-    #   A) Bottom-up from build plate → finds plate-grounded support (teal)
-    #   B) Bottom-up from model surfaces → finds model-grounded floaters (yellow)
-    #   Anything left = truly disconnected floater (blue)
-    print(f"  Pass 3: detecting floaters ...", flush=True)
+    # ── Pass 3A: plate-grounded flood fill ──
+    print(f"  Pass 3: classifying support ...", flush=True)
     t2 = time.time()
 
     min_layer = min(support_slices.keys())
     max_layer = max(support_slices.keys())
-    n_floater_voxels = 0
-    n_model_grounded = 0
 
-    # A) Plate-grounded: flood fill from build plate upward
     plate_connected = np.zeros((H, W), dtype=bool)
+    # Store per-layer: (image, plate_mask)
+    layer_data = {}
 
     for layer in range(min_layer, max_layer + 1):
         if layer not in support_slices:
@@ -222,15 +217,10 @@ def generate_supports(make_slice, W, H, N_SLICES,
             continue
 
         support_mask = support_slices[layer] > 0
-
-        # Seed from below
         layer_connected = support_mask & plate_connected
-
-        # Build plate: all support is grounded
         if layer == min_layer:
             layer_connected = support_mask.copy()
 
-        # Propagate horizontally through support pixels
         while True:
             prev_count = int(layer_connected.sum())
             dilated = _dilate_mask(layer_connected, 1, 1)
@@ -239,28 +229,19 @@ def generate_supports(make_slice, W, H, N_SLICES,
                 break
 
         plate_connected = layer_connected
+        layer_data[layer] = (support_slices[layer], layer_connected)
 
-        # Store plate-connected mask for this layer (temporarily on the image)
-        # We'll do the model-grounded pass next, then combine
-        support_slices[layer] = (support_slices[layer], layer_connected)
-
-    # B) Model-grounded: flood fill from model top surfaces upward
-    # A support pixel is model-grounded if the layer below it has solid model
-    # and the support connects upward from there.
+    # ── Pass 3B: model-grounded flood fill ──
     model_connected = np.zeros((H, W), dtype=bool)
 
     for layer in range(min_layer, max_layer + 1):
-        if layer not in support_slices:
+        if layer not in layer_data:
             model_connected[:] = False
             continue
 
-        img, plate_mask = support_slices[layer]
+        img, plate_mask = layer_data[layer]
         support_mask = img > 0
 
-        # Seed: support pixels near model below (accounting for clearance gap)
-        # Check layers below within the clearance window + 1, and dilate
-        # the model mask by the XZ clearance so we catch support pixels
-        # that are offset from the model surface.
         nearby_model = np.zeros((H, W), dtype=bool)
         for l in range(max(0, layer - CLEARANCE_LAYERS - 1), layer):
             if l < len(model_slices):
@@ -270,10 +251,7 @@ def generate_supports(make_slice, W, H, N_SLICES,
                                         clearance_r_z + 1)
         on_model = support_mask & nearby_model
 
-        # Also propagate from previously model-connected pixels below
         layer_model_connected = support_mask & (model_connected | on_model)
-
-        # Propagate horizontally
         while True:
             prev_count = int(layer_model_connected.sum())
             dilated = _dilate_mask(layer_model_connected, 1, 1)
@@ -283,32 +261,167 @@ def generate_supports(make_slice, W, H, N_SLICES,
 
         model_connected = layer_model_connected
 
-        # Classify and color
+        # Classify: delete blue floaters, mark model-grounded
         floaters = support_mask & ~plate_mask
         model_grounded = floaters & layer_model_connected
         truly_floating = floaters & ~layer_model_connected
 
-        n_model_grounded += int(model_grounded.sum())
-        n_floater_voxels += int(truly_floating.sum())
-
-        if model_grounded.any() or truly_floating.any():
-            out = img.copy()
-            out[model_grounded] = MODEL_GROUNDED_GRAY
-            out[truly_floating] = FLOATER_GRAY
-            support_slices[layer] = out
-        else:
-            support_slices[layer] = img
+        out = img.copy()
+        out[truly_floating] = 0              # delete blue floaters
+        out[model_grounded] = MODEL_GROUNDED_GRAY
+        layer_data[layer] = out
 
     del model_slices
 
+    # ── Pass 3C: measure model-grounded connected components ──
+    # Bottom-up flood fill through MODEL_GROUNDED_GRAY pixels only,
+    # tracking connected component volumes. Remove components below
+    # MIN_MODEL_GROUNDED_VOL_MM3.
+    voxel_vol_mm3 = PX_MM * PZ_MM * LY_MM
+    min_voxels = max(1, int(round(MIN_MODEL_GROUNDED_VOL_MM3 / voxel_vol_mm3)))
+
+    # Assign component IDs via bottom-up sweep with union-find
+    class _UF:
+        """Minimal union-find for integer labels."""
+        def __init__(self):
+            self.parent = {}
+            self.size = {}
+
+        def make(self, x):
+            self.parent[x] = x
+            self.size[x] = 0
+
+        def find(self, x):
+            while self.parent[x] != x:
+                self.parent[x] = self.parent[self.parent[x]]
+                x = self.parent[x]
+            return x
+
+        def union(self, a, b):
+            a, b = self.find(a), self.find(b)
+            if a == b:
+                return a
+            if self.size[a] < self.size[b]:
+                a, b = b, a
+            self.parent[b] = a
+            self.size[a] += self.size[b]
+            return a
+
+    uf = _UF()
+    next_id = 1
+    # label_map[layer] = int32 (H, W) of component IDs (0 = not model-grounded)
+    label_maps = {}
+    prev_labels = np.zeros((H, W), dtype=np.int32)
+
+    for layer in range(min_layer, max_layer + 1):
+        if layer not in layer_data:
+            prev_labels = np.zeros((H, W), dtype=np.int32)
+            continue
+
+        img = layer_data[layer]
+        mg_mask = img == MODEL_GROUNDED_GRAY
+        if not mg_mask.any():
+            prev_labels = np.zeros((H, W), dtype=np.int32)
+            label_maps[layer] = prev_labels
+            continue
+
+        labels = np.zeros((H, W), dtype=np.int32)
+
+        # Seed from below: inherit labels from previous layer
+        inherit = mg_mask & (prev_labels > 0)
+        labels[inherit] = prev_labels[inherit]
+
+        # Assign new labels to unlabeled model-grounded pixels
+        unlabeled = mg_mask & (labels == 0)
+        zs, xs = np.nonzero(unlabeled)
+        for z, x in zip(zs.tolist(), xs.tolist()):
+            labels[z, x] = next_id
+            uf.make(next_id)
+            next_id += 1
+
+        # Propagate horizontally: merge adjacent labels
+        # Check 4-connected neighbors
+        for dz, dx in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            sz = slice(max(0, dz), H + min(0, dz))
+            sx_s = slice(max(0, dx), W + min(0, dx))
+            nz = slice(max(0, -dz), H + min(0, -dz))
+            nx = slice(max(0, -dx), W + min(0, -dx))
+            here = labels[sz, sx_s]
+            there = labels[nz, nx]
+            both = (here > 0) & (there > 0) & (here != there)
+            if both.any():
+                for a, b in zip(here[both].tolist(), there[both].tolist()):
+                    uf.union(a, b)
+
+        # Resolve labels to roots
+        unique_labels = np.unique(labels[labels > 0])
+        remap = {int(l): uf.find(int(l)) for l in unique_labels}
+        for old, new in remap.items():
+            if old != new:
+                labels[labels == old] = new
+
+        # Count voxels per component
+        for l in np.unique(labels[labels > 0]).tolist():
+            root = uf.find(l)
+            uf.size[root] = uf.size.get(root, 0) + int((labels == l).sum())
+
+        label_maps[layer] = labels
+        prev_labels = labels
+
+    # Determine which components survive the volume threshold
+    surviving_roots = set()
+    for root, vol in uf.size.items():
+        if vol >= min_voxels:
+            surviving_roots.add(uf.find(root))
+
+    # Apply: delete small model-grounded components
+    n_deleted = 0
+    n_kept = 0
+    for layer in range(min_layer, max_layer + 1):
+        if layer not in layer_data:
+            continue
+        img = layer_data[layer]
+        if layer in label_maps:
+            labels = label_maps[layer]
+            mg_mask = img == MODEL_GROUNDED_GRAY
+            if mg_mask.any():
+                # Resolve to roots and check survival
+                keep = np.zeros((H, W), dtype=bool)
+                for l in np.unique(labels[mg_mask]).tolist():
+                    if l > 0 and uf.find(l) in surviving_roots:
+                        keep |= (labels == l)
+
+                delete = mg_mask & ~keep
+                n_deleted += int(delete.sum())
+                n_kept += int(keep.sum())
+                if delete.any():
+                    img = img.copy()
+                    img[delete] = 0
+                    layer_data[layer] = img
+
+        # Commit to support_slices
+        support_slices[layer] = layer_data[layer]
+
+    del label_maps
+
     elapsed2 = time.time() - t2
-    print(f"  Model-grounded: {n_model_grounded:,} voxels (yellow)",
-          flush=True)
-    print(f"  True floaters:  {n_floater_voxels:,} voxels (blue)",
+    print(f"  Model-grounded: {n_kept:,} kept, {n_deleted:,} removed "
+          f"(min {MIN_MODEL_GROUNDED_VOL_MM3}mm³ = {min_voxels} voxels)",
           flush=True)
     print(f"  Pass 3: {elapsed2:.1f}s", flush=True)
 
     # ── Build piece ──
+    # Remove empty layers
+    for layer in list(support_slices.keys()):
+        if not (support_slices[layer] > 0).any():
+            del support_slices[layer]
+
+    if not support_slices:
+        print("  All support removed after cleanup.")
+        return []
+
+    min_layer = min(support_slices.keys())
+    max_layer = max(support_slices.keys())
     n_slices = max_layer - min_layer + 1
     piece_offset_y = offset_y_mm + min_layer * LY_MM
 
@@ -324,9 +437,8 @@ def generate_supports(make_slice, W, H, N_SLICES,
 
     total_voxels = sum(int((img > 0).sum()) for img in local_slices.values())
     elapsed = time.time() - t0
-    print(f"  Done: {n_layers_with_support} layers, "
-          f"~{total_voxels:,} support voxels "
-          f"({n_floater_voxels:,} floaters), {elapsed:.1f}s total", flush=True)
+    print(f"  Done: {len(local_slices)} layers, "
+          f"~{total_voxels:,} support voxels, {elapsed:.1f}s total", flush=True)
 
     piece = dict(
         W=W, H=H, N_SLICES=n_slices,
