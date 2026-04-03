@@ -266,11 +266,18 @@ def generate_supports(make_slice, W, H, N_SLICES,
         img, plate_mask = support_slices[layer]
         support_mask = img > 0
 
-        # Seed: support pixels sitting on model (model solid at layer-1)
-        if layer > 0 and layer - 1 < len(model_slices):
-            on_model = support_mask & model_slices[layer - 1]
-        else:
-            on_model = np.zeros((H, W), dtype=bool)
+        # Seed: support pixels near model below (accounting for clearance gap)
+        # Check layers below within the clearance window + 1, and dilate
+        # the model mask by the XZ clearance so we catch support pixels
+        # that are offset from the model surface.
+        nearby_model = np.zeros((H, W), dtype=bool)
+        for l in range(max(0, layer - CLEARANCE_LAYERS - 1), layer):
+            if l < len(model_slices):
+                nearby_model |= model_slices[l]
+        if nearby_model.any() and (clearance_r_x > 0 or clearance_r_z > 0):
+            nearby_model = _dilate_mask(nearby_model, clearance_r_x + 1,
+                                        clearance_r_z + 1)
+        on_model = support_mask & nearby_model
 
         # Also propagate from previously model-connected pixels below
         layer_model_connected = support_mask & (model_connected | on_model)
