@@ -18,7 +18,7 @@ import struct, json, time, os
 import numpy as np
 
 from printer import PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PLATE_W_PX, PLATE_H_PX, PX_MM, PZ_MM, LY_MM
-from helpers import encode_surface_voxels
+from helpers import encode_surface_voxels, is_interior_inplane
 
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 SLICES_FILE = os.path.join(SCRIPT_DIR, '_slices.bin')
@@ -231,21 +231,103 @@ def make_global_slice(layer):
     return img
 
 
+N_ENCODE_WORKERS = 8
+# Number of slices to keep in memory at once during parallel encoding.
+# At 1x a single slice is ~13.5MB, so 32 slices ≈ 430MB.
+ENCODE_WINDOW = 32
+
+
 def encode_all():
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     all_chunks = []
     total = 0
+
     for pi, piece in enumerate(PIECES):
         t0 = time.time()
         dx = round((piece['OFFSET_X_MM'] - OFFSET_X_MM) / PX_MM)
         dy = round((piece['OFFSET_Y_MM'] - OFFSET_Y_MM) / LY_MM)
         dz = round((piece['OFFSET_Z_MM'] - OFFSET_Z_MM) / PZ_MM)
-        chunks, n = encode_surface_voxels(
-            piece['make_slice'], piece['W'], piece['H'], piece['N_SLICES'],
-            dx, dz, dy)
-        all_chunks.extend(chunks)
-        total += n
-        print(f"  piece {pi+1}/{len(PIECES)}  {n:,} voxels  ({time.time()-t0:.1f}s)",
-              flush=True)
+        w, h, n_slices = piece['W'], piece['H'], piece['N_SLICES']
+        make_fn = piece['make_slice']
+
+        # For small pieces, just encode directly
+        if n_slices * w * h < 5_000_000:
+            chunks, n = encode_surface_voxels(make_fn, w, h, n_slices, dx, dz, dy)
+            all_chunks.extend(chunks)
+            total += n
+            print(f"  piece {pi+1}/{len(PIECES)}  {n:,} voxels  "
+                  f"({time.time()-t0:.1f}s)", flush=True)
+            continue
+
+        # Large piece: compute slices with thread pool (NumPy releases GIL),
+        # then extract surfaces serially.  Use a sliding window to bound memory.
+        print(f"  piece {pi+1}/{len(PIECES)}: encoding {n_slices} layers "
+              f"({N_ENCODE_WORKERS} threads) ...", flush=True)
+
+        dt = np.dtype([('x', '<u2'), ('y', '<u2'), ('z', '<u2'), ('v', 'u1')])
+        piece_chunks = []
+        piece_total = 0
+        slice_cache = {}
+        empty = np.zeros((h, w), np.uint8)
+
+        with ThreadPoolExecutor(max_workers=N_ENCODE_WORKERS) as executor:
+            # Pre-submit initial window of futures
+            futures = {}
+            submit_up_to = min(n_slices + 1, ENCODE_WINDOW)  # +1 for nxt lookahead
+            for z in range(submit_up_to):
+                futures[executor.submit(make_fn, z)] = z
+
+            next_submit = submit_up_to
+
+            # Process layers in order
+            for z in range(n_slices):
+                # Wait for layers z, z+1 to be ready
+                while z not in slice_cache or (z + 1 not in slice_cache and z + 1 < n_slices):
+                    done = next(as_completed(futures))
+                    layer_idx = futures.pop(done)
+                    slice_cache[layer_idx] = done.result()
+
+                    # Submit more work to keep window full
+                    if next_submit <= n_slices:
+                        f = executor.submit(make_fn, next_submit)
+                        futures[f] = next_submit
+                        next_submit += 1
+
+                curr = slice_cache.get(z, empty)
+                prev = slice_cache.get(z - 1, empty)
+                nxt = slice_cache.get(z + 1, empty) if z + 1 < n_slices else empty
+
+                nonzero = curr > 0
+                interior = is_interior_inplane(nonzero) & (prev > 0) & (nxt > 0)
+                surface = nonzero & ~interior
+
+                ys, xs = np.nonzero(surface)
+                if len(xs) > 0:
+                    n = len(xs)
+                    rec = np.empty(n, dtype=dt)
+                    rec['x'] = (xs + dx).astype(np.uint16)
+                    rec['y'] = (ys + dz).astype(np.uint16)
+                    rec['z'] = np.uint16(z + dy)
+                    rec['v'] = curr[ys, xs]
+                    piece_chunks.append(rec.tobytes())
+                    piece_total += n
+
+                # Free old slices
+                if z - 1 in slice_cache:
+                    del slice_cache[z - 1]
+
+                if (z + 1) % 300 == 0 or z + 1 == n_slices:
+                    elapsed = time.time() - t0
+                    rate = (z + 1) / elapsed if elapsed > 0 else 0
+                    eta = (n_slices - z - 1) / rate if rate > 0 else 0
+                    print(f"    {z+1}/{n_slices}  {piece_total:,} voxels  "
+                          f"[{elapsed:.1f}s, ~{eta:.0f}s remaining]", flush=True)
+
+        all_chunks.extend(piece_chunks)
+        total += piece_total
+        print(f"  piece {pi+1}/{len(PIECES)}  {piece_total:,} voxels  "
+              f"({time.time()-t0:.1f}s)", flush=True)
+
     return struct.pack('<I', total) + b''.join(all_chunks)
 
 
