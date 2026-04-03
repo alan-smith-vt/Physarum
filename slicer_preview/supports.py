@@ -166,17 +166,17 @@ def generate_supports(make_slice, W, H, N_SLICES,
     n_layers_with_support = 0
 
     for layer in range(max_model_layer + 1):
-        # Height-map cull: only keep lattice below model surface
-        below_model = layer < height_map
-        if not below_model.any():
-            continue
+        # # Height-map cull: only keep lattice below model surface
+        # below_model = layer < height_map
+        # if not below_model.any():
+        #     continue
 
         # Generate lattice
         lattice = _lattice_for_layer(layer, vert_mask, tie_mask,
                                      sp_x, sp_z, sr_z, tie_ly)
 
-        # Mask to only below model
-        lattice[~below_model] = 0
+        # # Mask to only below model
+        # lattice[~below_model] = 0
 
         # Build exclusion zone from model slices in vertical window
         lo = max(0, layer - CLEARANCE_LAYERS)
