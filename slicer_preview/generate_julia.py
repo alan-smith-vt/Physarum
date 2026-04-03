@@ -25,7 +25,7 @@ SLICES_FILE = os.path.join(SCRIPT_DIR, '_slices.bin')
 META_FILE   = os.path.join(SCRIPT_DIR, '_meta.json')
 
 # ── Config ──
-GENERATE_SUPPORTS = False     # add lattice supports after slicing
+GENERATE_SUPPORTS = True      # add lattice supports after slicing
 
 # ── Julia parameters ──────────────────────────────────────────────────────────
 # Classic "quaternion Julia" shape; swap in any of the alternatives below.
