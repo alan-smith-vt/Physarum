@@ -269,7 +269,7 @@ def generate_supports(make_slice, W, H, N_SLICES,
 
         nearby_model = np.zeros((H, W), dtype=bool)
         for l in range(max(0, layer - CLEARANCE_LAYERS - 1), layer):
-            if l < len(model_slices):
+            if l < N_SLICES:
                 nearby_model |= _nearest_model_slice(l)
         if nearby_model.any() and (clearance_r_x > 0 or clearance_r_z > 0):
             nearby_model = _dilate_mask(nearby_model, clearance_r_x + 1,
