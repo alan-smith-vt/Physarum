@@ -26,7 +26,8 @@ from printer import PX_MM, PZ_MM, LY_MM, PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PLATE
 
 # ── Support Parameters ──────────────────────────────────────────────
 SUPPORT_GRAY = 128            # grayscale value (viewer renders as teal)
-FLOATER_GRAY = 5              # viewer maps 1-10 → blue (disconnected pieces)
+FLOATER_GRAY = 5              # viewer maps 1-10 → blue (disconnected, nothing below)
+MODEL_GROUNDED_GRAY = 200     # viewer renders yellow/orange (sits on model surface)
 CLEARANCE_LAYERS = 1          # layers of gap between support and model
 CLEARANCE_XZ_MM = 0.2         # lateral clearance around model surfaces
 LATTICE_SPACING_MM = 3.0      # distance between lattice struts
@@ -203,42 +204,42 @@ def generate_supports(make_slice, W, H, N_SLICES,
                   f"({n_layers_with_support} support layers)  "
                   f"[{elapsed:.1f}s]", flush=True)
 
-    # Free model slice cache
-    del model_slices
-
     if not support_slices:
+        del model_slices
         print("  No support material needed.")
         return []
 
-    # ── Pass 3: detect floaters via bottom-up flood fill ──
+    # ── Pass 3: detect floaters + classify by what's below ──
+    # Two flood fills:
+    #   A) Bottom-up from build plate → finds plate-grounded support (teal)
+    #   B) Bottom-up from model surfaces → finds model-grounded floaters (yellow)
+    #   Anything left = truly disconnected floater (blue)
     print(f"  Pass 3: detecting floaters ...", flush=True)
     t2 = time.time()
 
     min_layer = min(support_slices.keys())
     max_layer = max(support_slices.keys())
     n_floater_voxels = 0
+    n_model_grounded = 0
 
-    # connected_below tracks which XZ pixels at the previous layer
-    # were reachable from the build plate
-    connected_below = np.zeros((H, W), dtype=bool)
+    # A) Plate-grounded: flood fill from build plate upward
+    plate_connected = np.zeros((H, W), dtype=bool)
 
     for layer in range(min_layer, max_layer + 1):
         if layer not in support_slices:
-            connected_below[:] = False
+            plate_connected[:] = False
             continue
 
         support_mask = support_slices[layer] > 0
 
-        # Seed: pixels connected from below (vertical continuity)
-        layer_connected = support_mask & connected_below
+        # Seed from below
+        layer_connected = support_mask & plate_connected
 
-        # Layer 0 (build plate): all support is grounded
+        # Build plate: all support is grounded
         if layer == min_layer:
             layer_connected = support_mask.copy()
 
-        # Propagate horizontally through support pixels in this layer.
-        # Iterate single-pixel dilation until stable so connectivity
-        # floods through horizontal ties between columns.
+        # Propagate horizontally through support pixels
         while True:
             prev_count = int(layer_connected.sum())
             dilated = _dilate_mask(layer_connected, 1, 1)
@@ -246,20 +247,68 @@ def generate_supports(make_slice, W, H, N_SLICES,
             if int(layer_connected.sum()) == prev_count:
                 break
 
-        # Mark disconnected pixels
-        floaters = support_mask & ~layer_connected
-        if floaters.any():
-            n_float = int(floaters.sum())
-            n_floater_voxels += n_float
-            img = support_slices[layer].copy()
-            img[floaters] = FLOATER_GRAY
+        plate_connected = layer_connected
+
+        # Store plate-connected mask for this layer (temporarily on the image)
+        # We'll do the model-grounded pass next, then combine
+        support_slices[layer] = (support_slices[layer], layer_connected)
+
+    # B) Model-grounded: flood fill from model top surfaces upward
+    # A support pixel is model-grounded if the layer below it has solid model
+    # and the support connects upward from there.
+    model_connected = np.zeros((H, W), dtype=bool)
+
+    for layer in range(min_layer, max_layer + 1):
+        if layer not in support_slices:
+            model_connected[:] = False
+            continue
+
+        img, plate_mask = support_slices[layer]
+        support_mask = img > 0
+
+        # Seed: support pixels sitting on model (model solid at layer-1)
+        if layer > 0 and layer - 1 < len(model_slices):
+            on_model = support_mask & model_slices[layer - 1]
+        else:
+            on_model = np.zeros((H, W), dtype=bool)
+
+        # Also propagate from previously model-connected pixels below
+        layer_model_connected = support_mask & (model_connected | on_model)
+
+        # Propagate horizontally
+        while True:
+            prev_count = int(layer_model_connected.sum())
+            dilated = _dilate_mask(layer_model_connected, 1, 1)
+            layer_model_connected |= support_mask & dilated
+            if int(layer_model_connected.sum()) == prev_count:
+                break
+
+        model_connected = layer_model_connected
+
+        # Classify and color
+        floaters = support_mask & ~plate_mask
+        model_grounded = floaters & layer_model_connected
+        truly_floating = floaters & ~layer_model_connected
+
+        n_model_grounded += int(model_grounded.sum())
+        n_floater_voxels += int(truly_floating.sum())
+
+        if model_grounded.any() or truly_floating.any():
+            out = img.copy()
+            out[model_grounded] = MODEL_GROUNDED_GRAY
+            out[truly_floating] = FLOATER_GRAY
+            support_slices[layer] = out
+        else:
             support_slices[layer] = img
 
-        connected_below = layer_connected
+    del model_slices
 
     elapsed2 = time.time() - t2
-    print(f"  Floaters: {n_floater_voxels:,} voxels marked [{elapsed2:.1f}s]",
+    print(f"  Model-grounded: {n_model_grounded:,} voxels (yellow)",
           flush=True)
+    print(f"  True floaters:  {n_floater_voxels:,} voxels (blue)",
+          flush=True)
+    print(f"  Pass 3: {elapsed2:.1f}s", flush=True)
 
     # ── Build piece ──
     n_slices = max_layer - min_layer + 1
