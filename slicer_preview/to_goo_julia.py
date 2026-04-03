@@ -247,8 +247,13 @@ def main():
 
     x0 = (W_goo - W) // 2
     y0 = (H_goo - H) // 2
+
+    # Skip empty layers below the build plate (y < 0)
+    plate_layer = max(0, int(round(-OFFSET_Y_MM / (GOO_LAYER_UM / 1000.0))))
+    goo_n_slices = N_SLICES - plate_layer
     print(f"Placing {W}x{H} pattern at ({x0}, {y0}) on {W_goo}x{H_goo} plate")
-    print(f"{N_SLICES} layers at {GOO_LAYER_UM} µm")
+    print(f"{goo_n_slices} layers at {GOO_LAYER_UM} µm "
+          f"(skipping {plate_layer} sub-plate layers)")
 
     # ── Load checkpoint if available ──
     results = {}
@@ -262,7 +267,8 @@ def main():
             print(f"Checkpoint corrupted, starting fresh: {e}", flush=True)
             results = {}
 
-    remaining = [z for z in range(N_SLICES) if z not in results]
+    all_layers = list(range(plate_layer, N_SLICES))
+    remaining = [z for z in all_layers if z not in results]
     if not remaining:
         print("All layers already computed!", flush=True)
     else:
@@ -273,45 +279,44 @@ def main():
 
         t0 = time.time()
         args = [(z, x0, y0, W_goo, H_goo) for z in remaining]
-        checkpoint_interval = 50  # save every N layers
+        checkpoint_interval = 50
 
         with Pool(n_workers, initializer=_init_worker,
                   initargs=(sup_file, sup_shape, sup_dy, sup_dx, sup_dz)) as pool:
             for z, rle in pool.imap_unordered(_process_layer, args):
                 results[z] = rle
                 done = len(results)
-                if done % 10 == 0 or done == N_SLICES:
+                if done % 10 == 0 or done == goo_n_slices:
                     elapsed = time.time() - t0
-                    done_this_run = done - (N_SLICES - len(remaining))
+                    done_this_run = done - (goo_n_slices - len(remaining))
                     rate = done_this_run / elapsed if elapsed > 0 else 0
-                    left = N_SLICES - done
+                    left = goo_n_slices - done
                     eta = left / rate if rate > 0 else 0
-                    print(f"  {done}/{N_SLICES} layers  ({len(rle):,} bytes RLE)  "
+                    print(f"  {done}/{goo_n_slices} layers  "
+                          f"({len(rle):,} bytes RLE)  "
                           f"[{elapsed:.1f}s, ~{eta:.0f}s remaining]", flush=True)
 
-                # Periodic checkpoint
                 if done % checkpoint_interval == 0:
                     with open(CHECKPOINT, 'wb') as f:
                         pickle.dump(results, f)
 
-        # Final checkpoint
         with open(CHECKPOINT, 'wb') as f:
             pickle.dump(results, f)
 
     # ── Assemble .goo file ──
     print("Assembling .goo ...", flush=True)
     new_layers = []
-    for z in range(N_SLICES):
+    for i, z in enumerate(all_layers):
         rle = results[z]
         ldef = bytearray(template_def)
-        z_mm = (z + 1) * GOO_LAYER_UM / 1000.0
+        z_mm = (i + 1) * GOO_LAYER_UM / 1000.0  # layer heights start from 0
         struct.pack_into('>f', ldef, 2, z_mm)
         struct.pack_into('>f', ldef, 6, z_mm)
         struct.pack_into('>I', ldef, 66, len(rle))
         new_layers.append((bytes(ldef), rle))
 
     header = bytearray(header_bytes)
-    struct.pack_into('>I', header, NUM_LAYERS_OFFSET, N_SLICES)
+    struct.pack_into('>I', header, NUM_LAYERS_OFFSET, goo_n_slices)
     LAYER_HEIGHT_OFFSET = NUM_LAYERS_OFFSET + 4+2+2+1+1 + 4+4+4
     struct.pack_into('>f', header, LAYER_HEIGHT_OFFSET, GOO_LAYER_UM / 1000.0)
     EXPOSURE_OFFSET = LAYER_HEIGHT_OFFSET + 4
