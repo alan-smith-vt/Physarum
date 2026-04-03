@@ -254,11 +254,28 @@ def _write_output():
     global OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM, W, H, N_SLICES
 
     if GENERATE_SUPPORTS:
-        from supports import generate_supports
+        from supports import generate_supports, SCAN_SCALE, SCAN_LAYER_STEP
         print("Generating supports ...", flush=True)
+        # Build a low-res Julia piece for fast model scanning
+        from printer import REAL_PIXEL_X_UM, REAL_PIXEL_Y_UM, REAL_LAYER_UM, PREVIEW_SCALE
+        scan_scale = SCAN_SCALE * PREVIEW_SCALE  # total downsample from real
+        scan_piece = quaternion_julia_piece()
+        # The piece was already built at current PREVIEW_SCALE.
+        # For scanning we want it even coarser — rebuild at SCAN_SCALE× coarser.
+        import printer as _pr
+        _orig_px, _orig_pz, _orig_ly = _pr.PX_MM, _pr.PZ_MM, _pr.LY_MM
+        _pr.PX_MM = PX_MM * SCAN_SCALE
+        _pr.PZ_MM = PZ_MM * SCAN_SCALE
+        _pr.LY_MM = LY_MM * SCAN_LAYER_STEP
+        scan_piece = quaternion_julia_piece()
+        _pr.PX_MM, _pr.PZ_MM, _pr.LY_MM = _orig_px, _orig_pz, _orig_ly
+
         support_pieces = generate_supports(
             make_global_slice, W, H, N_SLICES,
-            OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM)
+            OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM,
+            make_scan_slice=scan_piece['make_slice'],
+            scan_W=scan_piece['W'], scan_H=scan_piece['H'],
+            scan_N_SLICES=scan_piece['N_SLICES'])
         if support_pieces:
             PIECES.extend(support_pieces)
             OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM, W, H, N_SLICES = \

@@ -28,7 +28,7 @@ MODEL_GROUNDED_GRAY = 200     # viewer renders yellow/orange
 MIN_MODEL_GROUNDED_VOL_MM3 = 0.5
 CLEARANCE_LAYERS = 1          # vertical gap (layers at full res)
 CLEARANCE_XZ_MM = 0.4         # lateral clearance (mm)
-LATTICE_SPACING_MM = 5.0      # TPMS period (mm)
+LATTICE_SPACING_MM = 3.0      # TPMS period (mm)
 TPMS_THRESHOLD = 0.3          # iso-surface thickness
 SCAN_SCALE = 4                # spatial downsample factor for model scanning
 SCAN_LAYER_STEP = 4           # layer step for model scanning
@@ -106,18 +106,31 @@ def _process_layer(args):
 # ── Public API ──────────────────────────────────────────────────────
 
 def generate_supports(make_slice, W, H, N_SLICES,
-                      offset_x_mm, offset_y_mm, offset_z_mm):
-    """Generate lattice supports with model clearance subtraction."""
+                      offset_x_mm, offset_y_mm, offset_z_mm,
+                      make_scan_slice=None, scan_W=None, scan_H=None,
+                      scan_N_SLICES=None):
+    """Generate lattice supports with model clearance subtraction.
+
+    If make_scan_slice is provided, pass 1 uses it for the height map
+    scan instead of downsampling the full-res make_slice.  This avoids
+    computing expensive model slices at full resolution during scanning.
+    scan_W, scan_H, scan_N_SLICES are the dimensions of the scan slices.
+    """
 
     clearance_r_x = max(0, int(round(CLEARANCE_XZ_MM / PX_MM)))
     clearance_r_z = max(0, int(round(CLEARANCE_XZ_MM / PZ_MM)))
 
-    # Scan resolution: downsample spatially by SCAN_SCALE
-    sc = max(1, SCAN_SCALE)
-    scan_W = (W + sc - 1) // sc
-    scan_H = (H + sc - 1) // sc
+    # Determine scan resolution
+    have_scan_fn = make_scan_slice is not None
+    if have_scan_fn:
+        sW, sH, sN = scan_W, scan_H, (scan_N_SLICES or N_SLICES)
+        sc = max(1, round(W / sW))
+    else:
+        sc = max(1, SCAN_SCALE)
+        sW, sH, sN = (W + sc - 1) // sc, (H + sc - 1) // sc, N_SLICES
+
     scan_step = max(1, SCAN_LAYER_STEP)
-    # Clearance radii at scan resolution
+    layer_ratio = N_SLICES / sN if sN != N_SLICES else 1.0
     scan_cl_x = max(0, int(round(CLEARANCE_XZ_MM / (PX_MM * sc))))
     scan_cl_z = max(0, int(round(CLEARANCE_XZ_MM / (PZ_MM * sc))))
 
@@ -125,43 +138,43 @@ def generate_supports(make_slice, W, H, N_SLICES,
           f"threshold={TPMS_THRESHOLD}", flush=True)
     print(f"  Clearance: {CLEARANCE_XZ_MM}mm XZ, "
           f"{CLEARANCE_LAYERS} layer(s) vertical", flush=True)
-    print(f"  Scan: {scan_W}×{scan_H} ({sc}× downsample), "
+    mode = "native scan piece" if have_scan_fn else f"{sc}× downsample"
+    print(f"  Scan: {sW}×{sH} ({mode}), "
           f"every {scan_step} layers, {N_WORKERS} workers", flush=True)
 
     # ── Pass 1: scan model at reduced resolution ──
     print(f"  Pass 1: scanning model ...", flush=True)
     t0 = time.time()
 
-    sampled_layers = list(range(0, N_SLICES, scan_step))
-    if sampled_layers[-1] != N_SLICES - 1:
-        sampled_layers.append(N_SLICES - 1)
+    scan_sampled = list(range(0, sN, scan_step))
+    if scan_sampled[-1] != sN - 1:
+        scan_sampled.append(sN - 1)
 
-    # Height map at scan resolution
-    height_map_scan = np.full((scan_H, scan_W), -1, dtype=np.int32)
-    # Cache model slices at scan resolution for clearance
+    height_map_scan = np.full((sH, sW), -1, dtype=np.int32)
     model_cache_scan = {}
 
-    for i, layer in enumerate(sampled_layers):
-        full_slice = make_slice(layer)
-        # Downsample: take every sc-th pixel, any solid in the block → solid
-        if sc > 1:
-            # Pad to exact multiple of sc
-            ph = ((H + sc - 1) // sc) * sc
-            pw = ((W + sc - 1) // sc) * sc
-            padded = np.zeros((ph, pw), dtype=np.uint8)
-            padded[:H, :W] = full_slice
-            # Reshape and max-pool
-            ds = padded.reshape(scan_H, sc, scan_W, sc).max(axis=(1, 3))
-            solid = ds > 0
+    for i, scan_layer in enumerate(scan_sampled):
+        if have_scan_fn:
+            solid = make_scan_slice(scan_layer) > 0
+            full_layer = int(round(scan_layer * layer_ratio))
         else:
-            solid = full_slice > 0
+            full_slice = make_slice(scan_layer)
+            if sc > 1:
+                ph = ((H + sc - 1) // sc) * sc
+                pw = ((W + sc - 1) // sc) * sc
+                padded = np.zeros((ph, pw), dtype=np.uint8)
+                padded[:H, :W] = full_slice
+                solid = padded.reshape(sH, sc, sW, sc).max(axis=(1, 3)) > 0
+            else:
+                solid = full_slice > 0
+            full_layer = scan_layer
 
-        model_cache_scan[layer] = solid
-        height_map_scan[solid] = layer
+        model_cache_scan[full_layer] = solid
+        height_map_scan[solid] = full_layer
 
-        if (i + 1) % 50 == 0 or i + 1 == len(sampled_layers):
+        if (i + 1) % 50 == 0 or i + 1 == len(scan_sampled):
             elapsed = time.time() - t0
-            print(f"    {i+1}/{len(sampled_layers)} sampled  [{elapsed:.1f}s]",
+            print(f"    {i+1}/{len(scan_sampled)} sampled  [{elapsed:.1f}s]",
                   flush=True)
 
     max_model_layer = int(height_map_scan.max())
@@ -169,10 +182,8 @@ def generate_supports(make_slice, W, H, N_SLICES,
         print("  No model geometry found.")
         return []
 
-    # Upsample height map to full resolution (nearest neighbor)
     height_map = height_map_scan.repeat(sc, axis=0).repeat(sc, axis=1)[:H, :W]
 
-    # Build nearest-layer lookup for clearance
     cached_layers = np.array(sorted(model_cache_scan.keys()), dtype=np.int32)
 
     def _nearest_scan_slice(layer):
@@ -186,7 +197,7 @@ def generate_supports(make_slice, W, H, N_SLICES,
         return model_cache_scan[int(cached_layers[idx])]
 
     print(f"  Height map: max layer {max_model_layer}, "
-          f"scan res {scan_W}×{scan_H}", flush=True)
+          f"scan res {sW}×{sH}", flush=True)
 
     # ── Pre-compute exclusion masks at full resolution ──
     # Build per-layer exclusion from scan-res model, then upsample + dilate
