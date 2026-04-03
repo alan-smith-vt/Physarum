@@ -35,69 +35,61 @@ STRUT_THICKNESS_MM = 0.4      # strut cross-section diameter
 TIE_SPACING_MM = 3.0          # vertical distance between horizontal ties
 
 
-# ── Lattice generation ──────────────────────────────────────────────
+# ── TPMS Lattice generation ─────────────────────────────────────────
 
-def _precompute_lattice_masks(W, H):
-    """Precompute the three lattice mask components.
+TPMS_THRESHOLD = 0.3          # iso-surface thickness (0 = surface only, higher = thicker)
 
-    Returns (vert_mask, tie_mask, spacing_px_x, spacing_px_z, tie_layers).
+def _tpms_init(W, H):
+    """Precompute XZ coordinate arrays scaled to TPMS period.
+
+    Returns (sx, sz, period_px_x, period_px_z) where sx/sz are
+    the scaled coordinate arrays and period_px is the cell size in pixels.
     """
-    spacing_px_x = max(2, int(round(LATTICE_SPACING_MM / PX_MM)))
-    spacing_px_z = max(2, int(round(LATTICE_SPACING_MM / PZ_MM)))
-    strut_r_x = max(1, int(round(STRUT_THICKNESS_MM / 2 / PX_MM)))
-    strut_r_z = max(1, int(round(STRUT_THICKNESS_MM / 2 / PZ_MM)))
-    tie_layers = max(2, int(round(TIE_SPACING_MM / LY_MM)))
+    period_mm = LATTICE_SPACING_MM
+    period_px_x = max(2, int(round(period_mm / PX_MM)))
+    period_px_z = max(2, int(round(period_mm / PZ_MM)))
 
-    col_xs = np.arange(0, W, spacing_px_x)
-    col_zs = np.arange(0, H, spacing_px_z)
+    # Scale pixel coords to [0, 2π) per period
+    k_x = 2.0 * np.pi / period_mm
+    k_z = 2.0 * np.pi / period_mm
 
-    # Vertical columns
-    vert_mask = np.zeros((H, W), dtype=bool)
-    for cx in col_xs:
-        x0, x1 = max(0, cx - strut_r_x), min(W, cx + strut_r_x + 1)
-        for cz in col_zs:
-            z0, z1 = max(0, cz - strut_r_z), min(H, cz + strut_r_z + 1)
-            vert_mask[z0:z1, x0:x1] = True
+    sx = np.arange(W, dtype=np.float64) * PX_MM * k_x   # (W,)
+    sz = np.arange(H, dtype=np.float64) * PZ_MM * k_z   # (H,)
 
-    # Horizontal ties
-    tie_mask = np.zeros((H, W), dtype=bool)
-    for cz in col_zs:
-        z0, z1 = max(0, cz - strut_r_z), min(H, cz + strut_r_z + 1)
-        tie_mask[z0:z1, :] = True
-    for cx in col_xs:
-        x0, x1 = max(0, cx - strut_r_x), min(W, cx + strut_r_x + 1)
-        tie_mask[:, x0:x1] = True
-
-    return vert_mask, tie_mask, spacing_px_x, spacing_px_z, strut_r_z, tie_layers
+    return sx, sz, period_px_x, period_px_z
 
 
-def _lattice_for_layer(layer, vert_mask, tie_mask,
-                       spacing_px_x, spacing_px_z, strut_r_z, tie_layers):
-    """Generate lattice pattern for a single layer (no allocation of new masks)."""
-    H, W = vert_mask.shape
-    img = np.zeros((H, W), dtype=np.uint8)
+def _tpms_lidinoid(layer, sx, sz, threshold=TPMS_THRESHOLD):
+    """Evaluate the lidinoid TPMS at a given layer, return uint8 image.
 
-    # Vertical columns
-    img[vert_mask] = SUPPORT_GRAY
+    Lidinoid implicit surface:
+      sin(2x)cos(y)sin(z) + sin(2y)cos(z)sin(x) + sin(2z)cos(x)sin(y) = 0
 
-    # Horizontal ties at regular intervals
-    if layer % tie_layers < max(1, strut_r_z):
-        img[tie_mask] = SUPPORT_GRAY
+    Solid where |f(x,y,z)| < threshold.
+    """
+    k_y = 2.0 * np.pi / LATTICE_SPACING_MM
+    y = layer * LY_MM * k_y
 
-    # Diagonal bracing — zigzag shift of columns
-    period = tie_layers
-    t = (layer % period) / period
-    if layer % (period * 2) >= period:
-        t = 1.0 - t
+    # Precompute trig (1D arrays, broadcast to 2D)
+    sin_x = np.sin(sx)       # (W,)
+    cos_x = np.cos(sx)
+    sin_2x = np.sin(2 * sx)
+    sin_z = np.sin(sz)       # (H,)
+    cos_z = np.cos(sz)
+    sin_2z = np.sin(2 * sz)
 
-    shift_x = int(round(t * spacing_px_x))
-    shift_z = int(round(t * spacing_px_z))
-    if shift_x != 0 or shift_z != 0:
-        shifted = np.roll(vert_mask, shift_x, axis=1)
-        if shift_z != 0:
-            shifted = np.roll(shifted, shift_z, axis=0)
-        img[shifted] = SUPPORT_GRAY
+    sin_y = np.sin(y)        # scalar
+    cos_y = np.cos(y)
+    sin_2y = np.sin(2 * y)
 
+    # f(x,y,z) = sin(2x)cos(y)sin(z) + sin(2y)cos(z)sin(x) + sin(2z)cos(x)sin(y)
+    # Broadcast: (H, W)
+    f = (sin_2x[None, :] * cos_y * sin_z[:, None] +
+         sin_2y * cos_z[:, None] * sin_x[None, :] +
+         sin_2z[:, None] * cos_x[None, :] * sin_y)
+
+    img = np.zeros((len(sz), len(sx)), dtype=np.uint8)
+    img[np.abs(f) < threshold] = SUPPORT_GRAY
     return img
 
 
@@ -129,8 +121,8 @@ def generate_supports(make_slice, W, H, N_SLICES,
     clearance_r_x = max(0, int(round(CLEARANCE_XZ_MM / PX_MM)))
     clearance_r_z = max(0, int(round(CLEARANCE_XZ_MM / PZ_MM)))
 
-    print(f"  Lattice: {LATTICE_SPACING_MM}mm spacing, "
-          f"{STRUT_THICKNESS_MM}mm struts", flush=True)
+    print(f"  TPMS lidinoid: {LATTICE_SPACING_MM}mm period, "
+          f"threshold={TPMS_THRESHOLD}", flush=True)
     print(f"  Clearance: {CLEARANCE_XZ_MM}mm XZ ({clearance_r_x}/{clearance_r_z} px), "
           f"{CLEARANCE_LAYERS} layer(s) vertical", flush=True)
 
@@ -159,9 +151,9 @@ def generate_supports(make_slice, W, H, N_SLICES,
           f"{(height_map >= 0).sum():,} solid pixels", flush=True)
 
     # ── Cell-aware height map ──
-    # Coarse height per grid cell, dilated by 1 cell so a column stays
-    # as long as any neighboring cell needs support (keeps ties intact).
-    vert_mask, tie_mask, sp_x, sp_z, sr_z, tie_ly = _precompute_lattice_masks(W, H)
+    # Coarse height per grid cell, dilated by 1 cell so a TPMS unit cell
+    # stays as long as any neighboring cell needs support.
+    sx, sz, sp_x, sp_z = _tpms_init(W, H)
     col_xs = np.arange(0, W, sp_x)
     col_zs = np.arange(0, H, sp_z)
     n_cx, n_cz = len(col_xs), len(col_zs)
@@ -214,9 +206,8 @@ def generate_supports(make_slice, W, H, N_SLICES,
         if not below_model.any():
             continue
 
-        # Generate lattice
-        lattice = _lattice_for_layer(layer, vert_mask, tie_mask,
-                                     sp_x, sp_z, sr_z, tie_ly)
+        # Generate TPMS lattice
+        lattice = _tpms_lidinoid(layer, sx, sz)
 
         # Mask to only below model (cell-aware)
         lattice[~below_model] = 0
