@@ -106,12 +106,19 @@ def quaternion_julia_piece(extent_mm=EXTENT_MM, c=C,
         inside = (~escaped).astype(np.uint8) * 255
         return inside
 
+    _cache = {}
+
+    def make_slice_cached(layer):
+        if layer not in _cache:
+            _cache[layer] = make_slice(layer)
+        return _cache[layer]
+
     return dict(
         W=W, H=H, N_SLICES=N_SLICES,
         OFFSET_X_MM=-extent_mm,
         OFFSET_Y_MM=-8.0,
         OFFSET_Z_MM=-extent_mm,
-        make_slice=make_slice,
+        make_slice=make_slice_cached,
     )
 
 
