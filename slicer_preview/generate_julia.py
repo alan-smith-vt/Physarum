@@ -160,19 +160,27 @@ def quaternion_julia_piece(extent_mm=EXTENT_MM, c=C,
         inside = (~escaped).astype(np.uint8) * 255
         return inside
 
-    _cache = {}
+    # Cache slices if memory allows (preview res only, ~150MB for 8x)
+    # At full res (1x) a 60mm cube would need ~81GB — skip caching.
+    est_bytes = W * H * N_SLICES
+    use_cache = est_bytes < 500_000_000  # 500MB threshold
 
-    def make_slice_cached(layer):
-        if layer not in _cache:
-            _cache[layer] = make_slice(layer)
-        return _cache[layer]
+    if use_cache:
+        _cache = {}
+        def make_slice_cached(layer):
+            if layer not in _cache:
+                _cache[layer] = make_slice(layer)
+            return _cache[layer]
+        slice_fn = make_slice_cached
+    else:
+        slice_fn = make_slice
 
     return dict(
         W=W, H=H, N_SLICES=N_SLICES,
         OFFSET_X_MM=-extent_mm,
         OFFSET_Y_MM=-8.0,
         OFFSET_Z_MM=-extent_mm,
-        make_slice=make_slice_cached,
+        make_slice=slice_fn,
     )
 
 

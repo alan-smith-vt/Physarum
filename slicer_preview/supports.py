@@ -1,23 +1,21 @@
 """Generate lattice support structures for 3D printing.
 
-Fills the model bounding box with a regular lattice, then subtracts
-a clearance shell around the model so supports don't fuse to the part.
+Fills the model bounding box with a TPMS (lidinoid) lattice, then
+subtracts a clearance shell around the model.
 
-Algorithm:
-  1. Pre-scan model to build a height map (max solid layer per pixel)
-  2. Generate lattice only below the model surface at each XZ position
-  3. Subtract a dilated clearance shell around the model
-  4. Output the remaining lattice as a support piece
+Architecture for full-resolution support:
+  Pass 1 — Scan model at reduced resolution (SCAN_SCALE × coarser)
+            to build a height map and cache clearance slices.
+  Pass 2 — Generate TPMS lattice analytically at full resolution,
+            subtract clearance.  Parallelised across N_WORKERS cores.
+  Pass 3 — Sequential floater detection + classification.
 
-Usage (standalone — re-encodes _slices.bin with supports included):
-    cd slicer_preview && python supports.py
-
-Usage (importable — returns support piece dicts):
-    from supports import generate_supports
-    pieces = generate_supports(make_slice_fn, W, H, N_SLICES, ...)
+Usage (standalone):  cd slicer_preview && python supports.py
+Usage (importable):  from supports import generate_supports
 """
 import sys, os, struct, json, time
 import numpy as np
+from multiprocessing import Pool
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -26,68 +24,37 @@ from printer import PX_MM, PZ_MM, LY_MM, PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PLATE
 
 # ── Support Parameters ──────────────────────────────────────────────
 SUPPORT_GRAY = 128            # grayscale value (viewer renders as teal)
-MODEL_GROUNDED_GRAY = 200     # viewer renders yellow/orange (sits on model surface)
-MIN_MODEL_GROUNDED_VOL_MM3 = 0.5  # minimum volume to keep a model-grounded island
-CLEARANCE_LAYERS = 1          # layers of gap between support and model
-CLEARANCE_XZ_MM = 0.4         # lateral clearance around model surfaces
-LATTICE_SPACING_MM = 5.0      # TPMS period (mm) — tune here
-SUPPORT_DOWNSAMPLE = 2        # layer step for model scanning (1 = full res, 2 = half)
+MODEL_GROUNDED_GRAY = 200     # viewer renders yellow/orange
+MIN_MODEL_GROUNDED_VOL_MM3 = 0.5
+CLEARANCE_LAYERS = 1          # vertical gap (layers at full res)
+CLEARANCE_XZ_MM = 0.4         # lateral clearance (mm)
+LATTICE_SPACING_MM = 5.0      # TPMS period (mm)
+TPMS_THRESHOLD = 0.3          # iso-surface thickness
+SCAN_SCALE = 4                # spatial downsample factor for model scanning
+SCAN_LAYER_STEP = 4           # layer step for model scanning
+N_WORKERS = 8                 # parallel workers for pass 2
 
 
-# ── TPMS Lattice generation ─────────────────────────────────────────
+# ── TPMS ────────────────────────────────────────────────────────────
 
-TPMS_THRESHOLD = 0.3          # iso-surface thickness (0 = surface only, higher = thicker)
+def _tpms_lidinoid_layer(layer, W, H, threshold=TPMS_THRESHOLD):
+    """Evaluate the lidinoid TPMS for a single layer at full resolution."""
+    k = 2.0 * np.pi / LATTICE_SPACING_MM
+    sx = np.arange(W, dtype=np.float64) * (PX_MM * k)
+    sz = np.arange(H, dtype=np.float64) * (PZ_MM * k)
+    y = layer * LY_MM * k
 
-def _tpms_init(W, H):
-    """Precompute XZ coordinate arrays scaled to TPMS period.
-
-    Returns (sx, sz, period_px_x, period_px_z) where sx/sz are
-    the scaled coordinate arrays and period_px is the cell size in pixels.
-    """
-    period_mm = LATTICE_SPACING_MM
-    period_px_x = max(2, int(round(period_mm / PX_MM)))
-    period_px_z = max(2, int(round(period_mm / PZ_MM)))
-
-    # Scale pixel coords to [0, 2π) per period
-    k_x = 2.0 * np.pi / period_mm
-    k_z = 2.0 * np.pi / period_mm
-
-    sx = np.arange(W, dtype=np.float64) * PX_MM * k_x   # (W,)
-    sz = np.arange(H, dtype=np.float64) * PZ_MM * k_z   # (H,)
-
-    return sx, sz, period_px_x, period_px_z
-
-
-def _tpms_lidinoid(layer, sx, sz, threshold=TPMS_THRESHOLD):
-    """Evaluate the lidinoid TPMS at a given layer, return uint8 image.
-
-    Lidinoid implicit surface:
-      sin(2x)cos(y)sin(z) + sin(2y)cos(z)sin(x) + sin(2z)cos(x)sin(y) = 0
-
-    Solid where |f(x,y,z)| < threshold.
-    """
-    k_y = 2.0 * np.pi / LATTICE_SPACING_MM
-    y = layer * LY_MM * k_y
-
-    # Precompute trig (1D arrays, broadcast to 2D)
-    sin_x = np.sin(sx)       # (W,)
-    cos_x = np.cos(sx)
+    sin_x, cos_x = np.sin(sx), np.cos(sx)
     sin_2x = np.sin(2 * sx)
-    sin_z = np.sin(sz)       # (H,)
-    cos_z = np.cos(sz)
+    sin_z, cos_z = np.sin(sz), np.cos(sz)
     sin_2z = np.sin(2 * sz)
+    sin_y, cos_y, sin_2y = np.sin(y), np.cos(y), np.sin(2 * y)
 
-    sin_y = np.sin(y)        # scalar
-    cos_y = np.cos(y)
-    sin_2y = np.sin(2 * y)
-
-    # f(x,y,z) = sin(2x)cos(y)sin(z) + sin(2y)cos(z)sin(x) + sin(2z)cos(x)sin(y)
-    # Broadcast: (H, W)
     f = (sin_2x[None, :] * cos_y * sin_z[:, None] +
          sin_2y * cos_z[:, None] * sin_x[None, :] +
          sin_2z[:, None] * cos_x[None, :] * sin_y)
 
-    img = np.zeros((len(sz), len(sx)), dtype=np.uint8)
+    img = np.zeros((H, W), dtype=np.uint8)
     img[np.abs(f) < threshold] = SUPPORT_GRAY
     return img
 
@@ -111,6 +78,31 @@ def _dilate_mask(mask, r_x, r_z):
     return out
 
 
+# ── Worker for parallel pass 2 ──────────────────────────────────────
+
+def _process_layer(args):
+    """Worker: generate TPMS, apply height cull + clearance for one layer.
+
+    Args is a tuple to work with Pool.imap_unordered:
+        (layer, W, H, height_map, exclusion_mask)
+    where exclusion_mask is the pre-dilated model clearance at this layer.
+    """
+    layer, W, H, height_map, exclusion = args
+
+    below_model = layer < height_map
+    if not below_model.any():
+        return layer, None
+
+    lattice = _tpms_lidinoid_layer(layer, W, H)
+    lattice[~below_model] = 0
+    if exclusion is not None:
+        lattice[exclusion] = 0
+
+    if lattice.any():
+        return layer, lattice
+    return layer, None
+
+
 # ── Public API ──────────────────────────────────────────────────────
 
 def generate_supports(make_slice, W, H, N_SLICES,
@@ -120,123 +112,158 @@ def generate_supports(make_slice, W, H, N_SLICES,
     clearance_r_x = max(0, int(round(CLEARANCE_XZ_MM / PX_MM)))
     clearance_r_z = max(0, int(round(CLEARANCE_XZ_MM / PZ_MM)))
 
+    # Scan resolution: downsample spatially by SCAN_SCALE
+    sc = max(1, SCAN_SCALE)
+    scan_W = (W + sc - 1) // sc
+    scan_H = (H + sc - 1) // sc
+    scan_step = max(1, SCAN_LAYER_STEP)
+    # Clearance radii at scan resolution
+    scan_cl_x = max(0, int(round(CLEARANCE_XZ_MM / (PX_MM * sc))))
+    scan_cl_z = max(0, int(round(CLEARANCE_XZ_MM / (PZ_MM * sc))))
+
     print(f"  TPMS lidinoid: {LATTICE_SPACING_MM}mm period, "
           f"threshold={TPMS_THRESHOLD}", flush=True)
-    print(f"  Clearance: {CLEARANCE_XZ_MM}mm XZ ({clearance_r_x}/{clearance_r_z} px), "
+    print(f"  Clearance: {CLEARANCE_XZ_MM}mm XZ, "
           f"{CLEARANCE_LAYERS} layer(s) vertical", flush=True)
+    print(f"  Scan: {scan_W}×{scan_H} ({sc}× downsample), "
+          f"every {scan_step} layers, {N_WORKERS} workers", flush=True)
 
-    # ── Pass 1: scan model, build height map + cache slices ──
-    # Downsample layer scanning: only compute every SUPPORT_DOWNSAMPLE-th
-    # layer.  Height map uses the sampled layers; clearance uses nearest
-    # cached slice.  Cuts model slice calls by SUPPORT_DOWNSAMPLE×.
-    step = max(1, SUPPORT_DOWNSAMPLE)
-    sampled_layers = list(range(0, N_SLICES, step))
-    # Always include the last layer for accurate height map
+    # ── Pass 1: scan model at reduced resolution ──
+    print(f"  Pass 1: scanning model ...", flush=True)
+    t0 = time.time()
+
+    sampled_layers = list(range(0, N_SLICES, scan_step))
     if sampled_layers[-1] != N_SLICES - 1:
         sampled_layers.append(N_SLICES - 1)
 
-    print(f"  Pass 1: scanning model ({len(sampled_layers)}/{N_SLICES} layers, "
-          f"step={step}) ...", flush=True)
-    t0 = time.time()
-
-    height_map = np.full((H, W), -1, dtype=np.int32)
-    model_cache = {}  # layer → bool mask (only sampled layers)
+    # Height map at scan resolution
+    height_map_scan = np.full((scan_H, scan_W), -1, dtype=np.int32)
+    # Cache model slices at scan resolution for clearance
+    model_cache_scan = {}
 
     for i, layer in enumerate(sampled_layers):
-        solid = make_slice(layer) > 0
-        model_cache[layer] = solid
-        height_map[solid] = layer
+        full_slice = make_slice(layer)
+        # Downsample: take every sc-th pixel, any solid in the block → solid
+        if sc > 1:
+            # Pad to exact multiple of sc
+            ph = ((H + sc - 1) // sc) * sc
+            pw = ((W + sc - 1) // sc) * sc
+            padded = np.zeros((ph, pw), dtype=np.uint8)
+            padded[:H, :W] = full_slice
+            # Reshape and max-pool
+            ds = padded.reshape(scan_H, sc, scan_W, sc).max(axis=(1, 3))
+            solid = ds > 0
+        else:
+            solid = full_slice > 0
 
-        if (i + 1) % 100 == 0 or i + 1 == len(sampled_layers):
+        model_cache_scan[layer] = solid
+        height_map_scan[solid] = layer
+
+        if (i + 1) % 50 == 0 or i + 1 == len(sampled_layers):
             elapsed = time.time() - t0
             print(f"    {i+1}/{len(sampled_layers)} sampled  [{elapsed:.1f}s]",
                   flush=True)
 
-    max_model_layer = int(height_map.max())
+    max_model_layer = int(height_map_scan.max())
     if max_model_layer < 0:
         print("  No model geometry found.")
         return []
 
-    # Build sorted list of cached layer indices for nearest-neighbor lookup
-    cached_layers = np.array(sorted(model_cache.keys()), dtype=np.int32)
+    # Upsample height map to full resolution (nearest neighbor)
+    height_map = height_map_scan.repeat(sc, axis=0).repeat(sc, axis=1)[:H, :W]
 
-    def _nearest_model_slice(layer):
-        """Return the cached model slice nearest to the given layer."""
+    # Build nearest-layer lookup for clearance
+    cached_layers = np.array(sorted(model_cache_scan.keys()), dtype=np.int32)
+
+    def _nearest_scan_slice(layer):
         idx = np.searchsorted(cached_layers, layer)
         if idx >= len(cached_layers):
-            return model_cache[int(cached_layers[-1])]
+            return model_cache_scan[int(cached_layers[-1])]
         if idx == 0:
-            return model_cache[int(cached_layers[0])]
-        # Pick closer of the two neighbors
+            return model_cache_scan[int(cached_layers[0])]
         if layer - cached_layers[idx - 1] <= cached_layers[idx] - layer:
-            return model_cache[int(cached_layers[idx - 1])]
-        return model_cache[int(cached_layers[idx])]
+            return model_cache_scan[int(cached_layers[idx - 1])]
+        return model_cache_scan[int(cached_layers[idx])]
 
     print(f"  Height map: max layer {max_model_layer}, "
-          f"{(height_map >= 0).sum():,} solid pixels", flush=True)
+          f"scan res {scan_W}×{scan_H}", flush=True)
 
-    sx, sz, _, _ = _tpms_init(W, H)
-
-    # ── Pass 2: generate lattice, subtract clearance ──
-    # Only generate supports at or above the build plate (y >= 0)
+    # ── Pre-compute exclusion masks at full resolution ──
+    # Build per-layer exclusion from scan-res model, then upsample + dilate
     plate_layer = max(0, int(round(-offset_y_mm / LY_MM)))
-    print(f"  Pass 2: lattice + subtraction (layers {plate_layer}..{max_model_layer}) ...",
+    layers_to_process = [l for l in range(plate_layer, max_model_layer + 1)
+                         if (l < height_map).any()]
+
+    print(f"  Building exclusion masks ({len(layers_to_process)} layers) ...",
           flush=True)
     t1 = time.time()
 
-    support_slices = {}
-    n_layers_with_support = 0
-
-    for layer in range(plate_layer, max_model_layer + 1):
-        # Height-map cull: only keep lattice below model surface
-        below_model = layer < height_map
-        if not below_model.any():
-            continue
-
-        # Generate TPMS lattice
-        lattice = _tpms_lidinoid(layer, sx, sz)
-
-        # Mask to only below model
-        lattice[~below_model] = 0
-
-        # Build exclusion zone from cached model slices in vertical window
+    exclusion_masks = {}
+    for layer in layers_to_process:
         lo = max(0, layer - CLEARANCE_LAYERS)
         hi = min(N_SLICES, layer + CLEARANCE_LAYERS + 1)
-        exclusion = np.zeros((H, W), dtype=bool)
+        excl_scan = np.zeros((scan_H, scan_W), dtype=bool)
         for l in range(lo, hi):
-            exclusion |= _nearest_model_slice(l)
+            excl_scan |= _nearest_scan_slice(l)
 
-        # Dilate XZ
-        if clearance_r_x > 0 or clearance_r_z > 0:
-            exclusion = _dilate_mask(exclusion, clearance_r_x, clearance_r_z)
+        if scan_cl_x > 0 or scan_cl_z > 0:
+            excl_scan = _dilate_mask(excl_scan, scan_cl_x, scan_cl_z)
 
-        # Subtract
-        lattice[exclusion] = 0
+        # Upsample to full resolution
+        excl_full = excl_scan.repeat(sc, axis=0).repeat(sc, axis=1)[:H, :W]
+        # Fine-tune dilation at full res for remaining sub-block clearance
+        remainder_x = clearance_r_x - scan_cl_x * sc
+        remainder_z = clearance_r_z - scan_cl_z * sc
+        if remainder_x > 0 or remainder_z > 0:
+            excl_full = _dilate_mask(excl_full, max(0, remainder_x),
+                                     max(0, remainder_z))
 
-        if lattice.any():
-            support_slices[layer] = lattice
-            n_layers_with_support += 1
+        exclusion_masks[layer] = excl_full
 
-        if (layer + 1) % 200 == 0 or layer + 1 == max_model_layer + 1:
-            elapsed = time.time() - t1
-            print(f"    {layer+1}/{max_model_layer+1}  "
-                  f"({n_layers_with_support} support layers)  "
-                  f"[{elapsed:.1f}s]", flush=True)
+    elapsed1 = time.time() - t1
+    print(f"  Exclusion masks: {elapsed1:.1f}s", flush=True)
+
+    del model_cache_scan
+
+    # ── Pass 2: TPMS + subtraction (parallel) ──
+    print(f"  Pass 2: TPMS + subtraction ({N_WORKERS} workers) ...",
+          flush=True)
+    t2 = time.time()
+
+    work_items = [(layer, W, H, height_map, exclusion_masks.get(layer))
+                  for layer in layers_to_process]
+
+    support_slices = {}
+    n_done = 0
+
+    with Pool(N_WORKERS) as pool:
+        for layer, result in pool.imap_unordered(_process_layer, work_items):
+            if result is not None:
+                support_slices[layer] = result
+            n_done += 1
+            if n_done % 200 == 0 or n_done == len(work_items):
+                elapsed = time.time() - t2
+                print(f"    {n_done}/{len(work_items)}  "
+                      f"({len(support_slices)} support layers)  "
+                      f"[{elapsed:.1f}s]", flush=True)
+
+    del exclusion_masks
 
     if not support_slices:
-        del model_cache
         print("  No support material needed.")
         return []
 
+    elapsed2 = time.time() - t2
+    print(f"  Pass 2: {elapsed2:.1f}s", flush=True)
+
     # ── Pass 3A: plate-grounded flood fill ──
     print(f"  Pass 3: classifying support ...", flush=True)
-    t2 = time.time()
+    t3 = time.time()
 
     min_layer = min(support_slices.keys())
     max_layer = max(support_slices.keys())
 
     plate_connected = np.zeros((H, W), dtype=bool)
-    # Store per-layer: (image, plate_mask)
     layer_data = {}
 
     for layer in range(min_layer, max_layer + 1):
@@ -262,6 +289,11 @@ def generate_supports(make_slice, W, H, N_SLICES,
     # ── Pass 3B: model-grounded flood fill ──
     model_connected = np.zeros((H, W), dtype=bool)
 
+    # Rebuild a lightweight model presence check from the height map
+    # (we no longer have model_cache at this point)
+    # A pixel has model at layer L if L <= height_map[z, x]
+    # For clearance seeding, check if model exists within clearance window below
+
     for layer in range(min_layer, max_layer + 1):
         if layer not in layer_data:
             model_connected[:] = False
@@ -270,13 +302,13 @@ def generate_supports(make_slice, W, H, N_SLICES,
         img, plate_mask = layer_data[layer]
         support_mask = img > 0
 
-        nearby_model = np.zeros((H, W), dtype=bool)
-        for l in range(max(0, layer - CLEARANCE_LAYERS - 1), layer):
-            if l < N_SLICES:
-                nearby_model |= _nearest_model_slice(l)
-        if nearby_model.any() and (clearance_r_x > 0 or clearance_r_z > 0):
-            nearby_model = _dilate_mask(nearby_model, clearance_r_x + 1,
-                                        clearance_r_z + 1)
+        # Seed: support near model below — use height map as proxy
+        # Model exists at (z, x, l) if height_map[z, x] >= l
+        # Check if model is present within clearance window below this layer
+        check_lo = max(0, layer - CLEARANCE_LAYERS - 1)
+        nearby_model = height_map >= check_lo
+        # Further restrict: model must actually be BELOW this layer
+        nearby_model &= (height_map < layer + CLEARANCE_LAYERS + 1)
         on_model = support_mask & nearby_model
 
         layer_model_connected = support_mask & (model_connected | on_model)
@@ -289,55 +321,41 @@ def generate_supports(make_slice, W, H, N_SLICES,
 
         model_connected = layer_model_connected
 
-        # Classify: delete blue floaters, mark model-grounded
         floaters = support_mask & ~plate_mask
         model_grounded = floaters & layer_model_connected
         truly_floating = floaters & ~layer_model_connected
 
         out = img.copy()
-        out[truly_floating] = 0              # delete blue floaters
+        out[truly_floating] = 0
         out[model_grounded] = MODEL_GROUNDED_GRAY
         layer_data[layer] = out
 
-    del model_cache
-
-    # ── Pass 3C: measure model-grounded connected components ──
-    # Bottom-up flood fill through MODEL_GROUNDED_GRAY pixels only,
-    # tracking connected component volumes. Remove components below
-    # MIN_MODEL_GROUNDED_VOL_MM3.
+    # ── Pass 3C: volume-filter model-grounded components ──
     voxel_vol_mm3 = PX_MM * PZ_MM * LY_MM
     min_voxels = max(1, int(round(MIN_MODEL_GROUNDED_VOL_MM3 / voxel_vol_mm3)))
 
-    # Assign component IDs via bottom-up sweep with union-find
     class _UF:
-        """Minimal union-find for integer labels."""
         def __init__(self):
             self.parent = {}
             self.size = {}
-
         def make(self, x):
             self.parent[x] = x
             self.size[x] = 0
-
         def find(self, x):
             while self.parent[x] != x:
                 self.parent[x] = self.parent[self.parent[x]]
                 x = self.parent[x]
             return x
-
         def union(self, a, b):
             a, b = self.find(a), self.find(b)
-            if a == b:
-                return a
-            if self.size[a] < self.size[b]:
-                a, b = b, a
+            if a == b: return a
+            if self.size[a] < self.size[b]: a, b = b, a
             self.parent[b] = a
             self.size[a] += self.size[b]
             return a
 
     uf = _UF()
     next_id = 1
-    # label_map[layer] = int32 (H, W) of component IDs (0 = not model-grounded)
     label_maps = {}
     prev_labels = np.zeros((H, W), dtype=np.int32)
 
@@ -354,12 +372,9 @@ def generate_supports(make_slice, W, H, N_SLICES,
             continue
 
         labels = np.zeros((H, W), dtype=np.int32)
-
-        # Seed from below: inherit labels from previous layer
         inherit = mg_mask & (prev_labels > 0)
         labels[inherit] = prev_labels[inherit]
 
-        # Assign new labels to unlabeled model-grounded pixels
         unlabeled = mg_mask & (labels == 0)
         zs, xs = np.nonzero(unlabeled)
         for z, x in zip(zs.tolist(), xs.tolist()):
@@ -367,8 +382,6 @@ def generate_supports(make_slice, W, H, N_SLICES,
             uf.make(next_id)
             next_id += 1
 
-        # Propagate horizontally: merge adjacent labels
-        # Check 4-connected neighbors
         for dz, dx in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
             sz = slice(max(0, dz), H + min(0, dz))
             sx_s = slice(max(0, dx), W + min(0, dx))
@@ -381,14 +394,12 @@ def generate_supports(make_slice, W, H, N_SLICES,
                 for a, b in zip(here[both].tolist(), there[both].tolist()):
                     uf.union(a, b)
 
-        # Resolve labels to roots
         unique_labels = np.unique(labels[labels > 0])
         remap = {int(l): uf.find(int(l)) for l in unique_labels}
         for old, new in remap.items():
             if old != new:
                 labels[labels == old] = new
 
-        # Count voxels per component
         for l in np.unique(labels[labels > 0]).tolist():
             root = uf.find(l)
             uf.size[root] = uf.size.get(root, 0) + int((labels == l).sum())
@@ -396,13 +407,11 @@ def generate_supports(make_slice, W, H, N_SLICES,
         label_maps[layer] = labels
         prev_labels = labels
 
-    # Determine which components survive the volume threshold
     surviving_roots = set()
     for root, vol in uf.size.items():
         if vol >= min_voxels:
             surviving_roots.add(uf.find(root))
 
-    # Apply: delete small model-grounded components
     n_deleted = 0
     n_kept = 0
     for layer in range(min_layer, max_layer + 1):
@@ -413,12 +422,10 @@ def generate_supports(make_slice, W, H, N_SLICES,
             labels = label_maps[layer]
             mg_mask = img == MODEL_GROUNDED_GRAY
             if mg_mask.any():
-                # Resolve to roots and check survival
                 keep = np.zeros((H, W), dtype=bool)
                 for l in np.unique(labels[mg_mask]).tolist():
                     if l > 0 and uf.find(l) in surviving_roots:
                         keep |= (labels == l)
-
                 delete = mg_mask & ~keep
                 n_deleted += int(delete.sum())
                 n_kept += int(keep.sum())
@@ -427,19 +434,17 @@ def generate_supports(make_slice, W, H, N_SLICES,
                     img[delete] = 0
                     layer_data[layer] = img
 
-        # Commit to support_slices
         support_slices[layer] = layer_data[layer]
 
     del label_maps
 
-    elapsed2 = time.time() - t2
+    elapsed3 = time.time() - t3
     print(f"  Model-grounded: {n_kept:,} kept, {n_deleted:,} removed "
           f"(min {MIN_MODEL_GROUNDED_VOL_MM3}mm³ = {min_voxels} voxels)",
           flush=True)
-    print(f"  Pass 3: {elapsed2:.1f}s", flush=True)
+    print(f"  Pass 3: {elapsed3:.1f}s", flush=True)
 
     # ── Build piece ──
-    # Remove empty layers
     for layer in list(support_slices.keys()):
         if not (support_slices[layer] > 0).any():
             del support_slices[layer]
@@ -468,14 +473,13 @@ def generate_supports(make_slice, W, H, N_SLICES,
     print(f"  Done: {len(local_slices)} layers, "
           f"~{total_voxels:,} support voxels, {elapsed:.1f}s total", flush=True)
 
-    piece = dict(
+    return [dict(
         W=W, H=H, N_SLICES=n_slices,
         OFFSET_X_MM=offset_x_mm,
         OFFSET_Y_MM=piece_offset_y,
         OFFSET_Z_MM=offset_z_mm,
         make_slice=make_support_slice,
-    )
-    return [piece]
+    )]
 
 
 # ── Standalone entry point ──────────────────────────────────────────
