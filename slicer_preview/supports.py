@@ -4,10 +4,9 @@ Fills the model bounding box with a regular lattice, then subtracts
 a clearance shell around the model so supports don't fuse to the part.
 
 Algorithm:
-  1. Generate a lattice filling the model's bounding box
-  2. For each layer, compute the model slice and dilate it by a clearance
-     margin to create an exclusion zone
-  3. Subtract the exclusion zone from the lattice
+  1. Pre-scan model to build a height map (max solid layer per pixel)
+  2. Generate lattice only below the model surface at each XZ position
+  3. Subtract a dilated clearance shell around the model
   4. Output the remaining lattice as a support piece
 
 Usage (standalone — re-encodes _slices.bin with supports included):
@@ -27,23 +26,19 @@ from printer import PX_MM, PZ_MM, LY_MM, PIXEL_X_UM, PIXEL_Y_UM, LAYER_UM, PLATE
 
 # ── Support Parameters ──────────────────────────────────────────────
 SUPPORT_GRAY = 128            # grayscale value (viewer renders as teal)
-CLEARANCE_LAYERS = 2          # layers of gap between support and model
-CLEARANCE_XZ_MM = 0.5         # lateral clearance around model surfaces
+CLEARANCE_LAYERS = 1          # layers of gap between support and model
+CLEARANCE_XZ_MM = 0.2         # lateral clearance around model surfaces
 LATTICE_SPACING_MM = 3.0      # distance between lattice struts
 STRUT_THICKNESS_MM = 0.4      # strut cross-section diameter
-TIE_SPACING_LAYERS = None     # computed: horizontal ties every N layers
 TIE_SPACING_MM = 3.0          # vertical distance between horizontal ties
 
 
 # ── Lattice generation ──────────────────────────────────────────────
 
-def _make_lattice_slice_fn(W, H, N_SLICES):
-    """Build a diamond/grid lattice filling a W×H×N_SLICES volume.
+def _precompute_lattice_masks(W, H):
+    """Precompute the three lattice mask components.
 
-    Returns a callable  make_lattice(layer) → uint8 (H, W)
-    that generates the lattice pattern for each layer.
-
-    Pattern: vertical columns on a grid + diagonal ties between them.
+    Returns (vert_mask, tie_mask, spacing_px_x, spacing_px_z, tie_layers).
     """
     spacing_px_x = max(2, int(round(LATTICE_SPACING_MM / PX_MM)))
     spacing_px_z = max(2, int(round(LATTICE_SPACING_MM / PZ_MM)))
@@ -51,84 +46,70 @@ def _make_lattice_slice_fn(W, H, N_SLICES):
     strut_r_z = max(1, int(round(STRUT_THICKNESS_MM / 2 / PZ_MM)))
     tie_layers = max(2, int(round(TIE_SPACING_MM / LY_MM)))
 
-    # Precompute column positions
     col_xs = np.arange(0, W, spacing_px_x)
     col_zs = np.arange(0, H, spacing_px_z)
 
-    # Vertical columns mask (same every layer)
+    # Vertical columns
     vert_mask = np.zeros((H, W), dtype=bool)
     for cx in col_xs:
-        x0 = max(0, cx - strut_r_x)
-        x1 = min(W, cx + strut_r_x + 1)
+        x0, x1 = max(0, cx - strut_r_x), min(W, cx + strut_r_x + 1)
         for cz in col_zs:
-            z0 = max(0, cz - strut_r_z)
-            z1 = min(H, cz + strut_r_z + 1)
+            z0, z1 = max(0, cz - strut_r_z), min(H, cz + strut_r_z + 1)
             vert_mask[z0:z1, x0:x1] = True
 
-    # Horizontal tie layers: struts along X at each col_z, and along Z at each col_x
-    def _tie_mask():
-        mask = np.zeros((H, W), dtype=bool)
-        # X-direction ties (horizontal bars at each Z column position)
-        for cz in col_zs:
-            z0 = max(0, cz - strut_r_z)
-            z1 = min(H, cz + strut_r_z + 1)
-            mask[z0:z1, :] = True
-        # Z-direction ties (horizontal bars at each X column position)
-        for cx in col_xs:
-            x0 = max(0, cx - strut_r_x)
-            x1 = min(W, cx + strut_r_x + 1)
-            mask[:, x0:x1] = True
-        return mask
+    # Horizontal ties
+    tie_mask = np.zeros((H, W), dtype=bool)
+    for cz in col_zs:
+        z0, z1 = max(0, cz - strut_r_z), min(H, cz + strut_r_z + 1)
+        tie_mask[z0:z1, :] = True
+    for cx in col_xs:
+        x0, x1 = max(0, cx - strut_r_x), min(W, cx + strut_r_x + 1)
+        tie_mask[:, x0:x1] = True
 
-    tie_mask = _tie_mask()
+    return vert_mask, tie_mask, spacing_px_x, spacing_px_z, strut_r_z, tie_layers
 
-    # Diagonal ties: connect adjacent columns with X-shaped bracing
-    # Diagonals shift position linearly with layer within each tie_layers period
-    def make_lattice(layer):
-        img = np.zeros((H, W), dtype=np.uint8)
 
-        # Vertical columns — always present
-        img[vert_mask] = SUPPORT_GRAY
+def _lattice_for_layer(layer, vert_mask, tie_mask,
+                       spacing_px_x, spacing_px_z, strut_r_z, tie_layers):
+    """Generate lattice pattern for a single layer (no allocation of new masks)."""
+    H, W = vert_mask.shape
+    img = np.zeros((H, W), dtype=np.uint8)
 
-        # Horizontal ties at regular intervals
-        phase = layer % tie_layers
-        if phase < max(1, strut_r_z):
-            img[tie_mask] = SUPPORT_GRAY
+    # Vertical columns
+    img[vert_mask] = SUPPORT_GRAY
 
-        # Diagonal bracing between tie layers
-        # Shift columns by a fraction of spacing per layer to create diagonals
-        period = tie_layers
-        t = (layer % period) / period  # 0..1 within period
-        if layer % (period * 2) >= period:
-            t = 1.0 - t  # zigzag
+    # Horizontal ties at regular intervals
+    if layer % tie_layers < max(1, strut_r_z):
+        img[tie_mask] = SUPPORT_GRAY
 
-        shift_x = int(round(t * spacing_px_x))
-        shift_z = int(round(t * spacing_px_z))
+    # Diagonal bracing — zigzag shift of columns
+    period = tie_layers
+    t = (layer % period) / period
+    if layer % (period * 2) >= period:
+        t = 1.0 - t
 
-        if shift_x != 0 or shift_z != 0:
-            shifted = np.roll(np.roll(vert_mask, shift_x, axis=1),
-                              shift_z, axis=0)
-            img[shifted] = SUPPORT_GRAY
+    shift_x = int(round(t * spacing_px_x))
+    shift_z = int(round(t * spacing_px_z))
+    if shift_x != 0 or shift_z != 0:
+        shifted = np.roll(vert_mask, shift_x, axis=1)
+        if shift_z != 0:
+            shifted = np.roll(shifted, shift_z, axis=0)
+        img[shifted] = SUPPORT_GRAY
 
-        return img
-
-    return make_lattice
+    return img
 
 
 # ── Clearance dilation ──────────────────────────────────────────────
 
 def _dilate_mask(mask, r_x, r_z):
-    """Fast approximate dilation using separable box filters."""
+    """Fast dilation using separable shifts."""
     if r_x == 0 and r_z == 0:
         return mask
-
     out = mask.copy()
-    # Dilate along X
     if r_x > 0:
         for dx in range(1, r_x + 1):
             out[:, dx:] |= mask[:, :-dx]
             out[:, :-dx] |= mask[:, dx:]
-    # Dilate along Z
     if r_z > 0:
         tmp = out.copy()
         for dz in range(1, r_z + 1):
@@ -141,72 +122,91 @@ def _dilate_mask(mask, r_x, r_z):
 
 def generate_supports(make_slice, W, H, N_SLICES,
                       offset_x_mm, offset_y_mm, offset_z_mm):
-    """Generate lattice supports with model clearance subtraction.
+    """Generate lattice supports with model clearance subtraction."""
 
-    Returns list of piece dicts.
-    """
-    clearance_r_x = max(1, int(round(CLEARANCE_XZ_MM / PX_MM)))
-    clearance_r_z = max(1, int(round(CLEARANCE_XZ_MM / PZ_MM)))
-    make_lattice = _make_lattice_slice_fn(W, H, N_SLICES)
+    clearance_r_x = max(0, int(round(CLEARANCE_XZ_MM / PX_MM)))
+    clearance_r_z = max(0, int(round(CLEARANCE_XZ_MM / PZ_MM)))
 
     print(f"  Lattice: {LATTICE_SPACING_MM}mm spacing, "
           f"{STRUT_THICKNESS_MM}mm struts", flush=True)
-    print(f"  Clearance: {CLEARANCE_XZ_MM}mm XZ, "
-          f"{CLEARANCE_LAYERS} layers vertical", flush=True)
+    print(f"  Clearance: {CLEARANCE_XZ_MM}mm XZ ({clearance_r_x}/{clearance_r_z} px), "
+          f"{CLEARANCE_LAYERS} layer(s) vertical", flush=True)
 
-    # We need model slices offset by CLEARANCE_LAYERS above and below
-    # to carve out the vertical clearance.  Cache a sliding window.
-    # exclusion[layer] = dilated union of model slices in
-    #   [layer - CLEARANCE_LAYERS, layer + CLEARANCE_LAYERS]
-    #
-    # Process layer by layer, maintaining a ring buffer of model slices.
-
-    window = 2 * CLEARANCE_LAYERS + 1
-    model_cache = {}  # layer → bool mask (only keep what's in the window)
-
-    # Precompute the support slices layer by layer
-    support_slices = {}
-
-    print(f"  Subtracting model from lattice ({N_SLICES} layers) ...",
-          flush=True)
+    # ── Pass 1: scan model, build height map + cache slices ──
+    print(f"  Pass 1: scanning model ({N_SLICES} layers) ...", flush=True)
     t0 = time.time()
 
+    height_map = np.full((H, W), -1, dtype=np.int32)  # max solid layer per pixel
+    model_slices = []  # list of bool arrays, indexed by layer
+
     for layer in range(N_SLICES):
-        # Load model slices into cache for the window
-        for l in range(max(0, layer - CLEARANCE_LAYERS),
-                       min(N_SLICES, layer + CLEARANCE_LAYERS + 1)):
-            if l not in model_cache:
-                model_cache[l] = make_slice(l) > 0
-
-        # Evict old entries outside the window
-        evict_below = layer - CLEARANCE_LAYERS - 1
-        if evict_below in model_cache:
-            del model_cache[evict_below]
-
-        # Build exclusion zone: union of model in vertical window, then dilate XZ
-        exclusion = np.zeros((H, W), dtype=bool)
-        for l in range(max(0, layer - CLEARANCE_LAYERS),
-                       min(N_SLICES, layer + CLEARANCE_LAYERS + 1)):
-            exclusion |= model_cache[l]
-
-        exclusion = _dilate_mask(exclusion, clearance_r_x, clearance_r_z)
-
-        # Generate lattice and subtract exclusion
-        lattice = make_lattice(layer)
-        lattice[exclusion] = 0
-
-        # Only store non-empty layers
-        if lattice.any():
-            support_slices[layer] = lattice
+        solid = make_slice(layer) > 0
+        model_slices.append(solid)
+        height_map[solid] = layer
 
         if (layer + 1) % 200 == 0 or layer + 1 == N_SLICES:
             elapsed = time.time() - t0
-            print(f"    {layer+1}/{N_SLICES}  "
-                  f"({len(support_slices)} non-empty support layers)  "
+            print(f"    {layer+1}/{N_SLICES}  [{elapsed:.1f}s]", flush=True)
+
+    max_model_layer = int(height_map.max())
+    if max_model_layer < 0:
+        print("  No model geometry found.")
+        return []
+
+    print(f"  Height map: max layer {max_model_layer}, "
+          f"{(height_map >= 0).sum():,} solid pixels", flush=True)
+
+    # ── Pass 2: generate lattice, subtract clearance ──
+    print(f"  Pass 2: lattice + subtraction ...", flush=True)
+    t1 = time.time()
+
+    vert_mask, tie_mask, sp_x, sp_z, sr_z, tie_ly = _precompute_lattice_masks(W, H)
+
+    support_slices = {}
+    n_layers_with_support = 0
+
+    for layer in range(max_model_layer + 1):
+        # Height-map cull: only keep lattice below model surface
+        below_model = layer < height_map
+        if not below_model.any():
+            continue
+
+        # Generate lattice
+        lattice = _lattice_for_layer(layer, vert_mask, tie_mask,
+                                     sp_x, sp_z, sr_z, tie_ly)
+
+        # Mask to only below model
+        lattice[~below_model] = 0
+
+        # Build exclusion zone from model slices in vertical window
+        lo = max(0, layer - CLEARANCE_LAYERS)
+        hi = min(N_SLICES, layer + CLEARANCE_LAYERS + 1)
+        exclusion = np.zeros((H, W), dtype=bool)
+        for l in range(lo, hi):
+            exclusion |= model_slices[l]
+
+        # Dilate XZ
+        if clearance_r_x > 0 or clearance_r_z > 0:
+            exclusion = _dilate_mask(exclusion, clearance_r_x, clearance_r_z)
+
+        # Subtract
+        lattice[exclusion] = 0
+
+        if lattice.any():
+            support_slices[layer] = lattice
+            n_layers_with_support += 1
+
+        if (layer + 1) % 200 == 0 or layer + 1 == max_model_layer + 1:
+            elapsed = time.time() - t1
+            print(f"    {layer+1}/{max_model_layer+1}  "
+                  f"({n_layers_with_support} support layers)  "
                   f"[{elapsed:.1f}s]", flush=True)
 
+    # Free model slice cache
+    del model_slices
+
     if not support_slices:
-        print("  No support material needed (model fills lattice everywhere).")
+        print("  No support material needed.")
         return []
 
     min_layer = min(support_slices.keys())
@@ -214,20 +214,20 @@ def generate_supports(make_slice, W, H, N_SLICES,
     n_slices = max_layer - min_layer + 1
     piece_offset_y = offset_y_mm + min_layer * LY_MM
 
-    # Build the piece
     local_slices = {}
     for layer, img in support_slices.items():
         local_slices[layer - min_layer] = img
+    del support_slices
 
     empty = np.zeros((H, W), dtype=np.uint8)
 
     def make_support_slice(layer, _s=local_slices, _e=empty):
         return _s.get(layer, _e)
 
-    total_voxels = sum(int(img.astype(bool).sum()) for img in support_slices.values())
+    total_voxels = sum(int((img > 0).sum()) for img in local_slices.values())
     elapsed = time.time() - t0
-    print(f"  Support lattice: {len(support_slices)} layers, "
-          f"~{total_voxels:,} voxels, {elapsed:.1f}s", flush=True)
+    print(f"  Done: {n_layers_with_support} layers, "
+          f"~{total_voxels:,} support voxels, {elapsed:.1f}s total", flush=True)
 
     piece = dict(
         W=W, H=H, N_SLICES=n_slices,
