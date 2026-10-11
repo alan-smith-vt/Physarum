@@ -1,12 +1,16 @@
-"""Convert generated slices → .goo file using original.goo as template.
+"""Build a design at full printer resolution → out/<design>.goo.
 
-Reads the original's header (preview images, printer config, print settings)
-and replaces all layer image data with our generated lattice slices.
+Usage:  python to_goo.py <design>        (designs/<design>.py)
 
-Patches printer module to real resolution before importing geometry/generate
-so all pieces are built at full printer resolution.
+Uses the Siraya test-model .goo as a template: its header (preview images,
+printer config, print settings incl. bottom-layer exposure) is kept and all
+layer image data is replaced. Only layer height and normal exposure are
+overridden below. Base/bottom exposure is deliberately left at the template's
+value — the Julia print's custom 30 s base fused it to the plate.
 
-Uses multiprocessing to slice layers in parallel.
+Patches printer module to real resolution before importing any design so
+all pieces are built at full printer resolution. Layers are sliced in
+parallel; each worker builds the design once in its initializer.
 """
 import sys, struct, time, os
 import numpy as np
@@ -27,10 +31,10 @@ printer.LY_MM = printer.LAYER_UM / 1000
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'chromosome'))
 from goo_punch_hole_v2 import parse_goo
-from generate import make_global_slice, W, H, N_SLICES
+from compose import load_design, compute_bounds, make_global_slice
 
 TEMPLATE = Path(__file__).parent.parent / 'Siraya Tech Test Model 2021 v5.STL_0.05_2_2026_03_28_20_51_00.goo'
-OUTPUT   = Path(__file__).parent / 'full_box.goo'
+OUT_DIR  = Path(__file__).parent / 'out'
 
 NUM_LAYERS_OFFSET = 195310
 
@@ -125,15 +129,38 @@ def goo_encode_placed(img, x0, y0, plate_w, plate_h):
     return bytes(rle)
 
 
+_pieces, _bounds = None, None
+
+
+def _build(name):
+    design = load_design(name)
+    if getattr(design, 'SUPPORTS', False):
+        raise NotImplementedError(
+            "Full-res supports aren't wired into to_goo yet — see "
+            "archive/julia/to_goo_julia.py for the memmap/checkpoint approach.")
+    pieces = list(design.PIECES)
+    return pieces, compute_bounds(pieces)
+
+
+def _init_worker(name):
+    global _pieces, _bounds
+    _pieces, _bounds = _build(name)
+
+
 def _process_layer(args):
     """Worker function: slice one layer and RLE-encode it."""
     z, x0, y0, W_goo, H_goo = args
-    img = make_global_slice(z)
+    img = make_global_slice(_pieces, _bounds, z)
     rle = goo_encode_placed(img, x0, y0, W_goo, H_goo)
     return z, rle
 
 
-def main():
+def main(name):
+    pieces, bounds = _build(name)
+    W, H, N_SLICES = bounds[3:]
+    OUT_DIR.mkdir(exist_ok=True)
+    OUTPUT = OUT_DIR / f'{name}.goo'
+
     print(f"Reading template: {TEMPLATE}")
     data = TEMPLATE.read_bytes()
     header_bytes, orig_layers, footer, W_goo, H_goo = parse_goo(data)
@@ -154,7 +181,7 @@ def main():
     results = {}
     args = [(z, x0, y0, W_goo, H_goo) for z in range(N_SLICES)]
 
-    with Pool(n_workers) as pool:
+    with Pool(n_workers, initializer=_init_worker, initargs=(name,)) as pool:
         for z, rle in pool.imap_unordered(_process_layer, args):
             results[z] = rle
             done = len(results)
@@ -200,4 +227,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) != 2:
+        sys.exit(__doc__)
+    main(sys.argv[1])

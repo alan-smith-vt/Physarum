@@ -17,3 +17,7 @@ slicer_preview/_meta.json
 *.bin
 *.stl
 *.ply
+
+# Archived build outputs (local only)
+archive/intermediate/
+slicer_preview/out/

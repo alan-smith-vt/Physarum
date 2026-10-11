@@ -14,7 +14,7 @@ Architecture for full-resolution support:
 Checkpoints are saved after each major pass so that a crash can
 resume without re-doing completed work.
 
-Usage (standalone):  cd slicer_preview && python supports.py
+Usage (standalone):  cd slicer_preview && python supports.py <design>
 Usage (importable):  from supports import generate_supports
 """
 import sys, os, struct, json, time
@@ -763,66 +763,28 @@ def generate_supports(make_slice, W, H, N_SLICES,
 
 # ── Standalone entry point ──────────────────────────────────────────
 
-def main():
-    from generate import (make_global_slice, W, H, N_SLICES,
-                          OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM,
-                          PIECES, _compute_globals)
+def main(name):
+    """Preview a design with supports forced on: python supports.py <design>"""
+    from compose import load_design, compute_bounds, add_supports, write_preview
 
-    SLICES_FILE = os.path.join(SCRIPT_DIR, '_slices.bin')
-    META_FILE = os.path.join(SCRIPT_DIR, '_meta.json')
+    pieces = list(load_design(name).PIECES)
+    ox, oy, oz, W, H, N = compute_bounds(pieces)
 
     print("=" * 60)
     print("Lattice Support Generator")
     print("=" * 60)
-    print(f"Model: {W}×{H} px, {N_SLICES} layers")
+    print(f"Model: {W}×{H} px, {N} layers")
     print(f"Pixel pitch: {PX_MM:.4f} × {PZ_MM:.4f} mm, layer: {LY_MM:.4f} mm")
     print()
 
     t0 = time.time()
-    support_pieces = generate_supports(
-        make_global_slice, W, H, N_SLICES,
-        OFFSET_X_MM, OFFSET_Y_MM, OFFSET_Z_MM)
-
-    if not support_pieces:
-        print("Nothing to do.")
-        return
-
-    PIECES.extend(support_pieces)
-    new_ox, new_oy, new_oz, new_W, new_H, new_N = _compute_globals(PIECES)
-
-    import generate as gen
-    gen.OFFSET_X_MM = new_ox
-    gen.OFFSET_Y_MM = new_oy
-    gen.OFFSET_Z_MM = new_oz
-    gen.W = new_W
-    gen.H = new_H
-    gen.N_SLICES = new_N
-
-    print()
-    print(f"Encoding {len(PIECES)} pieces (model + supports) ...")
-    blob = gen.encode_all()
-
-    with open(SLICES_FILE, 'wb') as f:
-        f.write(blob)
-
-    meta = {
-        "width": new_W, "height": new_H, "num_slices": new_N,
-        "pixel_x_um": PIXEL_X_UM, "pixel_y_um": PIXEL_Y_UM,
-        "layer_um": LAYER_UM,
-        "plate_w_mm": PLATE_W_PX * 14.0 / 1000,
-        "plate_h_mm": PLATE_H_PX * 19.0 / 1000,
-        "offset_x_mm": new_ox,
-        "offset_y_mm": new_oy,
-        "offset_z_mm": new_oz,
-    }
-    with open(META_FILE, 'w') as f:
-        json.dump(meta, f)
-
-    elapsed = time.time() - t0
-    sz = os.path.getsize(SLICES_FILE)
-    print(f"\nDone in {elapsed:.1f}s — {sz:,} bytes ({sz/1024/1024:.1f} MB)")
-    print(f"Output: {SLICES_FILE}")
+    bounds = add_supports(pieces)
+    print(f"\nEncoding {len(pieces)} pieces (model + supports) ...")
+    blob = write_preview(pieces, bounds)
+    print(f"\nDone in {time.time() - t0:.1f}s — {len(blob):,} bytes ({len(blob)/1024/1024:.1f} MB)")
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) != 2:
+        sys.exit('Usage: python supports.py <design>')
+    main(sys.argv[1])
