@@ -20,6 +20,9 @@ from multiprocessing import Pool
 import printer
 GOO_LAYER_UM = 50.0
 GOO_EXPOSURE_S = 2.3
+GOO_BASE_EXPOSURE_S = 30.0
+GOO_BASE_LAYERS = 20          # 1mm solid raft at base exposure
+GOO_TRANSITION_LAYERS = 10    # gradual ramp from base to normal exposure
 printer.PREVIEW_SCALE = 1
 printer.PIXEL_X_UM = printer.REAL_PIXEL_X_UM
 printer.PIXEL_Y_UM = printer.REAL_PIXEL_Y_UM
@@ -273,8 +276,20 @@ def main():
         print("All layers already computed!", flush=True)
     else:
         # ── Multiprocess encode ──
-        n_workers = max(1, min(8, (os.cpu_count() or 4) - 2))
-        print(f"Encoding {len(remaining)} layers with {n_workers} workers",
+        # Each worker holds ~15 float64 arrays of (W×H) during Julia evaluation
+        worker_gb = 15 * W * H * 8 / 1e9
+        try:
+            import ctypes
+            memstat = ctypes.c_ulonglong()
+            ctypes.windll.kernel32.GetPhysicallyInstalledSystemMemory(
+                ctypes.byref(memstat))
+            total_gb = memstat.value / (1024 * 1024)
+        except Exception:
+            total_gb = 32
+        max_by_mem = max(2, int(total_gb * 0.7 / worker_gb)) if worker_gb > 0.5 else 20
+        n_workers = max(1, min(20, (os.cpu_count() or 4) - 2, max_by_mem))
+        print(f"Encoding {len(remaining)} layers with {n_workers} workers "
+              f"(~{worker_gb:.1f} GB/worker, {total_gb:.0f} GB RAM)",
               flush=True)
 
         t0 = time.time()
@@ -312,8 +327,20 @@ def main():
         z_mm = (i + 1) * GOO_LAYER_UM / 1000.0  # layer heights start from 0
         struct.pack_into('>f', ldef, 2, z_mm)
         struct.pack_into('>f', ldef, 6, z_mm)
+        # Per-layer exposure: base → transition ramp → normal
+        if i < GOO_BASE_LAYERS:
+            layer_exp = GOO_BASE_EXPOSURE_S
+        elif i < GOO_BASE_LAYERS + GOO_TRANSITION_LAYERS:
+            t = (i - GOO_BASE_LAYERS) / GOO_TRANSITION_LAYERS
+            layer_exp = GOO_BASE_EXPOSURE_S + t * (GOO_EXPOSURE_S - GOO_BASE_EXPOSURE_S)
+        else:
+            layer_exp = GOO_EXPOSURE_S
+        struct.pack_into('>f', ldef, 10, layer_exp)
         struct.pack_into('>I', ldef, 66, len(rle))
         new_layers.append((bytes(ldef), rle))
+    print(f"  Base: {GOO_BASE_LAYERS} layers @ {GOO_BASE_EXPOSURE_S}s, "
+          f"transition: {GOO_TRANSITION_LAYERS} layers, "
+          f"normal: {GOO_EXPOSURE_S}s")
 
     header = bytearray(header_bytes)
     struct.pack_into('>I', header, NUM_LAYERS_OFFSET, goo_n_slices)
@@ -339,6 +366,10 @@ def main():
         os.unlink(sup_file)
     if CHECKPOINT.exists():
         os.unlink(CHECKPOINT)
+    # Clean up support generation checkpoints now that .goo is written
+    for sp in (support_pieces or []):
+        if 'cleanup' in sp:
+            sp['cleanup']()
 
 
 if __name__ == '__main__':

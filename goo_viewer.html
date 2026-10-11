@@ -598,7 +598,7 @@ async function buildStack(goo, ctrl) {
   const physH = (cropH / H) * bedH;
 
   // Stride: skip layers for performance if there are many
-  const maxLayers = 200;
+  const maxLayers = 1500;
   const stride = Math.max(1, Math.floor(layers.length / maxLayers));
   const selectedIndices = [];
   for (let i = 0; i < layers.length; i += stride) selectedIndices.push(i);
