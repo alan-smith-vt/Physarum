@@ -557,3 +557,58 @@ def bridge_struts_x(col_a_x, col_b_x, helix_r=2.0, filament_r=0.35, core_r=0.35,
         OFFSET_Z_MM=offset_z_mm - cz,
         make_slice=make_slice,
     )
+
+
+def tpms_block(size_x=10.0, size_y=10.0, size_z=10.0, period_mm=5.0, threshold=0.2):
+    """Rectangular block filled with a TPMS lattice (same field as supports.py).
+
+    Solid where |f| < threshold. Measured solid fraction for this field:
+    0.15 → 15%, 0.3 → 30%, 0.6 → 60%, 0.94 → 90%.
+    """
+    W = int(np.ceil(size_x / PX_MM))
+    H = int(np.ceil(size_z / PZ_MM))
+    N_SLICES = int(np.ceil(size_y / LY_MM))
+
+    k = 2.0 * np.pi / period_mm
+    sx = np.arange(W) * PX_MM * k
+    sz = np.arange(H) * PZ_MM * k
+    sin_x, cos_x, sin_2x = np.sin(sx), np.cos(sx), np.sin(2 * sx)
+    sin_z, cos_z, sin_2z = np.sin(sz), np.cos(sz), np.sin(2 * sz)
+
+    def make_slice(layer):
+        y = (layer + 0.5) * LY_MM * k
+        f = (sin_2x[None, :] * np.cos(y) * sin_z[:, None] +
+             np.sin(2 * y) * cos_z[:, None] * sin_x[None, :] +
+             sin_2z[:, None] * cos_x[None, :] * np.sin(y))
+        return (np.abs(f) < threshold).astype(np.uint8) * 255
+
+    return dict(
+        W=W, H=H, N_SLICES=N_SLICES,
+        OFFSET_X_MM=-size_x / 2,
+        OFFSET_Y_MM=0.0,
+        OFFSET_Z_MM=-size_z / 2,
+        make_slice=make_slice,
+    )
+
+
+def implicit_piece(size_x, size_y, size_z, solid_fn, x0=0.0, y0=0.0, z0=0.0):
+    """General piece from a solid test: solid_fn(x, y, z) → bool array.
+
+    x is (1, W), z is (H, 1) — local mm from the piece's corner — and y is a
+    scalar (mm, layer center). Piece occupies [x0, x0+size_x] × [y0, …] × [z0, …].
+    """
+    W = int(np.ceil(size_x / PX_MM))
+    H = int(np.ceil(size_z / PZ_MM))
+    N_SLICES = int(np.ceil(size_y / LY_MM))
+    x = ((np.arange(W) + 0.5) * PX_MM)[None, :]
+    z = ((np.arange(H) + 0.5) * PZ_MM)[:, None]
+
+    def make_slice(layer):
+        mask = np.broadcast_to(solid_fn(x, (layer + 0.5) * LY_MM, z), (H, W))
+        return mask.astype(np.uint8) * 255
+
+    return dict(
+        W=W, H=H, N_SLICES=N_SLICES,
+        OFFSET_X_MM=x0, OFFSET_Y_MM=y0, OFFSET_Z_MM=z0,
+        make_slice=make_slice,
+    )

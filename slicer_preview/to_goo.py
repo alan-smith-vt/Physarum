@@ -20,7 +20,7 @@ from multiprocessing import Pool
 # ── Patch printer to real resolution BEFORE importing geometry/generate ──
 import printer
 GOO_LAYER_UM = 50.0
-GOO_EXPOSURE_S = 2.3
+GOO_EXPOSURE_S = 2.3          # default; a design can override with EXPOSURE_S. Set Mar 2026 on an old, scratched film
 printer.PREVIEW_SCALE = 1
 printer.PIXEL_X_UM = printer.REAL_PIXEL_X_UM
 printer.PIXEL_Y_UM = printer.REAL_PIXEL_Y_UM
@@ -157,6 +157,9 @@ def _process_layer(args):
 
 def main(name):
     pieces, bounds = _build(name)
+    design = load_design(name)
+    exposure_s = getattr(design, 'EXPOSURE_S', GOO_EXPOSURE_S)
+    bottom_s = getattr(design, 'BOTTOM_EXPOSURE_S', None)   # None → template's profile
     W, H, N_SLICES = bounds[3:]
     OUT_DIR.mkdir(exist_ok=True)
     OUTPUT = OUT_DIR / f'{name}.goo'
@@ -166,9 +169,26 @@ def main(name):
     header_bytes, orig_layers, footer, W_goo, H_goo = parse_goo(data)
     print(f"Plate resolution: {W_goo} x {H_goo}")
 
-    template_def = bytearray(orig_layers[0][0])
+    # Per-layer defs carry their own exposure + lift settings. Reuse the
+    # template's bottom-layer defs (incl. its exposure ramp) as-is, then its
+    # last def for every normal layer with exposure overridden. (Pre-Oct 2026
+    # files copied layer 0 everywhere → 30 s per-layer exposure, which the
+    # printer evidently ignored in favour of the header.)
+    template_defs = [d for d, _ in orig_layers]
+    normal_exp = struct.unpack('>f', template_defs[-1][10:14])[0]
+    n_bottom = next(i for i, d in enumerate(template_defs)
+                    if struct.unpack('>f', d[10:14])[0] == normal_exp)
+    print(f"Template: {n_bottom} bottom layers, normal exposure {normal_exp:.2f} s → {exposure_s} s")
+    template_bottom = struct.unpack('>f', template_defs[0][10:14])[0]
+    bottom_scale = bottom_s / template_bottom if bottom_s else 1.0
+    if bottom_s:
+        print(f"Bottom exposure {template_bottom:.1f} s → {bottom_s} s (ramp scaled ×{bottom_scale:.2f})")
 
     # Center our pattern on the build plate
+    if W > W_goo or H > H_goo:
+        sys.exit(f"Pattern {W}x{H} px doesn't fit the {W_goo}x{H_goo} plate "
+                 f"({W * printer.REAL_PIXEL_X_UM / 1000:.1f} x {H * printer.REAL_PIXEL_Y_UM / 1000:.1f} mm "
+                 f"vs {W_goo * printer.REAL_PIXEL_X_UM / 1000:.1f} x {H_goo * printer.REAL_PIXEL_Y_UM / 1000:.1f})")
     x0 = (W_goo - W) // 2
     y0 = (H_goo - H) // 2
     print(f"Placing {W}x{H} pattern at ({x0}, {y0}) on {W_goo}x{H_goo} plate")
@@ -196,7 +216,13 @@ def main(name):
     new_layers = []
     for z in range(N_SLICES):
         rle = results[z]
-        ldef = bytearray(template_def)
+        if z < n_bottom:
+            ldef = bytearray(template_defs[z])
+            exp = struct.unpack('>f', ldef[10:14])[0] * bottom_scale
+            struct.pack_into('>f', ldef, 10, max(exp, exposure_s))
+        else:
+            ldef = bytearray(template_defs[-1])
+            struct.pack_into('>f', ldef, 10, exposure_s)
         z_mm = (z + 1) * GOO_LAYER_UM / 1000.0
         struct.pack_into('>f', ldef, 2, z_mm)
         struct.pack_into('>f', ldef, 6, z_mm)
@@ -211,7 +237,11 @@ def main(name):
     LAYER_HEIGHT_OFFSET = NUM_LAYERS_OFFSET + 4+2+2+1+1 + 4+4+4  # 22 bytes past layerCount
     struct.pack_into('>f', header, LAYER_HEIGHT_OFFSET, GOO_LAYER_UM / 1000.0)
     EXPOSURE_OFFSET = LAYER_HEIGHT_OFFSET + 4
-    struct.pack_into('>f', header, EXPOSURE_OFFSET, GOO_EXPOSURE_S)
+    struct.pack_into('>f', header, EXPOSURE_OFFSET, exposure_s)
+    BOTTOM_EXPOSURE_OFFSET = EXPOSURE_OFFSET + 33   # found by inspection; bottom layer count (u32) follows
+    if bottom_s:
+        struct.pack_into('>f', header, BOTTOM_EXPOSURE_OFFSET, bottom_s)
+    print(f"Normal exposure: {exposure_s} s")
 
     print(f"Writing {OUTPUT}")
     with open(OUTPUT, 'wb') as f:
