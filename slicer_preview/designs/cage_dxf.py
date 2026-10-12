@@ -39,9 +39,9 @@ QTR_TAP_DRILL = 5.1
 FILLET = 2.0          # inside corners of the cross outline
 RES = 64              # points per quarter circle in the shapely check outline only
 
-# The DXF outline is drawn analytically as straight segments and true arcs (an
-# LWPOLYLINE with bulges), not a faceted polyline: SendCutSend rejected the
-# faceted version for its thousands of nodes. The shapely outline is kept as an
+# The DXF outline is drawn analytically as separate LINE and ARC entities, not a
+# faceted polyline: SendCutSend rejected the faceted version for its thousands
+# of nodes. This matches the Onshape re-draw SendCutSend accepted (2026-10-12). The shapely outline is kept as an
 # independent check that the analytic one matches the intended shape.
 
 
@@ -115,12 +115,13 @@ def write_dxf(path, verts, check, holes):
     doc.units = ezdxf.units.MM
     msp = doc.modelspace()
     pl = msp.add_lwpolyline(verts, format='xyb', close=True)
+    drawn = Polygon([(v.x, v.y) for v in ezdxf.path.make_path(pl).flattening(0.001)])
+    pl.explode()   # separate LINE/ARC entities, as Onshape exports them
     for x, y, d in holes:
         msp.add_circle((x, y), d / 2)
     doc.saveas(path)
 
     # The analytic outline must match the shapely one to within facet error.
-    drawn = Polygon([(v.x, v.y) for v in ezdxf.path.make_path(pl).flattening(0.001)])
     assert abs(drawn.area - check.area) / check.area < 1e-3, (drawn.area, check.area)
     assert drawn.hausdorff_distance(check) < 0.02, drawn.hausdorff_distance(check)
     minx, miny, maxx, maxy = drawn.bounds
