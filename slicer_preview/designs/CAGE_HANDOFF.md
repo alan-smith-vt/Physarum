@@ -48,6 +48,39 @@ Screw lengths assume the 8 mm standoff thread depth:
 
 Use blue threadlocker on the M3/M4 screws, and red on the centre flat head and the CAMVATE.
 
+## GoPro mount: CAMVATE for testing, slider clamp for production
+
+**The aluminum cross DXF has no pin hole** (it was dropped), and the centre hole is tapped 1/4-20. Drilling the GoPro cage for a pin won't work, because the cage has to turn as it screws onto the stud.
+
+- **Testing:** use the CAMVATE locking adapter.
+  - Red Loctite on the cross thread.
+  - After screwing the cage on, lock its heading with the upper wheel.
+  - The heading can shift when you remount, so either leave the GoPro on between sessions or re-run the targetless GoPro↔lidar calibration on each session's data.
+- **Production:** a low-profile Arca-Swiss slider clamp, so the GoPro snaps on at the same heading every time.
+  1. Thread a **1/4-20 set screw** into the tapped cross with **red Loctite**, flush with or ≤4 mm below the underside (the dome clearance is ~5.9 mm). Let it cure ~24 h.
+     - 3/8" is the default length; 1/2" if the clamp's thread is deep.
+     - It must not bottom out in the clamp before the clamp seats on the cross.
+  2. Screw a **mini clamp with a female 1/4-20 base and a screw-knob lock** (not a lever; aim for a ~12–15 mm low-profile body) down tight onto the cross, with red Loctite. Paint a witness mark across clamp and cross.
+     - Its angle is wherever it stops tightening. That's fine, because calibration measures it.
+     - Put a thin washer under it if you need to move where the stitch seams land.
+  3. Fix an **Arca plate with an anti-twist lip/pad** permanently to the GoPro cage (Loctite).
+     - The cage and plate then stay together as one unit and click in at a repeatable heading.
+     - The GoPro↔lidar calibration holds between sessions.
+- This approach was chosen over the CAMVATE + clamp stack (~30–35 mm tall against ~15–20 mm), because a taller stack means more leverage and flex in a knock and a bigger camera-to-lidar offset.
+- Search: "Arca Swiss mini quick release clamp knob low profile" and "Arca Swiss quick release plate 38mm anti-twist".
+
+## Calibration (no surveyed room needed)
+
+| Pair | Method |
+|---|---|
+| Lidar ↔ its IMU | From Livox (manual/SDK) |
+| Tracking camera lens models | Kalibr/OpenCV with a fisheye (Kannala-Brandt) model, by waving an AprilGrid ~10 min per camera |
+| Tracking cameras ↔ IMU, including time offset | Kalibr camera-IMU: AprilGrid on a wall, move the rig through all axes for ~1 min |
+| GoPro (and tracking cameras) ↔ lidar | Targetless: `direct_visual_lidar_calibration` (from GLIM's author; supports 360° cameras), run on any textured scene |
+
+- Check the result by colouring the cloud with the GoPro photos (edges should line up) and with AprilTag cross-checks.
+- Surveyed points are only needed to report absolute accuracy or to georeference.
+
 ## Power wiring
 
 ```
