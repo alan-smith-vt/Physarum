@@ -111,6 +111,36 @@ A1383 USB-C port → PD trigger (15 V) → WAGO 221-413 (+ and −) ─┬─ li
 3. **Load test** once everything arrives: lidar + Pi with live GLIM for 15–20 minutes. Watch for bank dropouts and Pi throttling.
 4. **Upside-down / harness mode:** possible with no plate changes. Screw the pole into the cross's tapped hole. The side boxes would block the view in that mode, so carry the battery and Pi on the harness.
 
+## First validation job: subway station alongside a NavVis MLX scan
+
+Another contractor will scan the same station with a NavVis MLX. Plan for a direct, fair comparison:
+
+- **Targets:**
+  - Use our **20 matte laminated AprilTags** (already in the GoPro kit), each paired with a new **letter-size (8.5×11) 2×2 black/white checkerboard**, laminated matte and printed solid matte black. Number each pair (T01…T20) with the ID large in a corner.
+  - The checkerboard centre is the precise point both lidars resolve from intensity. The AprilTag gives our cameras the ID and pose.
+  - Mount flat and rigid, with magnets or removable tape (check the station's rules). Targets must not move between the two scans.
+- **Placement** (a long, repetitive platform is the worst case for drift):
+  - Both ends, then every 15–20 m along the platform, alternating walls.
+  - Every level (platform, mezzanine, concourse) and both ends of each stair or escalator.
+  - About 8–15 locations; the rest are spares.
+- **Mid-360 limit:** each square is 10.8 cm, so walk within **~3–5 m** of every target and pause 1–2 s. Beyond ~8 m the centre isn't well defined. The MLX resolves letter size easily.
+- **Hold-out:**
+  - Use about half the targets as check points that our processing never sees.
+  - Process twice: with **no targets**, then with **only the control half**.
+  - Ask whether the MLX contractor uses control points, so the comparison is like-for-like.
+- **Independent ground truth:**
+  - 5–10 laser-distance-meter spans between targets, including the full platform length and floor-to-floor at a stair.
+  - Surveyed station control coordinates, if the transit authority has them.
+- **Coordination:**
+  - Put the targets up before both scans (same day if possible).
+  - Get their point cloud as E57/LAS, plus their accuracy report.
+  - Photograph each target in place and keep a target sheet.
+- **Comparison:**
+  - Target-to-target distances (ours vs MLX vs laser).
+  - A cloud-to-cloud deviation map after best-fit alignment (CloudCompare M3C2), to show where drift builds up.
+  - End-to-end platform length and floor-to-floor heights.
+- **Future use:** on jobs that do hire a surveyor, have them survey a few of our tags/targets. That pins our dense data and photos to survey control and gives a free accuracy check each time.
+
 ## Logger software plan (decided 2026-10-11)
 
 - **The Pi always records raw data**: lidar points, the lidar's IMU, GoPro shutter times, and any tracking cameras added later. The final result is computed offline on the PC from these recordings at full quality (GLIM with loop closure, AprilTags, the impact filter, and camera fusion if cameras get added).
