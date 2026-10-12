@@ -88,7 +88,10 @@ A1383 USB-C port → PD trigger (15 V) → WAGO 221-413 (+ and −) ─┬─ li
 - **Time sync:** the Pi is the master clock.
   - Lidar and its IMU: PTP over Ethernet (`ptp4l`; the Pi 5 timestamps packets in hardware). The lidar's PPS/GPS signal wires are only needed for GPS time.
   - Tracking cameras: frames are timestamped on the Pi's clock. For best results, hardware-trigger them from a GPIO pin.
-- **Optional tracking cameras**, only if corridors or stairwells drift: 1–2 OV9281 global-shutter fisheye cameras (~$30–60 each) on the Pi 5's two camera connectors (22-pin; 15-to-22 adapters are often needed).
+- **Tracking cameras ORDERED 2026-10-12:** a udevqal 2-pack of OV9281 1 MP mono global-shutter cameras with **160°** lenses (CSI; 15→22-pin cables included, 150 mm long).
+  - They must mount **rigidly on the cage/base plate**, never on the pole. Use a fisheye (Kannala-Brandt) calibration model, and mask out the parts of the rig in view.
+  - The short CSI cables push toward a **split layout: Pi box under the base plate at the top**, with short lidar/camera runs and the lidar cable coiled in the box, and the **battery at the bottom of the pole** as counterweight, sending only a thin 15 V two-wire lead up the pole to the WAGOs.
+- **Tracking camera details**, originally meant to be bought only if corridors or stairwells drift: 1–2 OV9281 global-shutter fisheye cameras (~$30–60 each) on the Pi 5's two camera connectors (22-pin; 15-to-22 adapters are often needed).
   - They're recorded only, not used live. Save them as JPEG at about 640×400 grayscale, 20 fps, roughly 1–3 MB/s. The Pi 5 has no hardware video encoder.
   - Cost: +1–3 W, so roughly 3.5 h of runtime instead of 4 on the A1383.
   - Facing opposite ways matches the MLX's layout.
