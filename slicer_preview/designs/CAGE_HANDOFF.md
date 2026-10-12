@@ -182,6 +182,11 @@ Another contractor will scan the same station with a NavVis MLX. Plan for a dire
   - It went **180° without breaking**, with a ~7 mm gap at the bend (inner radius ≈ 3.5 mm), which is **~15% strain at the outer surface**.
   - It sprang back to ~90°, so it permanently deformed.
   - Good for snap-fits, clips, cable clamps and impact-tolerant brackets.
+  - **v3 cross-arm break test** (the 4.8 mm-thick arm bent as a ~42 mm cantilever, base held):
+    - It sprang back fully from ~25 mm at the pad, which is **~10% surface strain, elastic**.
+    - It broke suddenly at ~50–60° arm rotation: a clean crack on one face and a ~5 mm chipped band on the other (most likely a compression curl, i.e. the chip is the compression side).
+    - It broke through the bulk, **not between layers**, so the 2.6 s layer bond was good.
+    - Thick sections loaded fast break with little warning; thin, slowly bent ones yield first.
   - The flip side is that it's soft. Expect creep under sustained load, which is why resin must stay out of any clamped joint that holds the calibration.
 - **Network control:** `slicer_preview/sdcp.py` drives the printer over WiFi (the USB port is dead).
   - Commands: discover, status, files, upload, `print <file> --yes`, watch.
