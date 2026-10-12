@@ -100,3 +100,27 @@ A1383 USB-C port → PD trigger (15 V) → WAGO 221-413 (+ and −) ─┬─ li
 - **Network control:** `slicer_preview/sdcp.py` drives the printer over WiFi (the USB port is dead).
   - Commands: discover, status, files, upload, `print <file> --yes`, watch.
   - A start can return `Ack 1` right after an upload. Retry after a few seconds.
+
+## Benchmark: NavVis systems vs this rig (researched 2026-10-11)
+
+| System | Lidar | Price | Published accuracy |
+|---|---|---|---|
+| **This rig** | 1× Livox Mid-360S | **~$2.45k** total (GoPro MAX2 + accessories ~$1k, lidar ~$900, Amazon hardware + Pi ~$500, plates ~$50). A second unit is ~$2.2k thanks to spares. No subscription. | First test: 1.5 cm loop-closure gap after mapping 2 apartment floors including stairs (a drift/consistency number, not accuracy) |
+| **NavVis CLX** (handheld, Sep 2026) | 2 sensors, 200k points/s each, 905 nm, 40 m @ 10%. NavVis doesn't name them, but the specs and the photos (tilted dark domes) match **2× Mid-360**. Both tilted outward to cover floor and ceiling. | **$11,700** device, plus **$4,050/yr** IVION (required). "Starting at" ~$17,950 as a package (official) | 8 mm in a 100 m² test area |
+| **NavVis MLX** | 1× 32-layer 905 nm, 640k points/s. Brand not published; probably Hesai XT32-class. | ~$30–40k (£30,900 reported at launch). Not official. | — |
+| **NavVis VLX 3** (wearable) | 2× Hesai XT32M2X (confirmed), ~1.28M points/s | ~$100k (marketplace listings). The user was quoted $100–150k with software. Not official. | 5 mm in a 500 m² test area |
+
+**Takeaways:**
+- The CLX shows a pair of Mid-360-class sensors is commercially viable. The price buys tracking, calibration, the IVION viewer and support.
+- A dual or tilted Mid-360 is a possible v2 for this rig, once we see where the single upright unit leaves gaps.
+- Mid-360 noise is ~2 cm per point, but averaging many points removes most of it. Drift, calibration and range bias don't average out. So 8 mm in one room is plausible without anything special. Holding accuracy over a large site is the hard part.
+- **To compare with NavVis's numbers:** measure 5–10 spans with a laser distance meter (room lengths, wall-to-wall, and **floor-to-floor at the stairs**) and compare them with the point cloud. Report the mean and the worst error.
+
+Sources:
+- [NavVis CLX order page](https://www.navvis.com/navvis-clx-order)
+- [NavVis CLX specs](https://knowledge.navvis.com/docs/navvis-clx-specifications)
+- [NavVis pricing](https://www.navvis.com/en/pricing)
+- [Hesai/NavVis VLX 3 announcement](https://www.geoweeknews.com/articles/navvis-partners-with-hesai-for-its-new-vlx3-system/)
+- [MLX launch price](https://geospatialworld.net/?p=277558)
+- [NavVis device comparison matrix](https://knowledge.navvis.com/docs/device-comparison-matrix)
+- [VLX 3 marketplace price](https://www.accio.com/plp/navvis-vlx-3-price)
