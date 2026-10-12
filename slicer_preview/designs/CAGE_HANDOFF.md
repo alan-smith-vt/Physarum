@@ -178,6 +178,11 @@ Another contractor will scan the same station with a NavVis MLX. Plan for a dire
 - **Suspect spot on the plate or film:**
   - The lone v2 standoff at plate X 85…103, Z −56.5…+8.5 mm failed after its first layer. That's centred coordinates, X along the long axis.
   - The cause is unconfirmed; it may have been peel-related.
+- **The 75/25 blend is very ductile.** We bent the ~1–1.5 mm-thick slab that split off the v2 cross arm (fully cured, sheet in the layer plane):
+  - It went **180° without breaking**, with a ~7 mm gap at the bend (inner radius ≈ 3.5 mm), which is **~15% strain at the outer surface**.
+  - It sprang back to ~90°, so it permanently deformed.
+  - Good for snap-fits, clips, cable clamps and impact-tolerant brackets.
+  - The flip side is that it's soft. Expect creep under sustained load, which is why resin must stay out of any clamped joint that holds the calibration.
 - **Network control:** `slicer_preview/sdcp.py` drives the printer over WiFi (the USB port is dead).
   - Commands: discover, status, files, upload, `print <file> --yes`, watch.
   - A start can return `Ack 1` right after an upload. Retry after a few seconds.
