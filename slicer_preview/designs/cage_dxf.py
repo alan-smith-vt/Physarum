@@ -11,8 +11,8 @@ Base plate (1/4" 6061-T6):
     SendCutSend countersinks one face, and the centre needs the top face)
   - 4 × M4 clearance Ø4.5 at (±40, ±40), button heads from below. A countersink
     here would leave ~0.8 mm of wall at the R5 corners.
-  - 2 × dowel Ø3.2 at (0, -16) and (0, +23): Ø3 pins set with retaining compound
-    (Loctite 638). Laser holes aren't press-fit accurate, and Ø3.0 is below the
+  - 2 × dowel Ø3.2 at (0, -16) and (0, +23): Ø3 pins set with red threadlocker
+    (good enough; retaining compound not needed). Laser holes aren't press-fit accurate, and Ø3.0 is below the
     ~50%-of-thickness minimum hole size for 1/4" plate.
   - centre Ø6.6 1/4-20 clearance → order a 1/4-20 82° countersink on the TOP face
 Cross top (3/16" 6061-T6):

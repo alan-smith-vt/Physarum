@@ -26,7 +26,7 @@ This update follows "Lidar photo-rig handoff.md" (Oct 7). It records what was bu
   - The cross sits 120 mm off origin, which doesn't affect the DXF.
   - This was a one-time check, not the source of truth.
 - **Order state:**
-  - **Cross:** re-uploaded with the Onshape DXF and accepted as 92 × 92 mm, 6061-T6, .187". It still needs the 1/4-20 tapping service checked on the order.
+  - **Cross:** re-uploaded with the Onshape DXF and accepted as 92 × 92 mm, 6061-T6, .187". 1/4-20 tapping confirmed on the order. One plate set only; more kits are months away and depend on whether this one shows value.
   - **Base plate:** left as originally uploaded. Its DXF is faceted only at the four R5 corners, and SendCutSend didn't flag it.
 
 ## Changes from the Oct 7 handoff
@@ -113,11 +113,11 @@ A1383 USB-C port → PD trigger (15 V) → WAGO 221-413 (+ and −) ─┬─ li
 
 ## Open tasks
 
-1. **Pi/battery enclosure.** Undecided between:
-   - (a) two side boxes under the base plate, each hung from 2 corner standoff screws with metal sleeves so the clamp stack stays metal; or
-   - (b) one box at the bottom of the pole, with the lidar cable spiralled loosely around the pole (~1 turn per 25–30 cm) to handle telescoping.
+1. **Pi/battery enclosure.** **Decided 2026-10-12: the Pi goes on top**, in a box under the base plate. The tracking cameras' CSI cables are very short, and the cameras need a fixed distance from the lidar. A Pi at the bottom of the pole would also cap extension at ~1.3–1.4 m, because the stock lidar cable is ~62", which is too short for the monopod's 1.5–2 m.
+   - The battery will probably go at the bottom of the pole (counterweight, thin 15 V lead up to the WAGOs). This gets settled once the rig is mocked up.
+   - The earlier options were (a) side boxes under the base plate hung from the standoff screws, or (b) one box at the bottom of the pole.
 
-   The stock cable is ~62" in total, so (b) works up to ~1.3–1.4 m of extension. The user wants to trial (b) with a bag first. Design notes:
+   Design notes:
    - Battery: 157 × 74 × 25 mm, 440 g.
    - Pi: stands on its edge.
    - Pi cooling: the official cooler blows out sideways. Give the box an intake grille facing the fan (~5 mm gap) and an exhaust high on the opposite side. Check `vcgencmd measure_temp` and `get_throttled` under load in the closed box; the target is <70 °C.
@@ -216,7 +216,7 @@ Another contractor will scan the same station with a NavVis MLX. Plan for a dire
 
 | System | Lidar | Price | Published accuracy |
 |---|---|---|---|
-| **This rig** | 1× Livox Mid-360S | **~$2.45k** total (GoPro MAX2 + accessories ~$1k, lidar ~$900, Amazon hardware + Pi ~$500, plates ~$50). A second unit is ~$2.2k thanks to spares. No subscription. | First test: 1.5 cm loop-closure gap after mapping 2 apartment floors including stairs (a drift/consistency number, not accuracy) |
+| **This rig** | 1× Livox Mid-360S | **~$1.5k** for the lidar, Pi and all hardware (lidar ~$900, Amazon hardware + Pi ~$500, plates ~$50). That's ~$2.45k counting the GoPro MAX2 kit (~$1k), which we already owned. A second unit is ~$2.2k thanks to spares. No subscription. | First test: 1.5 cm loop-closure gap after mapping 2 apartment floors including stairs (a drift/consistency number, not accuracy) |
 | **NavVis CLX** (handheld, Sep 2026) | 2 sensors, 200k points/s each, 905 nm, 40 m @ 10%. NavVis doesn't name them, but the specs and the photos (tilted dark domes) match **2× Mid-360**. Both tilted outward to cover floor and ceiling. | **$11,700** device, plus **$4,050/yr** IVION (required). "Starting at" ~$17,950 as a package (official) | 8 mm in a 100 m² test area |
 | **NavVis MLX** | 1× 32-layer 905 nm, 640k points/s. Brand not published; probably Hesai XT32-class. | ~$30–40k (£30,900 reported at launch). Not official. | — |
 | **NavVis VLX 3** (wearable) | 2× Hesai XT32M2X (confirmed), ~1.28M points/s | ~$100k (marketplace listings). The user was quoted $100–150k with software. Not official. | 5 mm in a 500 m² test area |
@@ -224,7 +224,7 @@ Another contractor will scan the same station with a NavVis MLX. Plan for a dire
 **Takeaways:**
 - The CLX shows a pair of Mid-360-class sensors is commercially viable. The price buys tracking, calibration, the IVION viewer and support.
 - CLX cameras: three 12 MP cameras (official spec). From the photos, one points forward and two sit near and slightly behind the side lidar domes, so they're almost certainly fisheyes stitched into a panorama. Our GoPro MAX2 (2 fisheyes, ~29 MP stitched) does the same job; the cage replaces their factory camera-to-lidar calibration. Our GoPro sits ~15–20 cm above the lidar, against their near-coincident cameras, so expect slightly more photo-to-scan misalignment on close objects.
-- MLX cameras (official datasheet): 4 × 12 MP fisheye panoramic cameras (2.14 mm, rolling shutter; 360° held overhead, 270° on the harness) plus **2 × 2 MP global-shutter fisheye visual-odometry cameras** (1.34 mm) that help the lidar tracking. A possible upgrade if GLIM drifts in featureless corridors: a ~$30–60 OV9281 global-shutter camera on the Pi. Our GoPro is rolling-shutter and shoots stills only, so it can't fill that role.
+- MLX cameras (official datasheet): 4 × 12 MP fisheye panoramic cameras (2.14 mm, rolling shutter; 360° held overhead, 270° on the harness) plus **2 × 2 MP global-shutter fisheye visual-odometry cameras** (1.34 mm) that help the lidar tracking. Our equivalent: two OV9281 global-shutter fisheye cameras on the Pi (ordered 2026-10-12, see the logger plan). Our GoPro is rolling-shutter and shoots stills only, so it can't fill that role.
 - A dual or tilted Mid-360 is a possible v2 for this rig, once we see where the single upright unit leaves gaps.
 - Mid-360 noise is ~2 cm per point, but averaging many points removes most of it. Drift, calibration and range bias don't average out. So 8 mm in one room is plausible without anything special. Holding accuracy over a large site is the hard part.
 - **To compare with NavVis's numbers:** measure 5–10 spans with a laser distance meter (room lengths, wall-to-wall, and **floor-to-floor at the stairs**) and compare them with the point cloud. Report the mean and the worst error.
