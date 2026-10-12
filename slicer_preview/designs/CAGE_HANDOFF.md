@@ -113,6 +113,7 @@ A1383 USB-C port → PD trigger (15 V) → WAGO 221-413 (+ and −) ─┬─ li
 **Takeaways:**
 - The CLX shows a pair of Mid-360-class sensors is commercially viable. The price buys tracking, calibration, the IVION viewer and support.
 - CLX cameras: three 12 MP cameras (official spec). From the photos, one points forward and two sit near and slightly behind the side lidar domes, so they're almost certainly fisheyes stitched into a panorama. Our GoPro MAX2 (2 fisheyes, ~29 MP stitched) does the same job; the cage replaces their factory camera-to-lidar calibration. Our GoPro sits ~15–20 cm above the lidar, against their near-coincident cameras, so expect slightly more photo-to-scan misalignment on close objects.
+- MLX cameras (official datasheet): 4 × 12 MP fisheye panoramic cameras (2.14 mm, rolling shutter; 360° held overhead, 270° on the harness) plus **2 × 2 MP global-shutter fisheye visual-odometry cameras** (1.34 mm) that help the lidar tracking. A possible upgrade if GLIM drifts in featureless corridors: a ~$30–60 OV9281 global-shutter camera on the Pi. Our GoPro is rolling-shutter and shoots stills only, so it can't fill that role.
 - A dual or tilted Mid-360 is a possible v2 for this rig, once we see where the single upright unit leaves gaps.
 - Mid-360 noise is ~2 cm per point, but averaging many points removes most of it. Drift, calibration and range bias don't average out. So 8 mm in one room is plausible without anything special. Holding accuracy over a large site is the hard part.
 - **To compare with NavVis's numbers:** measure 5–10 spans with a laser distance meter (room lengths, wall-to-wall, and **floor-to-floor at the stairs**) and compare them with the point cloud. Report the mean and the worst error.
@@ -123,5 +124,7 @@ Sources:
 - [NavVis pricing](https://www.navvis.com/en/pricing)
 - [Hesai/NavVis VLX 3 announcement](https://www.geoweeknews.com/articles/navvis-partners-with-hesai-for-its-new-vlx3-system/)
 - [MLX launch price](https://geospatialworld.net/?p=277558)
+- [NavVis MLX specs](https://knowledge.navvis.com/docs/navvis-mlx-specifications.md)
+- [Geo Week News: MLX launch](https://www.geoweeknews.com/articles/navvis-handheld-laser-scanner-mlx-mobile-mapping-slam-lidar/)
 - [NavVis device comparison matrix](https://knowledge.navvis.com/docs/device-comparison-matrix)
 - [VLX 3 marketplace price](https://www.accio.com/plp/navvis-vlx-3-price)
