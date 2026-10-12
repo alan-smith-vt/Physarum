@@ -11,6 +11,24 @@ This update follows "Lidar photo-rig handoff.md" (Oct 7). It records what was bu
   - **Cross top:** 6061-T6, 3/16", 92 × 92 mm X-shape. Have SendCutSend **tap the centre hole 1/4-20** (drawn Ø5.1).
 - **Hardware:** on order (Amazon), listed below.
 
+## SendCutSend DXF rejection and fix (2026-10-12)
+
+- **What happened:** SendCutSend flagged `cage_cross_top.dxf`. It had "a lot of nodes instead of smooth arcs": `cage_dxf.py` built the outline from shapely buffers, so every fillet and pad was a polyline with 64 points per quarter circle.
+- **Script fix:** `cage_dxf.py` now draws the outlines analytically as separate LINE, ARC and CIRCLE entities.
+  - Base plate: 4 lines, 4 arcs, 11 circles.
+  - Cross: 8 lines, 24 arcs, 5 circles.
+  - Each run checks the outline's area and shape against the shapely version.
+  - Commits `0bd0ba1` and `0b09e3b` on Physarum main.
+  - Future cut files get drawn directly by the script this way.
+- **Cross-check in Onshape:** both plates were also drawn as Onshape sketches (lines, arcs and circles joined end to end) and extruded to 1/4" and 3/16".
+  - The part volumes matched the script to 0.1 mm³, and the exported DXFs have the same entity counts as the script's.
+  - The document is "Lidar cage plates (SendCutSend)": https://cad.onshape.com/documents/45245c7c39d14768d2d10a8e. It's **public**, because the account is a free one.
+  - The cross sits 120 mm off origin, which doesn't affect the DXF.
+  - This was a one-time check, not the source of truth.
+- **Order state:**
+  - **Cross:** re-uploaded with the Onshape DXF and accepted as 92 × 92 mm, 6061-T6, .187". It still needs the 1/4-20 tapping service checked on the order.
+  - **Base plate:** left as originally uploaded. Its DXF is faceted only at the four R5 corners, and SendCutSend didn't flag it.
+
 ## Changes from the Oct 7 handoff
 
 | Item | Oct 7 plan | Now | Why |
