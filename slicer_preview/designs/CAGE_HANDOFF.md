@@ -112,6 +112,7 @@ A1383 USB-C port → PD trigger (15 V) → WAGO 221-413 (+ and −) ─┬─ li
 
 **Takeaways:**
 - The CLX shows a pair of Mid-360-class sensors is commercially viable. The price buys tracking, calibration, the IVION viewer and support.
+- CLX cameras: three 12 MP cameras (official spec). From the photos, one points forward and two sit near and slightly behind the side lidar domes, so they're almost certainly fisheyes stitched into a panorama. Our GoPro MAX2 (2 fisheyes, ~29 MP stitched) does the same job; the cage replaces their factory camera-to-lidar calibration. Our GoPro sits ~15–20 cm above the lidar, against their near-coincident cameras, so expect slightly more photo-to-scan misalignment on close objects.
 - A dual or tilted Mid-360 is a possible v2 for this rig, once we see where the single upright unit leaves gaps.
 - Mid-360 noise is ~2 cm per point, but averaging many points removes most of it. Drift, calibration and range bias don't average out. So 8 mm in one room is plausible without anything special. Holding accuracy over a large site is the hard part.
 - **To compare with NavVis's numbers:** measure 5–10 spans with a laser distance meter (room lengths, wall-to-wall, and **floor-to-floor at the stairs**) and compare them with the point cloud. Report the mean and the worst error.
