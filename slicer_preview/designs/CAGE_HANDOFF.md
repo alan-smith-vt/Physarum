@@ -78,6 +78,21 @@ A1383 USB-C port → PD trigger (15 V) → WAGO 221-413 (+ and −) ─┬─ li
 3. **Load test** once everything arrives: lidar + Pi with live GLIM for 15–20 minutes. Watch for bank dropouts and Pi throttling.
 4. **Upside-down / harness mode:** possible with no plate changes. Screw the pole into the cross's tapped hole. The side boxes would block the view in that mode, so carry the battery and Pi on the harness.
 
+## Logger software plan (decided 2026-10-11)
+
+- **The Pi always records raw data**: lidar points, the lidar's IMU, GoPro shutter times, and any tracking cameras added later. The final result is computed offline on the PC from these recordings at full quality (GLIM with loop closure, AprilTags, the impact filter, and camera fusion if cameras get added).
+- **The live preview is only a coverage check.** It can drift, lag or crash without any data being lost.
+  - Run lightweight lidar odometry on the Pi: KISS-ICP, FAST-LIO2 with 10–20 cm downsampling, or GLIM's lightweight mode.
+  - Stream a top-down 2D map to the phone at ~1 Hz over the Pi's WiFi hotspot: the floor plan from the scans, the walked path, and dots where GoPro photos were taken. Shading by scan count is optional.
+  - This takes away the open risk of whether full GLIM can run live on a Pi 5.
+- **Time sync:** the Pi is the master clock.
+  - Lidar and its IMU: PTP over Ethernet (`ptp4l`; the Pi 5 timestamps packets in hardware). The lidar's PPS/GPS signal wires are only needed for GPS time.
+  - Tracking cameras: frames are timestamped on the Pi's clock. For best results, hardware-trigger them from a GPIO pin.
+- **Optional tracking cameras**, only if corridors or stairwells drift: 1–2 OV9281 global-shutter fisheye cameras (~$30–60 each) on the Pi 5's two camera connectors (22-pin; 15-to-22 adapters are often needed).
+  - They're recorded only, not used live. Save them as JPEG at about 640×400 grayscale, 20 fps, roughly 1–3 MB/s. The Pi 5 has no hardware video encoder.
+  - Cost: +1–3 W, so roughly 3.5 h of runtime instead of 4 on the A1383.
+  - Facing opposite ways matches the MLX's layout.
+
 ## Resin printing lessons (Saturn 4 Ultra 16K, Fast gray / Tenacious 75/25 blend)
 
 - **Exposure:** 2.4–2.6 s with 20 s bottom layers.
