@@ -1,8 +1,10 @@
 """Shared geometry for the lidar rig's Pi box (core, floor, panels) + viewer overlays.
 
-Rig frame (mm): origin at the underside centre of the aluminium base plate,
-X = lidar connector side, Yr = the other plate axis, Zr = up. The box hangs
-below the plate, so we mostly use depth d = -Zr.
+Box frame (mm): origin at the underside centre of the aluminium base plate,
+X = across the camera walls, Yr = Pi (-) to buck bay (+), Zr = up. The box hangs
+below the plate, so we mostly use depth d = -Zr. The box is turned 90° on the
+square 80 × 80 standoff pattern so its buck bay faces the lidar's M12 connector:
+the lidar's connector axis is box +Yr (LIDAR_YAW).
 
 Print frame (Physarum: X/Z plate plane, Y up): the core prints flange-down on
 the build plate, so  print (x, y, z) = (X, d, Yr).  That's a 180° turn about X
@@ -36,8 +38,10 @@ POST = 40.0
 SPACER_D, SPACER_SEAT = 8.0, 5.85     # print 5.85 deep, sand until the spacer sits flush
 HEAD_D = 10.2                         # M4 truss head ~9.5 + clearance [MEASURE]
 
-# ── Lidar M3 button heads stand proud under the plate at (±24, ±18) ──
-LIDAR_M3 = (24.0, 18.0)
+# ── Lidar M3 button heads stand proud under the plate: (±24, ±18) in the lidar's frame
+#    (24 along its connector axis), so (±18, ±24) in the box frame ──
+LIDAR_YAW = 90.0                      # lidar frame -> box frame, degrees about Zr (connector -> +Yr)
+LIDAR_M3 = (18.0, 24.0)
 M3_HEAD_D, M3_HEAD_RECESS = 7.0, 2.5
 
 # ── Panels slide up in grooves in the camera-wall ends ──
@@ -201,11 +205,11 @@ RIBBON_FAR = [PI_CONN[1], (-26, -35.5, -68), (-26, -35.5, -42), (-29.8, -35.5, -
 # Pi 5 port end (bottom, ~99-104 mm down): Ethernet is the jack beside the micro-HDMI edge (-X here,
 # board y ~2-18 -> X -26..-10); the two USB-A stacks are toward +X.
 ETH = (-18.0, -40.0, -(PI_TOP_D + 88.5))
-# Lidar cable: off the M12 connector, down the +X side, round the corner and in through a notch at
-# the top of the +Y panel's +X end (the panel slides up round it, no plug threading), a flat coil
+# Lidar cable: off the M12 connector (box +Yr), straight down outside the +Y panel and in through a
+# notch at its top (the panel slides up round it, no plug threading), a flat coil
 # in the buck bay, through the low web slot to the Pi side, and out of the floor notch to come up
 # into the downward-facing Ethernet jack. The power pair splits off at the coil to the WAGOs.
-PANEL_NOTCH_X, PANEL_NOTCH_D, PANEL_NOTCH_W = 37.0, 20.0, 8.0     # notch centre X, bottom depth, width
+PANEL_NOTCH_X, PANEL_NOTCH_D, PANEL_NOTCH_W = 30.0, 20.0, 8.0     # notch centre X, bottom depth, width
 COIL = dict(c=(-5.0, 37.0, -82.0), r=17.0, turns=2.0, y0=34.0, y1=40.0)
 
 
@@ -217,8 +221,8 @@ def _coil_pts(n=40):
 
 
 _COIL = _coil_pts()
-LIDAR_CABLE = ([(36, 0, 20), (54, 0, 20), (54, 0, 0), (54, 40, -15), (54, 53, -16),
-                (PANEL_NOTCH_X, 53, -16), (PANEL_NOTCH_X, 40, -17), (20, 35, -55)]
+LIDAR_CABLE = ([(0, 40, 20), (0, 54, 20), (0, 54, 0), (PANEL_NOTCH_X, 54, -14), (PANEL_NOTCH_X, 53, -16),
+                (PANEL_NOTCH_X, 40, -17), (24, 36, -50)]
                + _COIL
                + [(37, 20, -85), (37, -45, -95), (8, -52, -100), (5, -46, -118), (-18, -42, -118), ETH])
 LIDAR_POWER = [_COIL[-1], (20, 36, -76), (24, 35, -74)]          # Livox splitter's power pair -> WAGO
@@ -266,7 +270,7 @@ def build_overlays():
     # Mid-360S: model Y up (base at -25.92), connector +X; sits on the 6.35 plate
     if (MODELS / 'mid360s.stl').exists():
         t = _decimate(_load('mid360s.stl'), 0.15)
-        emit('mid360s', np.stack([t[..., 0], -t[..., 2], t[..., 1] + 25.92 + 6.35], -1), '#bdc3c7', 0.5, 'Mid-360S (Livox STEP)')
+        emit('mid360s', np.stack([t[..., 2], t[..., 0], t[..., 1] + 25.92 + 6.35], -1), '#bdc3c7', 0.5, 'Mid-360S (Livox STEP)')
 
     # Aluminium plate, standoffs + spacers, coupler, monopod platform + pole
     emit('base_plate', _box(-45, 45, -45, 45, 0, 6.35), '#7f8c8d', 0.3)
