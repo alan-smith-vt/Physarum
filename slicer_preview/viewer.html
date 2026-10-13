@@ -459,8 +459,16 @@
   /* ── Render on demand (as in PCO-dev): nothing runs while the view is still.
      A frame keeps the next one coming only while something moves: controls
      (drag, damping settle, WASD — update() returns true), or a pick/focus animation. ── */
-  function frame() {
+  const MAX_FPS = 30;                     // cap while moving; idle costs nothing anyway
+  const FRAME_MS = 1000 / MAX_FPS;
+  let lastFrame = -Infinity;
+  function frame(now) {
     frameRequested = false;
+    if (now - lastFrame < FRAME_MS - 1) {  // too soon: wait for a later vsync, render nothing
+      requestRender();
+      return;
+    }
+    lastFrame = now;
     let more = false;
 
     // Pick/focus animation

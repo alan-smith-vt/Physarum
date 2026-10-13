@@ -8,11 +8,11 @@ PLATE_W_PX      = 15120      # plate resolution, pixels
 PLATE_H_PX      = 6230
 
 # ── Preview downsampling ──
-PREVIEW_SCALE = 8
+PREVIEW_SCALE = 16           # preview only (to_goo resets to 1); 8 put ~20M voxels on the Pi box core
 
-PIXEL_X_UM = REAL_PIXEL_X_UM * PREVIEW_SCALE   # 112 µm effective
-PIXEL_Y_UM = REAL_PIXEL_Y_UM * PREVIEW_SCALE   # 152 µm effective
-LAYER_UM   = REAL_LAYER_UM * PREVIEW_SCALE      #  80 µm effective
+PIXEL_X_UM = REAL_PIXEL_X_UM * PREVIEW_SCALE   # 224 µm effective
+PIXEL_Y_UM = REAL_PIXEL_Y_UM * PREVIEW_SCALE   # 304 µm effective
+LAYER_UM   = REAL_LAYER_UM * PREVIEW_SCALE      # 160 µm effective
 
 # Convenience (mm)
 PX_MM = PIXEL_X_UM / 1000
