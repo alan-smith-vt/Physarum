@@ -109,6 +109,12 @@ def to_print(pts):
     return np.stack([pts[..., 0], -pts[..., 2], pts[..., 1]], axis=-1)
 
 
+def from_print(pts):
+    """Print (x, y, z) -> rig (X, Yr, Zr)."""
+    pts = np.asarray(pts, dtype=np.float64)
+    return np.stack([pts[..., 0], pts[..., 2], -pts[..., 1]], axis=-1)
+
+
 # ═════════════════════════════ overlays ═════════════════════════════
 def _write_stl(path, tris):
     tris = np.asarray(tris, dtype=np.float32).reshape(-1, 3, 3)

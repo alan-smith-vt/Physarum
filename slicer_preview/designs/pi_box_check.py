@@ -1,6 +1,6 @@
 """Clash check + section images for the Pi box core.
 
-    python -m designs.pi_box_check      (from slicer_preview/)
+    python -m designs.pi_box_check [core_module]     (from slicer_preview/; default pi_box_core)
 
 Samples every overlay's vertices (and triangle centroids) against the core's
 solid function and reports how many land inside resin, per overlay, with the
@@ -12,8 +12,10 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from stl_slicer import load_stl                      # noqa: E402
-from designs import pi_box_core as C                 # noqa: E402
+import importlib                                     # noqa: E402
 from designs.pi_box_rig import ROOT                  # noqa: E402
+
+C = importlib.import_module('designs.' + (sys.argv[1] if len(sys.argv) > 1 else 'pi_box_core'))
 
 EXPECTED = {'box_spacers', 'monopod', 'standoffs', 'base_plate', 'coupler', 'mid360s'}   # outside the core or meant to sit in it
 
@@ -54,9 +56,9 @@ def main():
             pts = pts[np.random.default_rng(0).choice(len(pts), 60000, replace=False)]
         hit = inside(pts)
         if name == "pi5":                     # PCB back face resting on the standoff posts is contact, not a clash
-            hit &= np.abs(pts[:, 2] - C.PCB_YR) > 0.05
+            hit &= np.abs(C.from_print(pts)[:, 1] - C.PCB_YR) > 0.05
         if name == "cameras":                 # camera board face resting on its bosses
-            hit &= np.abs(np.abs(pts[:, 0]) - (C.X_IN - C.CAM_BOSS_H)) > 0.05
+            hit &= np.abs(np.abs(C.from_print(pts)[:, 0]) - (C.X_IN - C.CAM_BOSS_H)) > 0.05
         if name == "base_plate":              # flange face against the plate
             hit &= np.abs(pts[:, 1]) > 0.05
         rng = f"{pts[hit, 1].min():.1f}..{pts[hit, 1].max():.1f}" if hit.any() else "-"
@@ -67,7 +69,7 @@ def main():
         from PIL import Image
     except ImportError:
         return
-    out = ROOT / 'slicer_preview' / 'out' / 'pi_box_sections'
+    out = ROOT / 'slicer_preview' / 'out' / f'{C.__name__.split(".")[-1]}_sections'
     out.mkdir(parents=True, exist_ok=True)
     W, H = int(C.SIZE_X / 0.1), int(C.SIZE_Z / 0.1)
     xl = ((np.arange(W) + 0.5) * 0.1)[None, :]
