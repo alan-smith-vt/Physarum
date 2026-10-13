@@ -31,7 +31,7 @@ RESIN_HOLE_COMP = 0.35        # holes/slots print ~0.35 undersize (cage v1 fit s
 
 # ── Box envelope ──
 X_OUT, X_IN = 50.0, 46.0      # camera wall outer / inner face (|X|)
-Y_MIN, Y_MAX = -60.0, 80.0    # panel outer faces  BATTERY: +Y pod for the bank
+Y_MIN, Y_MAX = -62.0, 81.0    # box ends (outside the panel lips)  BATTERY: +Y pod for the bank
 DEPTH, FLANGE = 180.0, 10.0   # core bottom edge / flange thickness  BATTERY: the 157 mm bank stands on the floor
 CHAMFER = 1.0                 # flange plate-face edge: elephant foot + scraper entry
 
@@ -50,8 +50,12 @@ LIDAR_M3 = (18.0, 24.0)
 M3_HEAD_D, M3_HEAD_RECESS = 7.0, 2.5
 
 # ── Panels slide up in grooves in the camera-wall ends ──
-PANEL_T = 2.5
-GROOVE_W = PANEL_T + 0.3              # + RESIN_HOLE_COMP applied where cut
+# Side panels: 1/8" (3.175) sheet: printed blanks for the prototype, cut polycarbonate later.
+# They sit in true slots in the camera-wall ends: a 1.5 mm lip outside the panel stops it bowing
+# out between the flange (top) and the floor (bottom); two small bumps in each slot take up rattle.
+PANEL_T = 3.175                   # panel thickness
+PANEL_LIP = 1.5                   # wall material outside the panel at each box end
+GROOVE_W = PANEL_T + 0.4              # cast/extruded sheet ±0.2; + RESIN_HOLE_COMP applied where cut
 GROOVE_D = 2.0                        # into the wall from its inner face
 
 # ── Webs, wall feet, dowels, floor bosses ──
@@ -60,7 +64,7 @@ WEB_SLOTS = [(30.0, 41.0, 24.0, 34.0), (30.0, 41.0, 82.0, 93.0)]   # |X| range, 
 FOOT_X0, FOOT_Y, FOOT_H = 42.0, 9.0, 10.0          # |X| 42..50, |Yr| < 9, bottom 10 mm
 PINS = [(sx * 46.0, sy * 5.5) for sx in (-1, 1) for sy in (-1, 1)]
 PIN_SLIP, PIN_PRESS, PIN_DEPTH = 3.4, 3.3, 4.0      # fit-strip values (no extra comp)
-BOSSES = [(sx * 44.0, y) for sx in (-1, 1) for y in (-52.0, Y_MAX - 7.5)]
+BOSSES = [(sx * 44.0, y) for sx in (-1, 1) for y in (Y_MIN + 10.5, Y_MAX - 10.5)]   # clear of the slots
 BOSS_R, INSERT_D, INSERT_DEPTH = 4.5, 4.0, 6.0      # glued M2.5 brass insert [MEASURE]
 
 # ── BATTERY: Anker 20K 87 W bank, 157 × 74 × 25, standing on the floor, ports UP (a right-angle
@@ -101,6 +105,12 @@ CABLE_HOLE = (15.0, 60.0, 16.0)               # X, Yr, Ø                      #
 # bay is only ~20-30 mm deep from the wall to the well tube, so solder the leads to the switch tabs
 # (heat-shrink them) instead of using its clip-on socket plug, which adds ~20 mm. Body ~30 mm [MEASURE].
 POWER_SWITCH = dict(y=30.0, d=26.0, hole=16.0, body_r=8.0, body_len=30.0)
+
+# ── Wall vents (instead of panel vents): vertical slots through both camera walls. Low on the Pi
+#    side to feed the cooler now that its panel is solid; beside the buck bay on the battery side,
+#    below the power switch. The high exhaust slots (EXHAUST) stay. (Yr0, Yr1, d0, d1) ──
+WALL_VENTS = ([(-52.0 + 4 * i, -49.6 + 4 * i, 120.0, 160.0) for i in range(4)] +
+              [(12.0 + 4 * i, 14.4 + 4 * i, 60.0, 100.0) for i in range(8)])
 
 # ── Flange vents (no suction cups when printed flange-down) ──
 VENTS = [(0, -45), (-15, -45), (15, -45), (0, 38), (-15, 38), (15, 38),

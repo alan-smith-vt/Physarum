@@ -238,7 +238,7 @@ def main():
             show(objs, BOX + INSIDE + TOP + GOPRO + POLE, off)
             camera('cam', (0, 0.0, 0.0), iso, 1.3)
         elif view in ('pod', 'pod_no_battery'):          # the other side: -X / +Y, battery pod toward us
-            names = BOX + INSIDE
+            names = [n for n in BOX + INSIDE if n != 'panel_pod']   # no near panel on these close-ups
             if view == 'pod_no_battery':
                 names = [n for n in names if n != 'battery']
             show(objs, names)

@@ -98,10 +98,17 @@ def core(x, d, z):
 
     # ── cuts ──
     gw = GROOVE_W + RESIN_HOLE_COMP
-    groove = (aX >= X_IN) & (aX <= X_IN + GROOVE_D) & ((Y <= Y_MIN + gw) | (Y >= Y_MAX - gw))
-    s &= ~groove
-    # the panel itself passes inside the wall ends: keep the region between the walls open
-    s &= ~((aX < X_IN) & ((Y <= Y_MIN + gw) | (Y >= Y_MAX - gw)) & ~tube)
+    lo0, lo1 = Y_MIN + PANEL_LIP, Y_MIN + PANEL_LIP + gw        # -Y panel slot
+    hi0, hi1 = Y_MAX - PANEL_LIP - gw, Y_MAX - PANEL_LIP        # +Y panel slot
+    in_slot = ((Y >= lo0) & (Y <= lo1)) | ((Y >= hi0) & (Y <= hi1))
+    s &= ~((aX >= X_IN) & (aX <= X_IN + GROOVE_D) & in_slot)   # true slots, lip outside
+    # the panel itself spans between the walls: keep that band (and the lips' inner side) open
+    s &= ~((aX < X_IN) & (in_slot | (Y < lo0) | (Y > hi1)) & ~tube)
+    # anti-rattle bumps on each slot's outer face, near the top and bottom of the panel
+    for db in (FLANGE + 25.0, DEPTH - 25.0):
+        if abs(d - db) <= 1.5:
+            band = (aX >= X_IN + 0.5) & (aX <= X_IN + GROOVE_D - 0.5)
+            s |= band & (((Y >= lo0) & (Y <= lo0 + 0.3)) | ((Y >= hi1 - 0.3) & (Y <= hi1)))
     sw = POWER_SWITCH                                  # power switch: teardrop hole through the +X wall
     rs = (sw['hole'] + RESIN_HOLE_COMP) / 2
     tear = ((Y - sw['y']) ** 2 + (d - sw['d']) ** 2 <= rs * rs) | (
@@ -118,6 +125,9 @@ def core(x, d, z):
             if abs(d - cd) < rp:
                 w = np.sqrt(rp ** 2 - (d - cd) ** 2)
                 s &= ~((np.abs(Y - cy) <= w) & (sX >= X_IN - CAM_BOSS_H) & (sX <= X_IN + 3))
+    for y0, y1, d0, d1 in WALL_VENTS:               # vertical slots: only a ~2.4 mm bridge at the top
+        if d0 <= d <= d1:
+            s &= ~((aX >= X_IN) & (Y >= y0) & (Y <= y1))
     if EXHAUST_D[0] <= d <= EXHAUST_D[1]:
         for y0, y1 in EXHAUST:
             s &= ~((aX >= X_IN) & (Y >= y0) & (Y <= y1))

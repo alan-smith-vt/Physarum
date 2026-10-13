@@ -82,10 +82,10 @@ def printed_parts():
     def panel_to_rig(face_y, sign):
         return lambda p: np.stack([p[:, 0] - L.PANEL_W / 2, face_y + sign * p[:, 1],
                                    -(p[:, 2] + R.FLANGE + 0.1)], 1)
-    pm = _march(lambda x, y, z: L.panel(x, y, z), int(L.PANEL_W / h), int(L.PANEL_T / h) + 1,
-                int(L.PANEL_H / h), h, panel_to_rig(R.Y_MIN, +1))
-    pp = _march(lambda x, y, z: L.panel(x, y, z, grille=False, button=True), int(L.PANEL_W / h),
-                int(L.PANEL_T / h) + 1, int(L.PANEL_H / h), h, panel_to_rig(R.Y_MAX, -1))
+    pm = _march(lambda x, y, z: L.panel(x, y, z, grille=False), int(L.PANEL_W / h), int(L.PANEL_T / h) + 1,
+                int(L.PANEL_H / h), h, panel_to_rig(R.Y_MIN + R.PANEL_LIP, +1))
+    pp = _march(lambda x, y, z: L.panel(x, y, z, grille=False), int(L.PANEL_W / h),
+                int(L.PANEL_T / h) + 1, int(L.PANEL_H / h), h, panel_to_rig(R.Y_MAX - R.PANEL_LIP, -1))
     return dict(core=core, floor=floor, panel_pi=pm, panel_pod=pp)
 
 

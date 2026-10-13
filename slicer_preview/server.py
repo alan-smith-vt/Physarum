@@ -17,8 +17,7 @@ PREVIEW_DIR = os.path.join(SCRIPT_DIR, 'out', 'preview')
 ALIASES = {
     'battery': 'pi_box_bat_core',          # battery in the box
     'batteryFloor': 'pi_box_bat_lids',
-    'batteryPanelPi': 'pi_box_bat_panel_my',
-    'batteryPanelPod': 'pi_box_bat_panel_py',
+    'batteryPanel': 'pi_box_bat_panel',
 }
 
 app = Flask(__name__)
