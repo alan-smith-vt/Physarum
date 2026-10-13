@@ -69,10 +69,13 @@ BOSS_R, INSERT_D, INSERT_DEPTH = 4.5, 4.0, 6.0      # glued M2.5 brass insert [M
 #    leaving the middle open for cables) keep it off the buck; the +Y panel holds the other face. ──
 BAT = dict(x=37.5, y0=49.8, y1=74.8, d0=DEPTH - 157.0, d1=DEPTH)
 BAT_RIB = (30.0, X_IN, 47.0, 49.5)            # |X| range, Yr range
-BAT_NOTCH = (20.0, 53.0)                      # floor: |X| < 20, Yr > 53, open to the +Y edge (charging cable)
+BAT_NOTCH = (20.0, 53.0)
+# BATTERY: the pod overhangs the aluminium plate (edge at Yr 45), so the lidar cable drops straight
+# through the flange there; Ø16 passes the RJ45 plug. It also vents the pod.
+CABLE_HOLE = (15.0, 60.0, 16.0)               # X, Yr, Ø                      # floor: |X| < 20, Yr > 53, open to the +Y edge (charging cable)
 
 # ── Flange vents (no suction cups when printed flange-down) ──
-VENTS = [(0, -45), (-15, -45), (15, -45), (0, 38), (-15, 38), (15, 38), (-20, 62), (0, 62), (20, 62),
+VENTS = [(0, -45), (-15, -45), (15, -45), (0, 38), (-15, 38), (15, 38),
          (37, 20), (37, -20), (-37, 20), (-37, -20)]
 VENT_D = 4.0
 
@@ -240,8 +243,8 @@ def _coil_pts(n=40):
 
 
 _COIL = _coil_pts()
-LIDAR_CABLE = ([(0, 40, 20), (0, 84, 20), (0, 84, 0), (PANEL_NOTCH_X, 84, -14), (PANEL_NOTCH_X, 83, -16),
-                (PANEL_NOTCH_X, 60, -17), (PANEL_NOTCH_X, 45, -19), (24, 36, -50)]   # BATTERY: over the bank's top
+LIDAR_CABLE = ([(0, 40, 20), (CABLE_HOLE[0], CABLE_HOLE[1], 14), (CABLE_HOLE[0], CABLE_HOLE[1], -16),
+                (CABLE_HOLE[0], 46, -19), (24, 36, -50)]    # BATTERY: down the flange hole, over the bank's top
                + _COIL
                + [(37, 20, -85), (37, -45, -95), (8, -52, -110), (-18, -42, -130), ETH])   # BATTERY: all inside
 LIDAR_POWER = [_COIL[-1], (20, 36, -76), (24, 35, -74)]          # Livox splitter's power pair -> WAGO

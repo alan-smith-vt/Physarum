@@ -50,6 +50,7 @@ def core(x, d, z):
                     s &= ~hole(sx * LIDAR_M3[0], sy * LIDAR_M3[1], M3_HEAD_D, X, Y)
         for vx, vy in VENTS:
             s &= ~hole(vx, vy, VENT_D, X, Y)
+        s &= ~hole(CABLE_HOLE[0], CABLE_HOLE[1], CABLE_HOLE[2], X, Y)    # BATTERY: lidar cable
         return s
 
     # ── below the flange ──
