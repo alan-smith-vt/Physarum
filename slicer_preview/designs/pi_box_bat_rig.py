@@ -93,6 +93,9 @@ CABLE_HOLE = (15.0, 60.0, 16.0)               # X, Yr, Ø                      #
 #    the PD trigger and the WAGOs, so it cuts lidar + Pi together. On the +X camera wall, battery side
 #    of the web, near the top: its ~30 mm body sits in the empty upper part of that camera bay.
 #    Teardrop hole (pointed top prints without a bridge); the nut still seats. [MEASURE] body, thread ──
+# Part: Gebildet 16 mm stainless latching push button, 12-24 V / 5 A, power-symbol LED. The camera
+# bay is only ~20-30 mm deep from the wall to the well tube, so solder the leads to the switch tabs
+# (heat-shrink them) instead of using its clip-on socket plug, which adds ~20 mm. Body ~30 mm [MEASURE].
 POWER_SWITCH = dict(y=30.0, d=26.0, hole=16.0, body_r=8.0, body_len=30.0)
 
 # ── Flange vents (no suction cups when printed flange-down) ──
@@ -361,7 +364,7 @@ def build_overlays():
                                       _box(23.5, 28.5, 31, 40, -78, -66)]), '#f39c12', 0.5, 'buck + 2 WAGO [MEASURE]')
 
     sw = POWER_SWITCH
-    emit('power_switch', np.concatenate([_cyl((0, sw['y'], -sw['d']), 'x', 9.0, X_OUT, X_OUT + 3),
+    emit('power_switch', np.concatenate([_cyl((0, sw['y'], -sw['d']), 'x', 9.5, X_OUT, X_OUT + 3),
                                          _cyl((0, sw['y'], -sw['d']), 'x', sw['body_r'], X_OUT - sw['body_len'], X_OUT)]),
          '#e74c3c', 0.8, 'power switch, 16 mm latching (15 V line)')
 
