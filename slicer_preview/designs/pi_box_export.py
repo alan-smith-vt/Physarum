@@ -71,6 +71,9 @@ def write_stl(path, tris):
 
 def printed_parts(only=None):
     h = VOX
+    if only == 'core':
+        return {'core': _march(C.core, int(C.SIZE_X / h), int(C.DEPTH / h), int(C.SIZE_Z / h), h,
+                               lambda p: R.from_print(np.stack([p[:, 0] + C.X0, p[:, 1], p[:, 2] + C.Z0], 1)))}
     if only in ('core_cut_far', 'core_cut_near'):
         keep = (lambda X: X >= 30.0) if only == 'core_cut_far' else (lambda X: X <= -30.0)
         def fn(x, d, z):
