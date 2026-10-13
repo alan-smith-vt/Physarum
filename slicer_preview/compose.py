@@ -102,7 +102,7 @@ def encode_all(pieces, bounds):
     return struct.pack('<I', total) + b''.join(all_chunks)
 
 
-def write_preview(pieces, bounds):
+def write_preview(pieces, bounds, overlays=()):
     """Encode all pieces and write _slices.bin + _meta.json for server.py/viewer.html."""
     print("Encoding slices...", flush=True)
     blob = encode_all(pieces, bounds)
@@ -118,6 +118,7 @@ def write_preview(pieces, bounds):
         "plate_w_mm": printer.PLATE_W_PX * printer.REAL_PIXEL_X_UM / 1000,
         "plate_h_mm": printer.PLATE_H_PX * printer.REAL_PIXEL_Y_UM / 1000,
         "offset_x_mm": ox, "offset_y_mm": oy, "offset_z_mm": oz,
+        "overlays": list(overlays),   # [{file, color, opacity}] STLs in design mm, served from /stl/
     }
     with open(META_FILE, 'w') as f:
         json.dump(meta, f)

@@ -10,7 +10,7 @@ def main(name):
     design = load_design(name)
     pieces = list(design.PIECES)
     bounds = add_supports(pieces) if getattr(design, 'SUPPORTS', False) else compute_bounds(pieces)
-    return write_preview(pieces, bounds)
+    return write_preview(pieces, bounds, getattr(design, 'OVERLAYS', ()))
 
 
 if __name__ == '__main__':

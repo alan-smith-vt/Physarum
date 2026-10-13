@@ -245,6 +245,25 @@
   mesh.instanceColor  = new THREE.InstancedBufferAttribute(colors, 3);
   scene.add(mesh);
 
+  /* ── Overlays from the design (OVERLAYS → meta.overlays): STLs already in design mm ──
+     O toggles them. */
+  const overlayGroup = new THREE.Group();
+  scene.add(overlayGroup);
+  const ovLoader = new THREE.STLLoader();
+  for (const ov of (meta.overlays || [])) {
+    ovLoader.load('/stl/' + ov.file, (geometry) => {
+      geometry.computeVertexNormals();
+      const mat = new THREE.MeshLambertMaterial({
+        color: new THREE.Color(ov.color || '#4488cc'), transparent: true,
+        opacity: ov.opacity ?? 0.35, side: THREE.DoubleSide, depthWrite: false
+      });
+      overlayGroup.add(new THREE.Mesh(geometry, mat));
+    });
+  }
+  addEventListener('keydown', (e) => {
+    if (e.key === 'o' || e.key === 'O') overlayGroup.visible = !overlayGroup.visible;
+  });
+
   /* ── STL overlay (disabled for test piece) ──
   const stlLoader = new THREE.STLLoader();
   stlLoader.load('/stl/whiteboard_box_frame_75mm.stl', (geometry) => {
