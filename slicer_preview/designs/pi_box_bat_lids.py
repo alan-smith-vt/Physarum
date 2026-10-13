@@ -64,7 +64,7 @@ def floor(x, y, z):
     s |= rails & (h <= RAIL_H)
     # BATTERY: cradle for the UE300 (a zip tie through two wall windows clamps it against the plug)
     a = ETH_ADAPTER
-    ix, iy = (a['w'] + CRADLE_CLEAR + RESIN_HOLE_COMP) / 2, (a['t'] + CRADLE_CLEAR + RESIN_HOLE_COMP) / 2
+    ix, iy = (a['wx'] + CRADLE_CLEAR + RESIN_HOLE_COMP) / 2, (a['wy'] + CRADLE_CLEAR + RESIN_HOLE_COMP) / 2
     dx, dy = np.abs(X - a['x']), np.abs(Yr - a['y'])
     wall = (dx <= ix + CRADLE_WALL) & (dy <= iy + CRADLE_WALL) & ~((dx <= ix) & (dy <= iy))
     # zip-tie windows: a diamond (45° top, no bridge) mid-way along each ±X wall; the tie goes in

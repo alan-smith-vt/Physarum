@@ -70,11 +70,15 @@ BOSS_R, INSERT_D, INSERT_DEPTH = 4.5, 4.0, 6.0      # glued M2.5 brass insert [M
 BAT = dict(x=37.5, y0=49.8, y1=74.8, d0=DEPTH - 157.0, d1=DEPTH)
 BAT_RIB = (30.0, X_IN, 47.0, 49.5)            # |X| range, Yr range
 BAT_NOTCH = (20.0, 53.0)
-# BATTERY: office link. A TP-Link UE300 (USB 3 gigabit, 71 × 25.4 × 15) stands on the floor under the
-# Pi's USB 3 stack, RJ45 end down through a floor cutout, in a printed cradle; its short fold-out
-# cord loops up into the Pi's blue port. The lidar stays on the Pi's own Ethernet jack.
-ETH_ADAPTER = dict(x=14.0, y=-45.0, w=25.4, t=15.2, h=71.0)     # centre X, Yr; width along X, thickness along Yr
-ADAPTER_JACK = (16.0, 13.5)                   # RJ45 opening in its end face, along X / Yr [MEASURE]
+# BATTERY: office link. A TP-Link UE300 (USB 3 gigabit; body 71 × 25.4 × 15) stands on the floor in
+# the corner between the Pi pocket and the +X camera wall, RJ45 end down through a floor cutout, in a
+# printed cradle. It is beside the Pi's USB stack, not under it: the fold-out cord ends in a full
+# USB-A plug (~20-25 mm with its housing) that needs to go straight up into the blue port before the
+# cord can turn, then loops down and back up to the adapter (~5-6 cm of cord). [MEASURE] cord, plug.
+# The lidar stays on the Pi's own Ethernet jack.
+ETH_ADAPTER = dict(x=35.5, y=-31.5, wx=15.2, wy=25.4, h=71.0)   # centre X, Yr; footprint along X / Yr
+ADAPTER_JACK = (13.5, 16.0)                   # RJ45 opening in its end face, along X / Yr [MEASURE]
+USB3_PORT = (12.0, -41.0, -102.5)             # blue port mouth: Pi top 14 + 88.5 (+X stack assumed) [MEASURE]
 CRADLE_H, CRADLE_WALL, CRADLE_CLEAR = 12.0, 2.0, 0.3
 # BATTERY: the pod overhangs the aluminium plate (edge at Yr 45), so the lidar cable drops straight
 # through the flange there; Ø16 passes the RJ45 plug. It also vents the pod.
@@ -325,8 +329,12 @@ def build_overlays():
     # BATTERY: the bank
     a = ETH_ADAPTER
     emit('eth_adapter', np.concatenate([
-        _box(a['x'] - a['w'] / 2, a['x'] + a['w'] / 2, a['y'] - a['t'] / 2, a['y'] + a['t'] / 2, -DEPTH, -DEPTH + a['h']),
-        _tube([(a['x'], a['y'], -DEPTH + a['h']), (a['x'], a['y'] + 3, -DEPTH + a['h'] + 4), (12, -41, -(PI_TOP_D + 88.5))], 1.8)]),
+        _box(a['x'] - a['wx'] / 2, a['x'] + a['wx'] / 2, a['y'] - a['wy'] / 2, a['y'] + a['wy'] / 2, -DEPTH, -DEPTH + a['h']),
+        _box(USB3_PORT[0] - 6, USB3_PORT[0] + 6, USB3_PORT[1] - 2.5, USB3_PORT[1] + 2.5,
+             USB3_PORT[2] - 22, USB3_PORT[2]),                          # USB-A plug + housing
+        _tube([(a['x'], a['y'], -DEPTH + a['h']), (a['x'], a['y'], -DEPTH + a['h'] + 4), (25, -37, -DEPTH + a['h'] + 4),
+               (25, -38, USB3_PORT[2] - 28), (USB3_PORT[0], USB3_PORT[1], USB3_PORT[2] - 28),
+               (USB3_PORT[0], USB3_PORT[1], USB3_PORT[2] - 22)], 1.8)]),
         '#ecf0f1', 0.8, 'TP-Link UE300 → office link (RJ45 in the floor)')
     emit('battery', _box(-BAT['x'] + 0.5, BAT['x'] - 0.5, BAT['y0'], BAT['y1'], -BAT['d1'], -BAT['d0']),
          '#34495e', 0.5, 'Anker 20K bank, ports up')
