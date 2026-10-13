@@ -39,12 +39,26 @@ def main():
         name = Path(ov['file']).stem
         t = load_stl(ROOT / ov['file']).astype(np.float64)
         pts = np.concatenate([t.reshape(-1, 3), t.mean(1)])
+        # plus points spread over the surface (area-weighted), so thin crossings aren't missed
+        area = np.linalg.norm(np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0]), axis=1)
+        if area.sum() > 0:
+            rng = np.random.default_rng(1)
+            k = rng.choice(len(t), 20000, p=area / area.sum())
+            u, v = rng.random((2, 20000))
+            flip = u + v > 1
+            u[flip], v[flip] = 1 - u[flip], 1 - v[flip]
+            tri = t[k]
+            pts = np.concatenate([pts, tri[:, 0] + u[:, None] * (tri[:, 1] - tri[:, 0]) + v[:, None] * (tri[:, 2] - tri[:, 0])])
         pts = pts[np.unique(np.round(pts, 2), axis=0, return_index=True)[1]]
         if len(pts) > 60000:
             pts = pts[np.random.default_rng(0).choice(len(pts), 60000, replace=False)]
         hit = inside(pts)
         if name == "pi5":                     # PCB back face resting on the standoff posts is contact, not a clash
             hit &= np.abs(pts[:, 2] - C.PCB_YR) > 0.05
+        if name == "cameras":                 # camera board face resting on its bosses
+            hit &= np.abs(np.abs(pts[:, 0]) - (C.X_IN - C.CAM_BOSS_H)) > 0.05
+        if name == "base_plate":              # flange face against the plate
+            hit &= np.abs(pts[:, 1]) > 0.05
         rng = f"{pts[hit, 1].min():.1f}..{pts[hit, 1].max():.1f}" if hit.any() else "-"
         flag = "" if not hit.any() or name in EXPECTED else "  <-- CLASH"
         print(f"{name:14s} {len(pts):8d} {hit.sum():9d}  {rng}{flag}")

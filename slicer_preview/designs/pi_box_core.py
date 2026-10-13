@@ -53,6 +53,9 @@ def core(x, d, z):
     tube = (r2 >= WELL_R ** 2) & (r2 <= (WELL_R + TUBE_T) ** 2)
     walls = (aX >= X_IN) & inside
     webs = (aX >= WELL_R + 1) & (aX <= X_IN) & (np.abs(Y) <= WEB_T / 2)
+    for x0, x1, d0, d1 in WEB_SLOTS:
+        if d0 <= d <= d1:
+            webs &= ~((aX >= x0) & (aX <= x1))
     s = tube | walls | webs
 
     near_floor = d > DEPTH - FOOT_H

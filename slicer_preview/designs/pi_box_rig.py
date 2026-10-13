@@ -47,6 +47,7 @@ GROOVE_D = 2.0                        # into the wall from its inner face
 
 # ── Webs, wall feet, dowels, floor bosses ──
 WEB_T = 3.0
+WEB_SLOTS = [(30.0, 41.0, 24.0, 34.0), (30.0, 41.0, 82.0, 93.0)]   # |X| range, depth range: cable pass-throughs
 FOOT_X0, FOOT_Y, FOOT_H = 42.0, 9.0, 10.0          # |X| 42..50, |Yr| < 9, bottom 10 mm
 PINS = [(sx * 46.0, sy * 5.5) for sx in (-1, 1) for sy in (-1, 1)]
 PIN_SLIP, PIN_PRESS, PIN_DEPTH = 3.4, 3.3, 4.0      # fit-strip values (no extra comp)
@@ -132,6 +133,64 @@ def _cyl(c, axis, r, h0, h1, n=32):
     return np.array(tris)
 
 
+def _frames(pts, hint):
+    """Per-segment direction and a perpendicular 'width' vector (from hint)."""
+    pts = np.asarray(pts, float)
+    out = []
+    for a, b in zip(pts[:-1], pts[1:]):
+        t = (b - a) / np.linalg.norm(b - a)
+        w = np.cross(t, hint)
+        if np.linalg.norm(w) < 1e-6:
+            w = np.cross(t, [1.0, 0, 0] if abs(t[0]) < 0.9 else [0, 1.0, 0])
+        w /= np.linalg.norm(w)
+        out.append((a, b, t, w, np.cross(w, t)))
+    return out
+
+
+def _tube(pts, r, n=10):
+    """Round cable along a polyline (rig coords); joints get a short sleeve overlap."""
+    tris = []
+    ang = np.linspace(0, 2 * np.pi, n + 1)
+    for a, b, t, u, v in _frames(pts, [0, 0, 1.0]):
+        a, b = a - t * r * 0.5, b + t * r * 0.5
+        ring = [np.cos(q) * u * r + np.sin(q) * v * r for q in ang]
+        for i in range(n):
+            tris += [[a + ring[i], a + ring[i + 1], b + ring[i + 1]], [a + ring[i], b + ring[i + 1], b + ring[i]]]
+    return np.array(tris)
+
+
+def _strip(pts, width, thick, hint):
+    """Flat ribbon along a polyline; its width lies across the path, perpendicular to hint."""
+    tris = []
+    for a, b, t, w, n in _frames(pts, hint):
+        tris.append(_quad_box(a, b, w * width / 2, n * thick / 2))
+    return np.concatenate(tris)
+
+
+def _quad_box(a, b, hw, hn):
+    c = [a - hw - hn, a + hw - hn, a + hw + hn, a - hw + hn, b - hw - hn, b + hw - hn, b + hw + hn, b - hw + hn]
+    f = [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
+    return np.array([[c[i], c[j], c[k]] for i, j, k, l in f] + [[c[i], c[k], c[l]] for i, j, k, l in f])
+
+
+# ── Cable routes (rig X, Yr, Zr; Zr = -depth). Schematic: they show the path and the
+#    space it needs, not the slack. Ribbons leave the Pi connectors along the board
+#    (upward assumed), 22-pin FFC ~13 mm wide. ──
+PI_CONN = [(-19.0, -35.5, -(PI_TOP_D + 49)), (-19.0, -35.5, -(PI_TOP_D + 57))]     # near, far
+CAM_CONN = [(s * (X_IN - CAM_BOSS_H - 3.6), CAM_YR - 15.0, -CAM_D) for s in (-1, 1)]   # -X near, +X far
+RIBBON_NEAR = [PI_CONN[0], (-19, -35.5, -52), (-30, -35.5, -52), (-38, -31, -56), CAM_CONN[0]]
+RIBBON_FAR = [PI_CONN[1], (-19, -35.5, -45), (-29.8, -35.5, -45), (-29.8, -29.6, -45),
+              (29.8, -29.6, -45), (37, -30, -55), CAM_CONN[1]]
+LIDAR_CABLE = [(36, 0, 20), (60, 0, 20), (60, 0, -60), (60, 0, -118), (22, -45, -118),
+               (20, -40, -104)]                                     # M12 -> RJ45 in the Pi's Ethernet port
+LIDAR_POWER = [(22, -45, -118), (8, -52, -118), (8, -52, -100), (37, -45, -95), (37, 20, -85),
+               (24, 35, -74)]                                       # splitter power pair -> WAGO
+BATTERY_LEAD = [(0, -16, -140), (-8, -52, -118), (-8, -52, -100), (-37, -45, -95), (-37, 20, -85),
+                (-30, 34, -80), (18, 35, -74)]                     # round the tube, not through it                                      # from the pole, via the floor notch
+BUCK_IN = [(14, 36, -38), (19, 36, -66)]
+USBC_LEAD = [(-22, 36, -30), (-37, 20, -30), (-37, -20, -28), (-33, -34, -25)]   # right-angle plug at the Pi
+
+
 def _decimate(tris, grid=0.25):
     """Vertex clustering: snap to a grid and drop collapsed triangles (overlay only)."""
     q = np.round(tris / grid) * grid
@@ -196,4 +255,14 @@ def build_overlays():
     # 15→5 V buck and two WAGO 221-413 in the +Y bay [MEASURE]
     emit('buck_wago', np.concatenate([_box(-22, 14, 31, 41, -60, -15), _box(17, 22, 31, 40, -78, -66),
                                       _box(23.5, 28.5, 31, 40, -78, -66)]), '#f39c12', 0.5)
+
+    # Cables (schematic routes, see the route constants above)
+    emit('cable_ribbons', np.concatenate([_strip(RIBBON_NEAR[:-1], 13, 0.3, [0, 1.0, 0]),
+                                          _strip(RIBBON_NEAR[-2:], 13, 0.3, [1.0, 0, 0]),
+                                          _strip(RIBBON_FAR[:-1], 13, 0.3, [0, 1.0, 0]),
+                                          _strip(RIBBON_FAR[-2:], 13, 0.3, [1.0, 0, 0])]), '#e67e22', 0.85)
+    emit('cable_lidar', _tube(LIDAR_CABLE, 3.5), '#2c3e50', 0.8)
+    emit('cable_power', np.concatenate([_tube(LIDAR_POWER, 2.0), _tube(BATTERY_LEAD, 2.0),
+                                        _tube(BUCK_IN, 1.5)]), '#c0392b', 0.8)
+    emit('cable_usbc', _tube(USBC_LEAD, 2.0), '#111111', 0.8)
     return out
