@@ -201,10 +201,27 @@ RIBBON_FAR = [PI_CONN[1], (-26, -35.5, -68), (-26, -35.5, -42), (-29.8, -35.5, -
 # Pi 5 port end (bottom, ~99-104 mm down): Ethernet is the jack beside the micro-HDMI edge (-X here,
 # board y ~2-18 -> X -26..-10); the two USB-A stacks are toward +X.
 ETH = (-18.0, -40.0, -(PI_TOP_D + 88.5))
-LIDAR_CABLE = [(36, 0, 20), (60, 0, 20), (60, 0, -118), (5, -46, -118), (-18, -42, -118),
-               ETH]                                                 # M12 -> RJ45, up through the floor notch
-LIDAR_POWER = [(5, -46, -118), (8, -52, -100), (37, -45, -95), (37, 20, -85),
-               (24, 35, -74)]                                       # Livox splitter's power pair -> WAGO
+# Lidar cable: off the M12 connector, down the +X side, round the corner and in through a notch at
+# the top of the +Y panel's +X end (the panel slides up round it, no plug threading), a flat coil
+# in the buck bay, through the low web slot to the Pi side, and out of the floor notch to come up
+# into the downward-facing Ethernet jack. The power pair splits off at the coil to the WAGOs.
+PANEL_NOTCH_X, PANEL_NOTCH_D, PANEL_NOTCH_W = 37.0, 20.0, 8.0     # notch centre X, bottom depth, width
+COIL = dict(c=(-5.0, 37.0, -82.0), r=17.0, turns=2.0, y0=34.0, y1=40.0)
+
+
+def _coil_pts(n=40):
+    cx, _, cz = COIL['c']
+    t = np.linspace(0, 2 * np.pi * COIL['turns'], int(n * COIL['turns']) + 1)
+    y = COIL['y0'] + (COIL['y1'] - COIL['y0']) * t / t[-1]
+    return [(cx + COIL['r'] * np.cos(a), yy, cz + COIL['r'] * np.sin(a)) for a, yy in zip(t, y)]
+
+
+_COIL = _coil_pts()
+LIDAR_CABLE = ([(36, 0, 20), (54, 0, 20), (54, 0, 0), (54, 40, -15), (54, 53, -16),
+                (PANEL_NOTCH_X, 53, -16), (PANEL_NOTCH_X, 40, -17), (20, 35, -55)]
+               + _COIL
+               + [(37, 20, -85), (37, -45, -95), (8, -52, -100), (5, -46, -118), (-18, -42, -118), ETH])
+LIDAR_POWER = [_COIL[-1], (20, 36, -76), (24, 35, -74)]          # Livox splitter's power pair -> WAGO
 BATTERY_LEAD = [(0, -16, -140), (-8, -52, -118), (-8, -52, -100), (-37, -45, -95), (-37, 20, -85),
                 (-30, 34, -80), (18, 35, -74)]                     # up the pole, in at the floor notch, round the tube
 BUCK_IN = [(14, 36, -38), (19, 36, -66)]

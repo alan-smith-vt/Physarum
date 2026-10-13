@@ -59,7 +59,7 @@ def floor(x, y, z):
     return s
 
 
-def panel(x, y, z, grille=True):
+def panel(x, y, z, grille=True, cable_notch=False):
     X = x - PANEL_W / 2
     d = z + FLANGE + 0.1                   # print z runs down the panel
     s = np.ones(np.broadcast_shapes(X.shape, d.shape), bool)
@@ -68,6 +68,12 @@ def panel(x, y, z, grille=True):
     if grille:
         for x0, x1 in GRILLE:
             s &= ~((X >= x0) & (X <= x1) & (d >= GRILLE_D[0]) & (d <= GRILLE_D[1]))
+    if cable_notch:
+        # U-notch at the top of one end for the lidar cable; flip the panel to put it on +X
+        r = (PANEL_NOTCH_W + RESIN_HOLE_COMP) / 2
+        u = (np.abs(X - PANEL_NOTCH_X) <= r) & (d <= PANEL_NOTCH_D)
+        u |= (X - PANEL_NOTCH_X) ** 2 + (d - PANEL_NOTCH_D) ** 2 <= r * r
+        s &= ~u
     return s
 
 
