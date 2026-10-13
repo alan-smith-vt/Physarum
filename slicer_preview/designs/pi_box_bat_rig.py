@@ -69,12 +69,16 @@ BOSS_R, INSERT_D, INSERT_DEPTH = 4.5, 4.0, 6.0      # glued M2.5 brass insert [M
 #    leaving the middle open for cables) keep it off the buck; the +Y panel holds the other face. ──
 BAT = dict(x=37.5, y0=49.8, y1=74.8, d0=DEPTH - 157.0, d1=DEPTH)
 BAT_RIB = (30.0, X_IN, 47.0, 49.5)            # |X| range, Yr range
-# Power: the rig runs off the bank's top USB-C port through a RIGHT-ANGLE plug to the PD trigger
-# (head ~8 mm above the port; the gap under the flange is ~13 mm). The bank's built-in cord comes out
-# near its bottom and is only used to CHARGE it: its plug parks at a floor opening beside the bank, so
-# a charger plugs in from under the rig (turn the bank 180° if its cord is on the -X side). [MEASURE]
-CHARGE_HOLE = (38.5, 45.5, 52.0, 66.0)        # floor opening: X range, Yr range
-TOP_PLUG = dict(x0=-8.0, x1=14.0, y=62.0, h=8.0)   # right-angle USB-C head lying across the bank's top
+# Power: the bank stands PORTS DOWN, its front (display + button) facing the +Y panel. Its two
+# ports sit over a floor window, for charging the bank or other devices from under the rig (not
+# while the rig runs: with two outputs in use the built-in cord drops to 5/9 V). The built-in cord
+# leaves the bank's top end and runs over it into the buck bay, to a PD trigger (female-input board,
+# or the male trigger + a PD coupler) set to 15 V; its output goes through the power switch to the
+# existing WAGO split. Positions from the product photo [MEASURE].
+PORT_WINDOW = (-22.0, 22.0, 56.0, 69.0)       # floor: X range, Yr range under the bank's end face
+CORD_ROOT = (33.0, 62.0, -(DEPTH - 157.0))    # built-in cord leaves the bank's top end here
+PD_TRIGGER = (30.0, 42.0, 33.0, 45.0, 38.0, 60.0)   # envelope incl. coupler: X, Yr, depth ranges (clear of the lidar cable)
+BUTTON = dict(x=-22.0, d=DEPTH - 22.0, hole=10.0)   # bank's display button, through the clear +Y panel
 # BATTERY: office link. A TP-Link UE300 (USB 3 gigabit; body 71 × 25.4 × 15) stands on the floor in
 # the corner between the Pi pocket and the +X camera wall, RJ45 end down through a floor cutout, in a
 # printed cradle. It is beside the Pi's USB stack, not under it: the fold-out cord ends in a full
@@ -268,12 +272,13 @@ def _coil_pts(n=40):
 
 _COIL = _coil_pts()
 LIDAR_CABLE = ([(0, 40, 20), (CABLE_HOLE[0], CABLE_HOLE[1], 14), (CABLE_HOLE[0], CABLE_HOLE[1], -16),
-                (CABLE_HOLE[0], 46, -19), (24, 36, -50)]    # BATTERY: down the flange hole, over the bank's top
+                (CABLE_HOLE[0], 46, -19), (24, 36, -50), (14, 36, -60)]    # BATTERY: down the flange hole, over the bank's top
                + _COIL
                + [(-37, 20, -85), (-37, -45, -95), (-24, -46, -118), (-18, -42, -130), ETH])   # BATTERY: -X web slot, clear of the USB adapter
 LIDAR_POWER = [_COIL[-1], (20, 36, -76), (24, 35, -74)]          # Livox splitter's power pair -> WAGO
-BATTERY_LEAD = [(TOP_PLUG['x1'], 62, -(DEPTH - 157) + 4), (16, 50, -17), (14, 40, -45),
-                (18, 35, -74)]                                     # BATTERY: right-angle PD trigger -> WAGO
+BUILTIN_CORD = [CORD_ROOT, (33, 62, -16), (24, 52, -16), (24, 44, -20), (36, 40, -PD_TRIGGER[4])]   # through the ribs' open middle
+BATTERY_LEAD = [(32, 34, -PD_TRIGGER[4]), (20, POWER_SWITCH['y'], -30), (20, POWER_SWITCH['y'], -POWER_SWITCH['d']),
+                (16, 33, -45), (18, 35, -66)]                      # trigger -> switch -> WAGO
 BUCK_IN = [(14, 36, -38), (19, 36, -66)]
 USBC_LEAD = [(-22, 36, -30), (-37, 20, -30), (-37, -20, -28), (-33, -34, -25)]   # right-angle plug at the Pi
 
@@ -350,14 +355,11 @@ def build_overlays():
                (25, -38, USB3_PORT[2] - 28), (USB3_PORT[0], USB3_PORT[1], USB3_PORT[2] - 28),
                (USB3_PORT[0], USB3_PORT[1], USB3_PORT[2] - 22)], 1.8)]),
         '#ecf0f1', 0.8, 'TP-Link UE300 → office link (RJ45 in the floor)')
-    emit('battery_plugs', np.concatenate([
-        _box(TOP_PLUG['x0'], TOP_PLUG['x1'], TOP_PLUG['y'] - 4, TOP_PLUG['y'] + 4,
-             -BAT['d0'], -BAT['d0'] + TOP_PLUG['h']),
-        _tube([(BAT['x'] - 1.5, 62, -(DEPTH - 12)), (41.5, 60, -(DEPTH - 8)), (42, 59, -(DEPTH - 1)),
-               (42, 59, -(DEPTH + 6))], 2.0)]),
-        '#2c3e50', 0.9, 'bank: right-angle USB-C (out, top) + built-in cord (charge, floor)')
+    x0, x1, y0, y1, d0, d1 = PD_TRIGGER
+    emit('pd_trigger', np.concatenate([_box(x0, x1, y0, y1, -d1, -d0), _tube(BUILTIN_CORD, 2.0)]),
+         '#2c3e50', 0.9, 'built-in cord (bank top) → PD trigger 15 V [MEASURE]')
     emit('battery', _box(-BAT['x'] + 0.5, BAT['x'] - 0.5, BAT['y0'], BAT['y1'], -BAT['d1'], -BAT['d0']),
-         '#34495e', 0.5, 'Anker 20K bank, ports up')
+         '#34495e', 0.5, 'Anker 20K bank, ports DOWN, display toward +Y')
 
     # 15→5 V buck and two WAGO 221-413 in the +Y bay [MEASURE]
     emit('buck_wago', np.concatenate([_box(-22, 14, 31, 41, -60, -15), _box(17, 22, 31, 40, -78, -66),
@@ -376,7 +378,7 @@ def build_overlays():
          'camera ribbons (15→22-pin, 150 mm)')
     emit('cable_lidar', _tube(LIDAR_CABLE, 3.5), '#1f4e79', 1.0, 'lidar cable: M12 → RJ45 (Pi Ethernet)')
     emit('cable_lidar_power', _tube(LIDAR_POWER, 2.0), '#8e1b1b', 1.0, 'lidar power pair (Livox splitter) → WAGO')
-    emit('cable_battery', _tube(BATTERY_LEAD, 2.0), '#e74c3c', 1.0, 'PD trigger lead (bank top) → WAGO')
+    emit('cable_battery', _tube(BATTERY_LEAD, 2.0), '#e74c3c', 1.0, 'PD trigger → power switch → WAGO')
     emit('cable_buck_in', _tube(BUCK_IN, 1.5), '#f1948a', 1.0, 'WAGO → buck input')
     emit('cable_usbc', _tube(USBC_LEAD, 2.0), '#111111', 1.0, 'buck USB-C → Pi power (right-angle plug)')
     return out

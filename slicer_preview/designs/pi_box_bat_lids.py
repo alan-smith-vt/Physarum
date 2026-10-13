@@ -48,8 +48,8 @@ def floor(x, y, z):
         inset = max(CHAMFER - y, 0.0)
         s = (aX <= X_OUT - inset) & (Yr >= Y_MIN + inset) & (Yr <= Y_MAX - inset)
         s &= ~hole(0, 0, 2 * WELL_R, X, Yr)
-        cx0, cx1, cy0, cy1 = CHARGE_HOLE                         # BATTERY: built-in cord's plug parks here
-        s &= ~((X >= cx0) & (X <= cx1) & (Yr >= cy0) & (Yr <= cy1))
+        wx0, wx1, wy0, wy1 = PORT_WINDOW                         # BATTERY: the bank's ports, from below
+        s &= ~((X >= wx0) & (X <= wx1) & (Yr >= wy0) & (Yr <= wy1))
         for bx, by in BOSSES:
             s &= ~hole(bx, by, HEAD_CB if y < HEAD_CB_DEPTH else SCREW_CLEAR, X, Yr)
         for px, py in PINS:
@@ -75,7 +75,7 @@ def floor(x, y, z):
     return s
 
 
-def panel(x, y, z, grille=True, cable_notch=False):
+def panel(x, y, z, grille=True, cable_notch=False, button=False):
     X = x - PANEL_W / 2
     d = z + FLANGE + 0.1                   # print z runs down the panel
     s = np.ones(np.broadcast_shapes(X.shape, d.shape), bool)
@@ -84,6 +84,9 @@ def panel(x, y, z, grille=True, cable_notch=False):
     if grille:
         for x0, x1 in GRILLE:
             s &= ~((X >= x0) & (X <= x1) & (d >= GRILLE_D[0]) & (d <= GRILLE_D[1]))
+    if button:                             # BATTERY: hole to press the bank's display button
+        r = (BUTTON['hole'] + RESIN_HOLE_COMP) / 2
+        s &= ~((X - BUTTON['x']) ** 2 + (d - BUTTON['d']) ** 2 <= r * r)
     if cable_notch:
         # U-notch at the top of one end for the lidar cable; flip the panel to put it on +X
         r = (PANEL_NOTCH_W + RESIN_HOLE_COMP) / 2
