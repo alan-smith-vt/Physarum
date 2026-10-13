@@ -118,7 +118,7 @@ WALL_VENTS = ([(-52.0 + 4 * i, -49.6 + 4 * i, 120.0, 160.0) for i in range(4)] +
 #    bands, the slot ends, the camera and switch pads, round the web; plus internal vertical ribs. ──
 FLANGE_PLATE = 4.0
 CORNER_BOSS_R = 10.0
-GYROID_PERIOD, GYROID_T = 9.0, 0.45           # mm; sheet half-thickness in gyroid units (~30 % solid)
+GYROID_PERIOD, GYROID_T = 12.0, 0.35          # mm; sheet half-thickness in gyroid units (~25 % solid; chosen over gyroid 7 / diamond 9)
 WALL_TOP_SOLID, WALL_BOTTOM_SOLID = FLANGE + 2.0, 14.0
 CAM_PAD = (15.0, 16.0)                        # half-width along Yr, reach past CAM_D: solid round each camera
 SWITCH_PAD_R = 14.0
@@ -128,7 +128,7 @@ WEB_PAD = 6.0                                 # |Yr| solid round the web / wall 
 WALL_RIBS = ((-15.0 - CAM_PAD[0] - 1.5, FLANGE), (POWER_SWITCH['y'], POWER_SWITCH['d'] + SWITCH_PAD_R), (50.0, FLANGE))   # first one touches the camera pad
 
 
-# Wall fill, selectable for design review: env PI_BOX_FILL = "kind:a:b" (default gyroid:9:0.45).
+# Wall fill, selectable for design review: env PI_BOX_FILL = "kind:a:b" (default gyroid:12:0.35).
 #   gyroid|schwarzp|diamond : TPMS sheet, a = period mm, b = sheet half-thickness (TPMS units)
 #   honeycomb               : round holes on a hex grid, a = pitch, b = hole Ø
 #   slits                   : vertical slits, a = pitch, b = slit width (bridged every 30 mm)
