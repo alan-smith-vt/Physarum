@@ -126,7 +126,7 @@ PI_POST_R, PI_PILOT = 3.2, 2.2            # M2.5 self-tap (horizontal hole)
 # ── OV9281 cameras (25 × 23.86 board, lens 18 mm from the board face) ──
 # Lens axes just under the flange: the stiffest spot, ~55 mm from the lidar instead of ~90.
 CAM_YR, CAM_D = -15.0, 23.0               # lens axis (both cameras)
-CAM_WINDOW = 16.0                         # square opening for the lens holder [MEASURE]
+CAM_WINDOW = 19.0                         # ROUND lens window Ø (lens holder must pass: round, or square ≤ ~13) [MEASURE]
 CAM_BOSS_R, CAM_PILOT, CAM_BOSS_H = 2.25, 1.6, 2.0
 # Connector edge direction per side. Board 25 × 23.86; the lens sits 8.25 from the edge opposite
 # the connector and the 21 × 12.5 holes are symmetric about it. The -X (near) camera turns its
@@ -144,7 +144,7 @@ def cam_board(s):
     if CAM_CONN_DIR[s] == '-y':
         return CAM_YR - 15.6, CAM_YR + 8.25, CAM_D - 12.5, CAM_D + 12.5
     return CAM_YR - 12.5, CAM_YR + 12.5, CAM_D - 8.25, CAM_D + 15.6
-GUARD_R0, GUARD_R1, GUARD_X = 9.5, 11.5, 57.0     # lens guard ring, stops ~5 mm behind the lens front
+GUARD_R0, GUARD_R1, GUARD_X = (CAM_WINDOW + RESIN_HOLE_COMP) / 2, 11.7, 57.0   # guard ring: same bore as the window
 
 # ── Exhaust slots in the camera walls beside the Pi ──
 EXHAUST = [(-38 - 4 * i, -36 - 4 * i) for i in range(4)]   # Yr ranges
