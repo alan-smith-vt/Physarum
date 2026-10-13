@@ -70,10 +70,12 @@ def core(x, d, z):
         s |= (rr <= PI_POST_R ** 2) & (Y >= PCB_YR) & (Y <= 0) & (r2 >= WELL_R ** 2)
         s &= ~((rr <= rp ** 2) & (Y >= PCB_YR) & (Y <= PCB_YR + 8))
     # camera bosses (horizontal, along X) on the wall's inner face
-    for cy, cd in CAM_HOLES:
-        if abs(d - cd) <= CAM_BOSS_R:
-            w = np.sqrt(CAM_BOSS_R ** 2 - (d - cd) ** 2)
-            s |= (np.abs(Y - cy) <= w) & (aX >= X_IN - CAM_BOSS_H) & (aX <= X_IN)
+    for side in (-1, 1):
+        sX = side * X
+        for cy, cd in cam_holes(side):
+            if abs(d - cd) <= CAM_BOSS_R:
+                w = np.sqrt(CAM_BOSS_R ** 2 - (d - cd) ** 2)
+                s |= (np.abs(Y - cy) <= w) & (sX >= X_IN - CAM_BOSS_H) & (sX <= X_IN)
     # lens guard ring (outside the wall)
     rc = np.sqrt((Y - CAM_YR) ** 2 + (d - CAM_D) ** 2)
     s |= (aX >= X_OUT) & (aX <= GUARD_X) & (rc >= GUARD_R0) & (rc <= GUARD_R1)
@@ -86,11 +88,13 @@ def core(x, d, z):
     s &= ~((aX < X_IN) & ((Y <= Y_MIN + gw) | (Y >= Y_MAX - gw)) & ~tube)
     win = CAM_WINDOW + RESIN_HOLE_COMP
     s &= ~((aX >= X_IN - 0.01) & (aX <= X_OUT) & (np.abs(Y - CAM_YR) <= win / 2) & (abs(d - CAM_D) <= win / 2))
-    for cy, cd in CAM_HOLES:
-        rp = (CAM_PILOT + RESIN_HOLE_COMP) / 2
-        if abs(d - cd) < rp:
-            w = np.sqrt(rp ** 2 - (d - cd) ** 2)
-            s &= ~((np.abs(Y - cy) <= w) & (aX >= X_IN - CAM_BOSS_H) & (aX <= X_IN + 3))
+    rp = (CAM_PILOT + RESIN_HOLE_COMP) / 2
+    for side in (-1, 1):
+        sX = side * X
+        for cy, cd in cam_holes(side):
+            if abs(d - cd) < rp:
+                w = np.sqrt(rp ** 2 - (d - cd) ** 2)
+                s &= ~((np.abs(Y - cy) <= w) & (sX >= X_IN - CAM_BOSS_H) & (sX <= X_IN + 3))
     if EXHAUST_D[0] <= d <= EXHAUST_D[1]:
         for y0, y1 in EXHAUST:
             s &= ~((aX >= X_IN) & (Y >= y0) & (Y <= y1))

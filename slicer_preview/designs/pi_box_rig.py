@@ -66,10 +66,26 @@ PI_HOLES = [(sx * 24.5, PI_TOP_D + bx) for sx in (-1, 1) for bx in (3.5, 61.5)]
 PI_POST_R, PI_PILOT = 3.2, 2.2            # M2.5 self-tap (horizontal hole)
 
 # ── OV9281 cameras (25 × 23.86 board, lens 18 mm from the board face) ──
-CAM_YR, CAM_D = -14.0, 62.0               # lens axis
+# Lens axes just under the flange: the stiffest spot, ~55 mm from the lidar instead of ~90.
+CAM_YR, CAM_D = -15.0, 23.0               # lens axis (both cameras)
 CAM_WINDOW = 16.0                         # square opening for the lens holder [MEASURE]
 CAM_BOSS_R, CAM_PILOT, CAM_BOSS_H = 2.25, 1.6, 2.0
-CAM_HOLES = [(CAM_YR + sy * 6.25, CAM_D + sd * 10.5) for sy in (-1, 1) for sd in (-1, 1)]
+# Connector edge direction per side. Board 25 × 23.86; the lens sits 8.25 from the edge opposite
+# the connector and the 21 × 12.5 holes are symmetric about it. The -X (near) camera turns its
+# connector down so its ribbon runs down to the Pi, clear of the Pi's USB-C plug ~25 mm down.
+CAM_CONN_DIR = {-1: 'down', 1: '-y'}
+
+
+def cam_holes(s):
+    a, b = (6.25, 10.5) if CAM_CONN_DIR[s] == '-y' else (10.5, 6.25)
+    return [(CAM_YR + sy * a, CAM_D + sd * b) for sy in (-1, 1) for sd in (-1, 1)]
+
+
+def cam_board(s):
+    """(Yr0, Yr1, d0, d1) of the board outline."""
+    if CAM_CONN_DIR[s] == '-y':
+        return CAM_YR - 15.6, CAM_YR + 8.25, CAM_D - 12.5, CAM_D + 12.5
+    return CAM_YR - 12.5, CAM_YR + 12.5, CAM_D - 8.25, CAM_D + 15.6
 GUARD_R0, GUARD_R1, GUARD_X = 9.5, 11.5, 57.0     # lens guard ring, stops ~5 mm behind the lens front
 
 # ── Exhaust slots in the camera walls beside the Pi ──
@@ -177,10 +193,11 @@ def _quad_box(a, b, hw, hn):
 #    space it needs, not the slack. Ribbons leave the Pi connectors along the board
 #    (upward assumed), 22-pin FFC ~13 mm wide. ──
 PI_CONN = [(-19.0, -35.5, -(PI_TOP_D + 49)), (-19.0, -35.5, -(PI_TOP_D + 57))]     # near, far
-CAM_CONN = [(s * (X_IN - CAM_BOSS_H - 3.6), CAM_YR - 15.0, -CAM_D) for s in (-1, 1)]   # -X near, +X far
-RIBBON_NEAR = [PI_CONN[0], (-19, -35.5, -52), (-30, -35.5, -52), (-38, -31, -56), CAM_CONN[0]]
-RIBBON_FAR = [PI_CONN[1], (-19, -35.5, -45), (-29.8, -35.5, -45), (-29.8, -29.6, -45),
-              (29.8, -29.6, -45), (37, -30, -55), CAM_CONN[1]]
+CAM_CONN = [(-(X_IN - CAM_BOSS_H - 3.6), CAM_YR, -(CAM_D + 15.0)),     # -X near: connector edge down
+            (X_IN - CAM_BOSS_H - 3.6, CAM_YR - 15.0, -CAM_D)]          # +X far: connector edge toward -Yr
+RIBBON_NEAR = [PI_CONN[0], (-26, -35.5, -60), (-26, -35.5, -50), (-36, -24, -44), CAM_CONN[0]]
+RIBBON_FAR = [PI_CONN[1], (-26, -35.5, -68), (-26, -35.5, -42), (-29.8, -35.5, -40), (-29.8, -29.6, -40),
+              (29.8, -29.6, -40), (37, -30, -30), CAM_CONN[1]]
 # Pi 5 port end (bottom, ~99-104 mm down): Ethernet is the jack beside the micro-HDMI edge (-X here,
 # board y ~2-18 -> X -26..-10); the two USB-A stacks are toward +X.
 ETH = (-18.0, -40.0, -(PI_TOP_D + 88.5))
@@ -250,8 +267,8 @@ def build_overlays():
     cams = []
     for s in (-1, 1):
         xf = s * (X_IN - CAM_BOSS_H)                      # board front face
-        cams.append(_box(min(xf, xf - s), max(xf, xf - s), CAM_YR - 15.6, CAM_YR + 8.25,
-                         -(CAM_D + 12.5), -(CAM_D - 12.5)))
+        y0, y1, d0, d1 = cam_board(s)
+        cams.append(_box(min(xf, xf - s), max(xf, xf - s), y0, y1, -d1, -d0))
         cams.append(_cyl((0, CAM_YR, -CAM_D), 'x', 7, xf, xf + s * 18) if s > 0 else
                     _cyl((0, CAM_YR, -CAM_D), 'x', 7, xf + s * 18, xf))
     emit('cameras', np.concatenate(cams), '#8e44ad', 0.6, 'OV9281 boards + lenses')
