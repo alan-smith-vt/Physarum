@@ -57,23 +57,33 @@ def core(x, d, z):
     tube = (r2 >= WELL_R ** 2) & (r2 <= (WELL_R + TUBE_T) ** 2)
     walls = (aX >= X_IN) & inside
     webs = (aX >= WELL_R + 1) & (aX <= X_IN) & (np.abs(Y) <= WEB_T / 2)
-    for x0, x1, d0, d1 in WEB_SLOTS:
-        if d0 <= d <= d1:
-            webs &= ~((aX >= x0) & (aX <= x1))
+    for x0, x1, d0, d1 in WEB_SLOTS:                 # 45° pointed top: no flat bridge
+        roof = d1 + np.minimum(aX - x0, x1 - aX)
+        webs &= ~((aX >= x0) & (aX <= x1) & (d >= d0) & (d <= roof))
     s = tube | walls | webs
     # BATTERY: stop ribs between the buck bay and the bank, middle left open for cables
     s |= (aX >= BAT_RIB[0]) & (aX <= BAT_RIB[1]) & (Y >= BAT_RIB[2]) & (Y <= BAT_RIB[3])
 
-    near_floor = d > DEPTH - FOOT_H
-    if near_floor:
-        s |= (aX >= FOOT_X0) & (aX <= X_OUT) & (np.abs(Y) <= FOOT_Y)
-        for bx, by in BOSSES:
-            s |= (X - bx) ** 2 + (Y - by) ** 2 <= BOSS_R ** 2
+    rise = d - (DEPTH - FOOT_H)                       # >= 0 once the foot is full size
+    foot_in = max(FOOT_X0, X_IN - max(rise + (X_IN - FOOT_X0), 0.0))
+    if foot_in < X_IN:                                 # 45° taper from the wall's inner face
+        s |= (aX >= foot_in) & (aX <= X_OUT) & (np.abs(Y) <= FOOT_Y)
+    for bx, by in BOSSES:                              # cone from the wall, 45°, full radius at the foot
+        attach = abs(abs(bx) - X_IN) + 0.5
+        r = min(BOSS_R, attach + max(rise + (BOSS_R - attach), 0.0)) if rise > -(BOSS_R - attach) else 0.0
+        if r > 0:
+            s |= (X - bx) ** 2 + (Y - by) ** 2 <= r * r
     # Pi standoff posts: horizontal (along Yr) from the tube to the PCB back
     rp = (PI_PILOT + RESIN_HOLE_COMP) / 2
     for px, pd in PI_HOLES:
         rr = (X - px) ** 2 + (d - pd) ** 2
         s |= (rr <= PI_POST_R ** 2) & (Y >= PCB_YR) & (Y <= 0) & (r2 >= WELL_R ** 2)
+        # gusset: below the post, its far end recedes toward the tube at 45°
+        y_tube = -np.sqrt(max(WELL_R ** 2 - px ** 2, 0.0))
+        reach = pd - d                                 # how far below the post centre
+        if 0 < reach <= PI_POST_R + (y_tube - PCB_YR):
+            y_end = PCB_YR + max(reach - PI_POST_R, 0.0)
+            s |= (np.abs(X - px) <= PI_POST_R) & (Y >= y_end) & (Y <= y_tube + 1) & (r2 >= WELL_R ** 2)
         s &= ~((rr <= rp ** 2) & (Y >= PCB_YR) & (Y <= PCB_YR + 8))
     # camera bosses (horizontal, along X) on the wall's inner face
     for side in (-1, 1):
@@ -93,7 +103,9 @@ def core(x, d, z):
     # the panel itself passes inside the wall ends: keep the region between the walls open
     s &= ~((aX < X_IN) & ((Y <= Y_MIN + gw) | (Y >= Y_MAX - gw)) & ~tube)
     win = CAM_WINDOW + RESIN_HOLE_COMP
-    s &= ~((aX >= X_IN - 0.01) & (aX <= X_OUT) & (np.abs(Y - CAM_YR) <= win / 2) & (abs(d - CAM_D) <= win / 2))
+    dy = np.abs(Y - CAM_YR)
+    s &= ~((aX >= X_IN - 0.01) & (aX <= X_OUT) & (dy <= win / 2) & (d >= CAM_D - win / 2)
+           & (d <= CAM_D + win / 2 + (win / 2 - dy)))    # pointed top: no 16 mm flat bridge
     rp = (CAM_PILOT + RESIN_HOLE_COMP) / 2
     for side in (-1, 1):
         sX = side * X
