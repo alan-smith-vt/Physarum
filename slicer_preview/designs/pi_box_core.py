@@ -96,6 +96,11 @@ def core(x, d, z):
     s &= ~groove
     # the panel itself passes inside the wall ends: keep the region between the walls open
     s &= ~((aX < X_IN) & ((Y <= Y_MIN + gw) | (Y >= Y_MAX - gw)) & ~tube)
+    sw = POWER_SWITCH                                  # power switch: teardrop hole through the +X wall
+    rs = (sw['hole'] + RESIN_HOLE_COMP) / 2
+    tear = ((Y - sw['y']) ** 2 + (d - sw['d']) ** 2 <= rs * rs) | (
+        (d >= sw['d']) & (np.abs(Y - sw['y']) + (d - sw['d']) <= rs * 1.4142))
+    s &= ~((X >= X_IN - 0.01) & (X <= X_OUT) & tear)
     win = CAM_WINDOW + RESIN_HOLE_COMP
     dy = np.abs(Y - CAM_YR)
     s &= ~((aX >= X_IN - 0.01) & (aX <= X_OUT) & (dy <= win / 2) & (d >= CAM_D - win / 2)

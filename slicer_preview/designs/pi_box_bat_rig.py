@@ -69,7 +69,12 @@ BOSS_R, INSERT_D, INSERT_DEPTH = 4.5, 4.0, 6.0      # glued M2.5 brass insert [M
 #    leaving the middle open for cables) keep it off the buck; the +Y panel holds the other face. ──
 BAT = dict(x=37.5, y0=49.8, y1=74.8, d0=DEPTH - 157.0, d1=DEPTH)
 BAT_RIB = (30.0, X_IN, 47.0, 49.5)            # |X| range, Yr range
-BAT_NOTCH = (20.0, 53.0)
+# Power: the rig runs off the bank's top USB-C port through a RIGHT-ANGLE plug to the PD trigger
+# (head ~8 mm above the port; the gap under the flange is ~13 mm). The bank's built-in cord comes out
+# near its bottom and is only used to CHARGE it: its plug parks at a floor opening beside the bank, so
+# a charger plugs in from under the rig (turn the bank 180° if its cord is on the -X side). [MEASURE]
+CHARGE_HOLE = (38.5, 45.5, 52.0, 66.0)        # floor opening: X range, Yr range
+TOP_PLUG = dict(x0=-8.0, x1=14.0, y=62.0, h=8.0)   # right-angle USB-C head lying across the bank's top
 # BATTERY: office link. A TP-Link UE300 (USB 3 gigabit; body 71 × 25.4 × 15) stands on the floor in
 # the corner between the Pi pocket and the +X camera wall, RJ45 end down through a floor cutout, in a
 # printed cradle. It is beside the Pi's USB stack, not under it: the fold-out cord ends in a full
@@ -83,6 +88,12 @@ CRADLE_H, CRADLE_WALL, CRADLE_CLEAR = 12.0, 2.0, 0.3
 # BATTERY: the pod overhangs the aluminium plate (edge at Yr 45), so the lidar cable drops straight
 # through the flange there; Ø16 passes the RJ45 plug. It also vents the pod.
 CABLE_HOLE = (15.0, 60.0, 16.0)               # X, Yr, Ø                      # floor: |X| < 20, Yr > 53, open to the +Y edge (charging cable)
+
+# ── Power switch: 16 mm panel-mount latching push button (LED ring ideal) in the 15 V line between
+#    the PD trigger and the WAGOs, so it cuts lidar + Pi together. On the +X camera wall, battery side
+#    of the web, near the top: its ~30 mm body sits in the empty upper part of that camera bay.
+#    Teardrop hole (pointed top prints without a bridge); the nut still seats. [MEASURE] body, thread ──
+POWER_SWITCH = dict(y=30.0, d=26.0, hole=16.0, body_r=8.0, body_len=30.0)
 
 # ── Flange vents (no suction cups when printed flange-down) ──
 VENTS = [(0, -45), (-15, -45), (15, -45), (0, 38), (-15, 38), (15, 38),
@@ -258,7 +269,7 @@ LIDAR_CABLE = ([(0, 40, 20), (CABLE_HOLE[0], CABLE_HOLE[1], 14), (CABLE_HOLE[0],
                + _COIL
                + [(-37, 20, -85), (-37, -45, -95), (-24, -46, -118), (-18, -42, -130), ETH])   # BATTERY: -X web slot, clear of the USB adapter
 LIDAR_POWER = [_COIL[-1], (20, 36, -76), (24, 35, -74)]          # Livox splitter's power pair -> WAGO
-BATTERY_LEAD = [(-10, 62, -(DEPTH - 157) + 4), (-10, 62, -16), (0, 46, -18), (14, 40, -45),
+BATTERY_LEAD = [(TOP_PLUG['x1'], 62, -(DEPTH - 157) + 4), (16, 50, -17), (14, 40, -45),
                 (18, 35, -74)]                                     # BATTERY: right-angle PD trigger -> WAGO
 BUCK_IN = [(14, 36, -38), (19, 36, -66)]
 USBC_LEAD = [(-22, 36, -30), (-37, 20, -30), (-37, -20, -28), (-33, -34, -25)]   # right-angle plug at the Pi
@@ -336,12 +347,23 @@ def build_overlays():
                (25, -38, USB3_PORT[2] - 28), (USB3_PORT[0], USB3_PORT[1], USB3_PORT[2] - 28),
                (USB3_PORT[0], USB3_PORT[1], USB3_PORT[2] - 22)], 1.8)]),
         '#ecf0f1', 0.8, 'TP-Link UE300 → office link (RJ45 in the floor)')
+    emit('battery_plugs', np.concatenate([
+        _box(TOP_PLUG['x0'], TOP_PLUG['x1'], TOP_PLUG['y'] - 4, TOP_PLUG['y'] + 4,
+             -BAT['d0'], -BAT['d0'] + TOP_PLUG['h']),
+        _tube([(BAT['x'] - 1.5, 62, -(DEPTH - 12)), (41.5, 60, -(DEPTH - 8)), (42, 59, -(DEPTH - 1)),
+               (42, 59, -(DEPTH + 6))], 2.0)]),
+        '#2c3e50', 0.9, 'bank: right-angle USB-C (out, top) + built-in cord (charge, floor)')
     emit('battery', _box(-BAT['x'] + 0.5, BAT['x'] - 0.5, BAT['y0'], BAT['y1'], -BAT['d1'], -BAT['d0']),
          '#34495e', 0.5, 'Anker 20K bank, ports up')
 
     # 15→5 V buck and two WAGO 221-413 in the +Y bay [MEASURE]
     emit('buck_wago', np.concatenate([_box(-22, 14, 31, 41, -60, -15), _box(17, 22, 31, 40, -78, -66),
                                       _box(23.5, 28.5, 31, 40, -78, -66)]), '#f39c12', 0.5, 'buck + 2 WAGO [MEASURE]')
+
+    sw = POWER_SWITCH
+    emit('power_switch', np.concatenate([_cyl((0, sw['y'], -sw['d']), 'x', 9.0, X_OUT, X_OUT + 3),
+                                         _cyl((0, sw['y'], -sw['d']), 'x', sw['body_r'], X_OUT - sw['body_len'], X_OUT)]),
+         '#e74c3c', 0.8, 'power switch, 16 mm latching (15 V line)')
 
     # Cables (schematic routes, see the route constants above)
     emit('cable_ribbons', np.concatenate([_strip(RIBBON_NEAR[:-1], 13, 0.3, [0, 1.0, 0]),

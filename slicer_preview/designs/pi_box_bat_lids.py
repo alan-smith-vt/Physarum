@@ -48,7 +48,8 @@ def floor(x, y, z):
         inset = max(CHAMFER - y, 0.0)
         s = (aX <= X_OUT - inset) & (Yr >= Y_MIN + inset) & (Yr <= Y_MAX - inset)
         s &= ~hole(0, 0, 2 * WELL_R, X, Yr)
-        s &= ~((aX <= BAT_NOTCH[0]) & (Yr >= BAT_NOTCH[1]))      # BATTERY: charging cable
+        cx0, cx1, cy0, cy1 = CHARGE_HOLE                         # BATTERY: built-in cord's plug parks here
+        s &= ~((X >= cx0) & (X <= cx1) & (Yr >= cy0) & (Yr <= cy1))
         for bx, by in BOSSES:
             s &= ~hole(bx, by, HEAD_CB if y < HEAD_CB_DEPTH else SCREW_CLEAR, X, Yr)
         for px, py in PINS:

@@ -59,6 +59,8 @@ def main():
             hit &= np.abs(C.from_print(pts)[:, 1] - C.PCB_YR) > 0.05
         if name == "cameras":                 # camera board face resting on its bosses
             hit &= np.abs(np.abs(C.from_print(pts)[:, 0]) - (C.X_IN - C.CAM_BOSS_H)) > 0.05
+        if name == "power_switch":            # bezel seated on the wall's outer face
+            hit &= np.abs(C.from_print(pts)[:, 0] - C.X_OUT) > 0.05
         if name == "base_plate":              # flange face against the plate
             hit &= np.abs(pts[:, 1]) > 0.05
         rng = f"{pts[hit, 1].min():.1f}..{pts[hit, 1].max():.1f}" if hit.any() else "-"

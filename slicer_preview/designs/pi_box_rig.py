@@ -58,6 +58,12 @@ PIN_SLIP, PIN_PRESS, PIN_DEPTH = 3.4, 3.3, 4.0      # fit-strip values (no extra
 BOSSES = [(sx * 44.0, y) for sx in (-1, 1) for y in (-52.0, 39.5)]
 BOSS_R, INSERT_D, INSERT_DEPTH = 4.5, 4.0, 6.0      # glued M2.5 brass insert [MEASURE]
 
+# ── Power switch: 16 mm panel-mount latching push button (LED ring ideal) in the 15 V line between
+#    the PD trigger and the WAGOs, so it cuts lidar + Pi together. On the +X camera wall, battery side
+#    of the web, near the top: its ~30 mm body sits in the empty upper part of that camera bay.
+#    Teardrop hole (pointed top prints without a bridge); the nut still seats. [MEASURE] body, thread ──
+POWER_SWITCH = dict(y=30.0, d=26.0, hole=16.0, body_r=8.0, body_len=30.0)
+
 # ── Flange vents (no suction cups when printed flange-down) ──
 VENTS = [(0, -45), (-15, -45), (15, -45), (0, 38), (-15, 38), (15, 38),
          (37, 20), (37, -20), (-37, 20), (-37, -20)]
@@ -303,6 +309,11 @@ def build_overlays():
     # 15→5 V buck and two WAGO 221-413 in the +Y bay [MEASURE]
     emit('buck_wago', np.concatenate([_box(-22, 14, 31, 41, -60, -15), _box(17, 22, 31, 40, -78, -66),
                                       _box(23.5, 28.5, 31, 40, -78, -66)]), '#f39c12', 0.5, 'buck + 2 WAGO [MEASURE]')
+
+    sw = POWER_SWITCH
+    emit('power_switch', np.concatenate([_cyl((0, sw['y'], -sw['d']), 'x', 9.0, X_OUT, X_OUT + 3),
+                                         _cyl((0, sw['y'], -sw['d']), 'x', sw['body_r'], X_OUT - sw['body_len'], X_OUT)]),
+         '#e74c3c', 0.8, 'power switch, 16 mm latching (15 V line)')
 
     # Cables (schematic routes, see the route constants above)
     emit('cable_ribbons', np.concatenate([_strip(RIBBON_NEAR[:-1], 13, 0.3, [0, 1.0, 0]),
