@@ -22,11 +22,14 @@
 <script>
 (async () => {
   const hud = document.getElementById('hud');
+  // /<design> pages read /<design>/meta and /<design>/slices; / reads the last generated design
+  const DATA = location.pathname.replace(/\/+$/, '');
+  if (DATA) document.title = DATA.slice(1) + ' — Slice Viewer';
 
   /* ── Fetch metadata + binary in parallel ── */
   const [meta, buf] = await Promise.all([
-    fetch('/meta').then(r => r.json()),
-    fetch('/slices').then(r => r.arrayBuffer())
+    fetch(DATA + '/meta').then(r => r.json()),
+    fetch(DATA + '/slices').then(r => r.arrayBuffer())
   ]);
 
   /* ── Physical scale (mm) ── */
