@@ -18,7 +18,7 @@ MESHES = HERE.parent / 'out' / 'render'
 ARGV = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT_DIR = Path(ARGV[0]) if ARGV else MESHES / 'png'
 VIEWS = [a for a in ARGV[1:] if not a.startswith('--') and not a.isdigit()] or \
-    ['box', 'assembled', 'assembled_gopro', 'exploded', 'internals', 'pod', 'pod_no_battery']
+    ['box', 'assembled', 'assembled_gopro', 'exploded', 'internals', 'pod', 'pod_no_battery', 'camera_near', 'camera_far']
 SAMPLES = int(ARGV[ARGV.index('--samples') + 1]) if '--samples' in ARGV else 96
 RES = (int(ARGV[ARGV.index('--res') + 1]), int(ARGV[ARGV.index('--res') + 2])) if '--res' in ARGV else (1600, 1200)
 MM = 0.001
@@ -42,11 +42,12 @@ MATS = {
     'navy':      dict(color=(0.03, 0.05, 0.1), rough=0.45),
     'cam':       dict(color=(0.03, 0.03, 0.035), rough=0.3),
     'steel':     dict(color=(0.8, 0.8, 0.82), rough=0.2, metal=1.0),
+    'cam_ghost': dict(color=(0.55, 0.3, 0.75), rough=0.4, alpha=0.35),   # see-through camera, seat visible
 }
 PART_MAT = {
-    'core': 'resin', 'floor': 'resin', 'panel_pi': 'clear_blue', 'panel_pod': 'clear_blue',
+    'core': 'resin', 'core_cut_near': 'resin', 'core_cut_far': 'resin', 'floor': 'resin', 'panel_pi': 'clear_blue', 'panel_pod': 'clear_blue',
     'base_plate': 'alu', 'cross': 'alu', 'standoffs': 'alu', 'box_spacers': 'alu_dark', 'coupler': 'alu_dark',
-    'mid360s': 'lidar', 'pi5': 'pcb', 'cooler': 'alu_dark', 'cameras': 'cam', 'battery': 'battery',
+    'mid360s': 'lidar', 'pi5': 'pcb', 'cooler': 'alu_dark', 'cameras': 'cam', 'camera_near': 'cam', 'camera_far': 'cam', 'battery': 'battery',
     'buck_wago': 'orange', 'eth_adapter': 'white', 'power_switch': 'steel', 'pd_trigger': 'black',
     'monopod': 'black', 'cable_ribbons': 'ffc', 'cable_lidar': 'black', 'cable_lidar_power': 'red',
     'cable_battery': 'red', 'cable_buck_in': 'red', 'cable_usbc': 'black',
@@ -72,6 +73,8 @@ def material(name):
     b.inputs['Metallic'].default_value = spec.get('metal', 0.0)
     if 'spec' in spec:
         b.inputs['Specular IOR Level'].default_value = spec['spec']
+    if 'alpha' in spec:
+        b.inputs['Alpha'].default_value = spec['alpha']
     if spec.get('transmission'):
         b.inputs['Transmission Weight'].default_value = spec['transmission']
         b.inputs['IOR'].default_value = spec.get('ior', 1.45)
@@ -243,6 +246,13 @@ def main():
                 names = [n for n in names if n != 'battery']
             show(objs, names)
             camera('cam', (0, 0.01, -0.095), (-1.0, 1.15, 0.8), 0.62)
+        elif view in ('camera_near', 'camera_far'):     # half-section, flange off: a camera wall's inside face
+            near = view == 'camera_near'
+            show(objs, ['core_cut_near' if near else 'core_cut_far', 'camera_near' if near else 'camera_far'])
+            sx = -1 if near else 1
+            cam_ob = objs['camera_near' if near else 'camera_far']
+            cam_ob.data.materials[0] = material('cam_ghost')
+            camera('cam', (sx * 0.044, -0.012, -0.030), (-sx * 1.0, -0.45, 0.32), 0.17, lens=50)
         elif view == 'internals':
             show(objs, ['core', 'floor', 'power_switch'] + INSIDE)
             camera('cam', (0, 0.0, -0.095), (0.75, -1.25, 0.35), 0.6)

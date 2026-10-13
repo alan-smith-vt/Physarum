@@ -86,7 +86,17 @@ def printed_parts():
                 int(L.PANEL_H / h), h, panel_to_rig(R.Y_MIN + R.PANEL_LIP, +1))
     pp = _march(lambda x, y, z: L.panel(x, y, z, grille=False), int(L.PANEL_W / h),
                 int(L.PANEL_T / h) + 1, int(L.PANEL_H / h), h, panel_to_rig(R.Y_MAX - R.PANEL_LIP, -1))
-    return dict(core=core, floor=floor, panel_pi=pm, panel_pod=pp)
+    # half-sections without the flange, for looking straight at each camera wall's inside face
+    def cut(keep_x):
+        def fn(x, d, z):
+            X = -(z + C.Z0)                                   # print z -> rig X (battery layout)
+            return C.core(x, d, z) & (d >= R.FLANGE) & keep_x(X)
+        return _march(fn, int(C.SIZE_X / h), int(C.DEPTH / h), int(C.SIZE_Z / h), h,
+                      lambda p: R.from_print(np.stack([p[:, 0] + C.X0, p[:, 1], p[:, 2] + C.Z0], 1)))
+    core_cut_near = cut(lambda X: X <= -30.0)                  # just the -X (near) camera wall + web stub
+    core_cut_far = cut(lambda X: X >= 30.0)                    # just the +X (far) camera wall + web stub
+    return dict(core=core, floor=floor, panel_pi=pm, panel_pod=pp,
+                core_cut_near=core_cut_near, core_cut_far=core_cut_far)
 
 
 def aluminium():
@@ -133,8 +143,13 @@ def main():
         if name in ('base_plate', 'standoffs_none'):
             continue
         t = load_stl(R.ROOT / ov['file']).astype(np.float64)
-        write_stl(OUT / f'{name}.stl', R.from_print(t.reshape(-1, 3)).reshape(-1, 3, 3))
+        rig = R.from_print(t.reshape(-1, 3)).reshape(-1, 3, 3)
+        write_stl(OUT / f'{name}.stl', rig)
         parts[name] = len(t)
+        if name == 'cameras':                                    # also one file per camera
+            cx = rig[:, :, 0].mean(1)
+            write_stl(OUT / 'camera_near.stl', rig[cx < 0])
+            write_stl(OUT / 'camera_far.stl', rig[cx > 0])
     (OUT / 'parts.json').write_text(json.dumps(parts, indent=1))
     print(f'-> {OUT}')
 
