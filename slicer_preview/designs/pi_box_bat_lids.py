@@ -53,12 +53,22 @@ def floor(x, y, z):
             s &= ~hole(bx, by, HEAD_CB if y < HEAD_CB_DEPTH else SCREW_CLEAR, X, Yr)
         for px, py in PINS:
             s &= ~((X - px) ** 2 + (Yr - py) ** 2 <= (PIN_PRESS / 2) ** 2)
+        a = ETH_ADAPTER                                        # BATTERY: UE300 RJ45 opening
+        s &= ~((np.abs(X - a['x']) <= (ADAPTER_JACK[0] + RESIN_HOLE_COMP) / 2) &
+               (np.abs(Yr - a['y']) <= (ADAPTER_JACK[1] + RESIN_HOLE_COMP) / 2))
         return s
     h = y - FLOOR_T
     s = (r2 >= COLLAR_R0 ** 2) & (r2 <= COLLAR_R1 ** 2) & (h <= COLLAR_H)
     gap = WEB_T / 2 + 0.15 + RESIN_HOLE_COMP / 2
     rails = (aX >= RAIL_X[0]) & (aX <= RAIL_X[1]) & (np.abs(Yr) >= gap) & (np.abs(Yr) <= gap + RAIL_W)
     s |= rails & (h <= RAIL_H)
+    # BATTERY: cradle for the UE300 (strap slots through the ±X walls hold it down against the plug)
+    a = ETH_ADAPTER
+    ix, iy = (a['w'] + CRADLE_CLEAR + RESIN_HOLE_COMP) / 2, (a['t'] + CRADLE_CLEAR + RESIN_HOLE_COMP) / 2
+    dx, dy = np.abs(X - a['x']), np.abs(Yr - a['y'])
+    wall = (dx <= ix + CRADLE_WALL) & (dy <= iy + CRADLE_WALL) & ~((dx <= ix) & (dy <= iy))
+    strap = (dx > ix) & (h >= 6.0) & (h <= 9.0)
+    s |= wall & ~strap & (h <= CRADLE_H)
     return s
 
 
@@ -81,5 +91,5 @@ def panel(x, y, z, grille=True, cable_notch=False):
 
 
 PIECES = [
-    implicit_piece(Y_MAX - Y_MIN, FLOOR_T + COLLAR_H, 2 * X_OUT, floor, x0=-(Y_MAX - Y_MIN) / 2, z0=-X_OUT),
+    implicit_piece(Y_MAX - Y_MIN, FLOOR_T + max(COLLAR_H, CRADLE_H), 2 * X_OUT, floor, x0=-(Y_MAX - Y_MIN) / 2, z0=-X_OUT),
 ]

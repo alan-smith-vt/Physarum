@@ -70,6 +70,12 @@ BOSS_R, INSERT_D, INSERT_DEPTH = 4.5, 4.0, 6.0      # glued M2.5 brass insert [M
 BAT = dict(x=37.5, y0=49.8, y1=74.8, d0=DEPTH - 157.0, d1=DEPTH)
 BAT_RIB = (30.0, X_IN, 47.0, 49.5)            # |X| range, Yr range
 BAT_NOTCH = (20.0, 53.0)
+# BATTERY: office link. A TP-Link UE300 (USB 3 gigabit, 71 × 25.4 × 15) stands on the floor under the
+# Pi's USB 3 stack, RJ45 end down through a floor cutout, in a printed cradle; its short fold-out
+# cord loops up into the Pi's blue port. The lidar stays on the Pi's own Ethernet jack.
+ETH_ADAPTER = dict(x=14.0, y=-45.0, w=25.4, t=15.2, h=71.0)     # centre X, Yr; width along X, thickness along Yr
+ADAPTER_JACK = (16.0, 13.5)                   # RJ45 opening in its end face, along X / Yr [MEASURE]
+CRADLE_H, CRADLE_WALL, CRADLE_CLEAR = 12.0, 2.0, 0.3
 # BATTERY: the pod overhangs the aluminium plate (edge at Yr 45), so the lidar cable drops straight
 # through the flange there; Ø16 passes the RJ45 plug. It also vents the pod.
 CABLE_HOLE = (15.0, 60.0, 16.0)               # X, Yr, Ø                      # floor: |X| < 20, Yr > 53, open to the +Y edge (charging cable)
@@ -246,7 +252,7 @@ _COIL = _coil_pts()
 LIDAR_CABLE = ([(0, 40, 20), (CABLE_HOLE[0], CABLE_HOLE[1], 14), (CABLE_HOLE[0], CABLE_HOLE[1], -16),
                 (CABLE_HOLE[0], 46, -19), (24, 36, -50)]    # BATTERY: down the flange hole, over the bank's top
                + _COIL
-               + [(37, 20, -85), (37, -45, -95), (8, -52, -110), (-18, -42, -130), ETH])   # BATTERY: all inside
+               + [(-37, 20, -85), (-37, -45, -95), (-24, -46, -118), (-18, -42, -130), ETH])   # BATTERY: -X web slot, clear of the USB adapter
 LIDAR_POWER = [_COIL[-1], (20, 36, -76), (24, 35, -74)]          # Livox splitter's power pair -> WAGO
 BATTERY_LEAD = [(-10, 62, -(DEPTH - 157) + 4), (-10, 62, -16), (0, 46, -18), (14, 40, -45),
                 (18, 35, -74)]                                     # BATTERY: right-angle PD trigger -> WAGO
@@ -317,6 +323,11 @@ def build_overlays():
     emit('cameras', np.concatenate(cams), '#8e44ad', 0.6, 'OV9281 boards + lenses')
 
     # BATTERY: the bank
+    a = ETH_ADAPTER
+    emit('eth_adapter', np.concatenate([
+        _box(a['x'] - a['w'] / 2, a['x'] + a['w'] / 2, a['y'] - a['t'] / 2, a['y'] + a['t'] / 2, -DEPTH, -DEPTH + a['h']),
+        _tube([(a['x'], a['y'], -DEPTH + a['h']), (a['x'], a['y'] + 3, -DEPTH + a['h'] + 4), (12, -41, -(PI_TOP_D + 88.5))], 1.8)]),
+        '#ecf0f1', 0.8, 'TP-Link UE300 → office link (RJ45 in the floor)')
     emit('battery', _box(-BAT['x'] + 0.5, BAT['x'] - 0.5, BAT['y0'], BAT['y1'], -BAT['d1'], -BAT['d0']),
          '#34495e', 0.5, 'Anker 20K bank, ports up')
 
