@@ -264,7 +264,20 @@
   const overlayGroup = new THREE.Group();
   scene.add(overlayGroup);
   const ovLoader = new THREE.STLLoader();
+  // Legend (top right): click an entry to hide/show that overlay
+  const legend = document.createElement('div');
+  legend.style.cssText = 'position:fixed;top:10px;right:10px;font:12px monospace;color:#bbb;' +
+    'background:rgba(0,0,0,0.55);padding:6px 10px;border-radius:4px;line-height:1.7;user-select:none';
+  if ((meta.overlays || []).length) {
+    legend.innerHTML = '<div style="color:#777">overlays (O: all, click: one)</div>';
+    document.body.appendChild(legend);
+  }
   for (const ov of (meta.overlays || [])) {
+    const row = document.createElement('div');
+    row.style.cursor = 'pointer';
+    row.innerHTML = `<span style="display:inline-block;width:10px;height:10px;margin-right:6px;` +
+      `background:${ov.color || '#4488cc'}"></span>${ov.label || ov.file}`;
+    legend.appendChild(row);
     ovLoader.load('/stl/' + ov.file, (geometry) => {
       geometry.computeVertexNormals();
       // opacity 1 → opaque and depth-written (cables), so the translucent overlays,
@@ -278,6 +291,11 @@
       const m = new THREE.Mesh(geometry, mat);
       m.matrixAutoUpdate = false;
       overlayGroup.add(m);
+      row.onclick = () => {
+        m.visible = !m.visible;
+        row.style.opacity = m.visible ? 1 : 0.35;
+        requestRender();
+      };
       requestRender();
     });
   }

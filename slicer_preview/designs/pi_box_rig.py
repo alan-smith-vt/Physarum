@@ -181,12 +181,15 @@ CAM_CONN = [(s * (X_IN - CAM_BOSS_H - 3.6), CAM_YR - 15.0, -CAM_D) for s in (-1,
 RIBBON_NEAR = [PI_CONN[0], (-19, -35.5, -52), (-30, -35.5, -52), (-38, -31, -56), CAM_CONN[0]]
 RIBBON_FAR = [PI_CONN[1], (-19, -35.5, -45), (-29.8, -35.5, -45), (-29.8, -29.6, -45),
               (29.8, -29.6, -45), (37, -30, -55), CAM_CONN[1]]
-LIDAR_CABLE = [(36, 0, 20), (60, 0, 20), (60, 0, -60), (60, 0, -118), (22, -45, -118),
-               (20, -40, -104)]                                     # M12 -> RJ45 in the Pi's Ethernet port
-LIDAR_POWER = [(22, -45, -118), (8, -52, -118), (8, -52, -100), (37, -45, -95), (37, 20, -85),
-               (24, 35, -74)]                                       # splitter power pair -> WAGO
+# Pi 5 port end (bottom, ~99-104 mm down): Ethernet is the jack beside the micro-HDMI edge (-X here,
+# board y ~2-18 -> X -26..-10); the two USB-A stacks are toward +X.
+ETH = (-18.0, -40.0, -(PI_TOP_D + 88.5))
+LIDAR_CABLE = [(36, 0, 20), (60, 0, 20), (60, 0, -118), (5, -46, -118), (-18, -42, -118),
+               ETH]                                                 # M12 -> RJ45, up through the floor notch
+LIDAR_POWER = [(5, -46, -118), (8, -52, -100), (37, -45, -95), (37, 20, -85),
+               (24, 35, -74)]                                       # Livox splitter's power pair -> WAGO
 BATTERY_LEAD = [(0, -16, -140), (-8, -52, -118), (-8, -52, -100), (-37, -45, -95), (-37, 20, -85),
-                (-30, 34, -80), (18, 35, -74)]                     # round the tube, not through it                                      # from the pole, via the floor notch
+                (-30, 34, -80), (18, 35, -74)]                     # up the pole, in at the floor notch, round the tube
 BUCK_IN = [(14, 36, -38), (19, 36, -66)]
 USBC_LEAD = [(-22, 36, -30), (-37, 20, -30), (-37, -20, -28), (-33, -34, -25)]   # right-angle plug at the Pi
 
@@ -212,23 +215,24 @@ def build_overlays():
     """
     out = []
 
-    def emit(name, rig_tris, color, opacity=0.35):
+    def emit(name, rig_tris, color, opacity=0.35, label=None):
         path = OVERLAY_DIR / f'{name}.stl'
         _write_stl(path, to_print(rig_tris))
-        out.append(dict(file=str(path.relative_to(ROOT)).replace('\\', '/'), color=color, opacity=opacity))
+        out.append(dict(file=str(path.relative_to(ROOT)).replace('\\', '/'), color=color, opacity=opacity,
+                        label=label or name.replace('_', ' ')))
 
     # Pi 5: model board x 0..85 (SD end at 0), y 0..56 (HDMI edge at 0), z up (components)
     if (MODELS / 'rpi5.stl').exists():
         t = _decimate(_load('rpi5.stl'))
         bx, by, bz = t[..., 0], t[..., 1], t[..., 2]
-        emit('pi5', np.stack([by - 28.0, PCB_YR - bz, -(PI_TOP_D + bx)], -1), '#2ecc71', 0.55)
+        emit('pi5', np.stack([by - 28.0, PCB_YR - bz, -(PI_TOP_D + bx)], -1), '#2ecc71', 0.55, 'Pi 5 (official STEP)')
     # Active Cooler envelope [MEASURE]: over the SoC area, ~14 mm above the board
-    emit('cooler', _box(-24, 18, PCB_YR - 1.6 - 14, PCB_YR - 1.6, -(PI_TOP_D + 62), -(PI_TOP_D + 12)), '#95a5a6')
+    emit('cooler', _box(-24, 18, PCB_YR - 1.6 - 14, PCB_YR - 1.6, -(PI_TOP_D + 62), -(PI_TOP_D + 12)), '#95a5a6', 0.35, 'Active Cooler envelope [MEASURE]')
 
     # Mid-360S: model Y up (base at -25.92), connector +X; sits on the 6.35 plate
     if (MODELS / 'mid360s.stl').exists():
         t = _decimate(_load('mid360s.stl'), 0.15)
-        emit('mid360s', np.stack([t[..., 0], -t[..., 2], t[..., 1] + 25.92 + 6.35], -1), '#bdc3c7', 0.5)
+        emit('mid360s', np.stack([t[..., 0], -t[..., 2], t[..., 1] + 25.92 + 6.35], -1), '#bdc3c7', 0.5, 'Mid-360S (Livox STEP)')
 
     # Aluminium plate, standoffs + spacers, coupler, monopod platform + pole
     emit('base_plate', _box(-45, 45, -45, 45, 0, 6.35), '#7f8c8d', 0.3)
@@ -250,19 +254,21 @@ def build_overlays():
                          -(CAM_D + 12.5), -(CAM_D - 12.5)))
         cams.append(_cyl((0, CAM_YR, -CAM_D), 'x', 7, xf, xf + s * 18) if s > 0 else
                     _cyl((0, CAM_YR, -CAM_D), 'x', 7, xf + s * 18, xf))
-    emit('cameras', np.concatenate(cams), '#8e44ad', 0.6)
+    emit('cameras', np.concatenate(cams), '#8e44ad', 0.6, 'OV9281 boards + lenses')
 
     # 15→5 V buck and two WAGO 221-413 in the +Y bay [MEASURE]
     emit('buck_wago', np.concatenate([_box(-22, 14, 31, 41, -60, -15), _box(17, 22, 31, 40, -78, -66),
-                                      _box(23.5, 28.5, 31, 40, -78, -66)]), '#f39c12', 0.5)
+                                      _box(23.5, 28.5, 31, 40, -78, -66)]), '#f39c12', 0.5, 'buck + 2 WAGO [MEASURE]')
 
     # Cables (schematic routes, see the route constants above)
     emit('cable_ribbons', np.concatenate([_strip(RIBBON_NEAR[:-1], 13, 0.3, [0, 1.0, 0]),
                                           _strip(RIBBON_NEAR[-2:], 13, 0.3, [1.0, 0, 0]),
                                           _strip(RIBBON_FAR[:-1], 13, 0.3, [0, 1.0, 0]),
-                                          _strip(RIBBON_FAR[-2:], 13, 0.3, [1.0, 0, 0])]), '#e67e22', 1.0)
-    emit('cable_lidar', _tube(LIDAR_CABLE, 3.5), '#2c3e50', 1.0)
-    emit('cable_power', np.concatenate([_tube(LIDAR_POWER, 2.0), _tube(BATTERY_LEAD, 2.0),
-                                        _tube(BUCK_IN, 1.5)]), '#c0392b', 1.0)
-    emit('cable_usbc', _tube(USBC_LEAD, 2.0), '#111111', 1.0)
+                                          _strip(RIBBON_FAR[-2:], 13, 0.3, [1.0, 0, 0])]), '#e67e22', 1.0,
+         'camera ribbons (15→22-pin, 150 mm)')
+    emit('cable_lidar', _tube(LIDAR_CABLE, 3.5), '#1f4e79', 1.0, 'lidar cable: M12 → RJ45 (Pi Ethernet)')
+    emit('cable_lidar_power', _tube(LIDAR_POWER, 2.0), '#8e1b1b', 1.0, 'lidar power pair (Livox splitter) → WAGO')
+    emit('cable_battery', _tube(BATTERY_LEAD, 2.0), '#e74c3c', 1.0, '15 V battery lead (up the pole) → WAGO')
+    emit('cable_buck_in', _tube(BUCK_IN, 1.5), '#f1948a', 1.0, 'WAGO → buck input')
+    emit('cable_usbc', _tube(USBC_LEAD, 2.0), '#111111', 1.0, 'buck USB-C → Pi power (right-angle plug)')
     return out
