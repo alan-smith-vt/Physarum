@@ -136,10 +136,14 @@
 
   /* ── Scene + lights ── */
   const scene = new THREE.Scene();
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  dirLight.position.set(1, 2, 1);
+  // sky/ground fill so shadowed faces keep their form, plus a key and a softer opposite fill
+  scene.add(new THREE.HemisphereLight(0xe4ecf5, 0x2b2f36, 0.55));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+  dirLight.position.set(1, 2, 1.2);
   scene.add(dirLight);
-  scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+  const fillLight = new THREE.DirectionalLight(0xdfe8ff, 0.3);
+  fillLight.position.set(-1.2, 0.6, -0.8);
+  scene.add(fillLight);
 
   /* ── Target orb ── */
   const orbGeo = new THREE.SphereGeometry(0.3, 24, 16);
