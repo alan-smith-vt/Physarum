@@ -254,6 +254,12 @@ def main():
             cam_ob = objs['camera_near' if near else 'camera_far']
             cam_ob.data.materials[0] = material('cam_ghost')
             camera('cam', (sx * 0.044, -0.012, -0.030), (-sx * 1.0, -0.45, 0.32), 0.17, lens=50)
+        elif view in ('wall_out', 'wall_in'):            # the +X camera/switch wall, outside and inside
+            show(objs, ['core_cut_far', 'power_switch'] + (['lens_far'] if view == 'wall_out' else []))
+            if view == 'wall_out':
+                camera('cam', (0.048, 0.010, -0.090), (1.0, -0.12, 0.10), 0.36, lens=50)
+            else:
+                camera('cam', (0.046, 0.010, -0.090), (-1.0, -0.12, 0.10), 0.36, lens=50)
         elif view == 'internals':
             show(objs, ['core', 'floor', 'power_switch'] + INSIDE)
             camera('cam', (0, 0.0, -0.095), (0.75, -1.25, 0.35), 0.6)

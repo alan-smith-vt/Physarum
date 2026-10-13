@@ -37,15 +37,15 @@ def core(x, d, z):
     r2 = X ** 2 + Y ** 2
     inside = (aX <= X_OUT) & (Y >= Y_MIN) & (Y <= Y_MAX)
 
-    if d < FLANGE:
-        # ── flange ──
+    if d < FLANGE_PLATE:
+        # ── flange plate (4 mm) ──
         inset = max(CHAMFER - d, 0.0)
         s = (aX <= X_OUT - inset) & (Y >= Y_MIN + inset) & (Y <= Y_MAX - inset)
         s &= r2 > WELL_R ** 2
         for sx in (-1, 1):
             for sy in (-1, 1):
                 cx, cy = sx * POST, sy * POST
-                s &= ~hole(cx, cy, SPACER_D if d < SPACER_SEAT else HEAD_D, X, Y)
+                s &= ~hole(cx, cy, SPACER_D, X, Y)
                 if d < M3_HEAD_RECESS:
                     s &= ~hole(sx * LIDAR_M3[0], sy * LIDAR_M3[1], M3_HEAD_D, X, Y)
         for vx, vy in VENTS:
@@ -53,14 +53,27 @@ def core(x, d, z):
         s &= ~hole(CABLE_HOLE[0], CABLE_HOLE[1], CABLE_HOLE[2], X, Y)    # BATTERY: lidar cable
         return s
 
-    # ── below the flange ──
+    # ── below the flange plate ──
     tube = (r2 >= WELL_R ** 2) & (r2 <= (WELL_R + TUBE_T) ** 2)
-    walls = (aX >= X_IN) & inside
+    walls = (aX >= X_IN) & inside & (wall_solid_zone(Y, d) | gyroid(X, Y, d))
+    if d <= DEPTH - WALL_BOTTOM_SOLID:               # internal vertical ribs on the gyroid walls
+        for r, top in WALL_RIBS:
+            if d >= top:
+                walls = walls | ((aX >= X_IN - 2.5) & (aX <= X_IN) & (np.abs(Y - r) <= 1.5))
     webs = (aX >= WELL_R + 1) & (aX <= X_IN) & (np.abs(Y) <= WEB_T / 2)
     for x0, x1, d0, d1 in WEB_SLOTS:                 # 45° pointed top: no flat bridge
         roof = d1 + np.minimum(aX - x0, x1 - aX)
         webs &= ~((aX >= x0) & (aX <= x1) & (d >= d0) & (d <= roof))
     s = tube | walls | webs
+    if d < FLANGE:                                    # bore bosses + panel-stop rims, 10 mm deep
+        gw = GROOVE_W + RESIN_HOLE_COMP
+        s |= inside & ((Y <= Y_MIN + PANEL_LIP + gw + 1.5) | (Y >= Y_MAX - PANEL_LIP - gw - 1.5))
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                cx, cy = sx * POST, sy * POST
+                s |= (X - cx) ** 2 + (Y - cy) ** 2 <= CORNER_BOSS_R ** 2
+                s &= ~hole(cx, cy, SPACER_D if d < SPACER_SEAT else HEAD_D, X, Y)
+        s &= inside
     # BATTERY: stop ribs between the buck bay and the bank, middle left open for cables
     s |= (aX >= BAT_RIB[0]) & (aX <= BAT_RIB[1]) & (Y >= BAT_RIB[2]) & (Y <= BAT_RIB[3])
 
@@ -101,9 +114,10 @@ def core(x, d, z):
     lo0, lo1 = Y_MIN + PANEL_LIP, Y_MIN + PANEL_LIP + gw        # -Y panel slot
     hi0, hi1 = Y_MAX - PANEL_LIP - gw, Y_MAX - PANEL_LIP        # +Y panel slot
     in_slot = ((Y >= lo0) & (Y <= lo1)) | ((Y >= hi0) & (Y <= hi1))
-    s &= ~((aX >= X_IN) & (aX <= X_IN + GROOVE_D) & in_slot)   # true slots, lip outside
-    # the panel itself spans between the walls: keep that band (and the lips' inner side) open
-    s &= ~((aX < X_IN) & (in_slot | (Y < lo0) | (Y > hi1)) & ~tube)
+    if d >= FLANGE:                                    # above that the rims are the panels' top stop
+        s &= ~((aX >= X_IN) & (aX <= X_IN + GROOVE_D) & in_slot)   # true slots, lip outside
+        # the panel itself spans between the walls: keep that band (and the lips' inner side) open
+        s &= ~((aX < X_IN) & (in_slot | (Y < lo0) | (Y > hi1)) & ~tube)
     # anti-rattle bumps on each slot's outer face, near the top and bottom of the panel
     for db in (FLANGE + 25.0, DEPTH - 25.0):
         if abs(d - db) <= 1.5:
@@ -130,12 +144,7 @@ def core(x, d, z):
             if abs(d - cd) < rp:
                 w = np.sqrt(rp ** 2 - (d - cd) ** 2)
                 s &= ~((np.abs(Y - cy) <= w) & (sX >= X_IN - CAM_BOSS_H) & (sX <= X_IN + 3))
-    for y0, y1, d0, d1 in WALL_VENTS:               # vertical slots: only a ~2.4 mm bridge at the top
-        if d0 <= d <= d1:
-            s &= ~((aX >= X_IN) & (Y >= y0) & (Y <= y1))
-    if EXHAUST_D[0] <= d <= EXHAUST_D[1]:
-        for y0, y1 in EXHAUST:
-            s &= ~((aX >= X_IN) & (Y >= y0) & (Y <= y1))
+    # (the gyroid walls are the vents now; WALL_VENTS / EXHAUST slots are no longer cut)
     if d > DEPTH - PIN_DEPTH:
         for px, py in PINS:
             s &= ~((X - px) ** 2 + (Y - py) ** 2 <= (PIN_SLIP / 2) ** 2)

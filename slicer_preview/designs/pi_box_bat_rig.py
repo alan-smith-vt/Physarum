@@ -112,6 +112,40 @@ POWER_SWITCH = dict(y=30.0, d=26.0, hole=16.0, body_r=8.0, body_len=30.0)
 WALL_VENTS = ([(-52.0 + 4 * i, -49.6 + 4 * i, 120.0, 160.0) for i in range(4)] +
               [(12.0 + 4 * i, 14.4 + 4 * i, 60.0, 100.0) for i in range(8)])
 
+# ── Weight reduction (2026-10-13): the flange is a 4 mm plate except Ø20 × 10 bosses at the four
+#    stepped bores and 10 mm rims along the panel ends (the panels' top stop). The camera walls are
+#    an open sheet gyroid (resin drains; doubles as the vents) except solid zones: top and bottom
+#    bands, the slot ends, the camera and switch pads, round the web; plus internal vertical ribs. ──
+FLANGE_PLATE = 4.0
+CORNER_BOSS_R = 10.0
+GYROID_PERIOD, GYROID_T = 9.0, 0.45           # mm; sheet half-thickness in gyroid units (~30 % solid)
+WALL_TOP_SOLID, WALL_BOTTOM_SOLID = FLANGE + 2.0, 14.0
+CAM_PAD = (15.0, 16.0)                        # half-width along Yr, reach past CAM_D: solid round each camera
+SWITCH_PAD_R = 14.0
+WEB_PAD = 6.0                                 # |Yr| solid round the web / wall feet
+# Internal vertical ribs (3 wide, 2.5 deep), (Yr, top depth): one flanking the camera pad's outer
+# edge (the web is the rib on its other side), one under the power switch, one mid battery side.
+WALL_RIBS = ((-34.0, FLANGE), (POWER_SWITCH['y'], POWER_SWITCH['d'] + SWITCH_PAD_R), (50.0, FLANGE))
+
+
+def gyroid(X, Y, d):
+    k = 2 * np.pi / GYROID_PERIOD
+    g = (np.sin(k * X) * np.cos(k * Y) + np.sin(k * Y) * np.cos(k * d) + np.sin(k * d) * np.cos(k * X))
+    return np.abs(g) <= GYROID_T
+
+
+def wall_solid_zone(Y, d):
+    """Where the camera walls stay solid (everything else is gyroid)."""
+    gw = GROOVE_W + RESIN_HOLE_COMP
+    z = (d <= WALL_TOP_SOLID) | (d >= DEPTH - WALL_BOTTOM_SOLID)
+    z = z | (Y <= Y_MIN + PANEL_LIP + gw + 4.0) | (Y >= Y_MAX - PANEL_LIP - gw - 4.0)
+    z = z | ((np.abs(Y - CAM_YR) <= CAM_PAD[0]) & (d <= CAM_D + CAM_PAD[1]))
+    z = z | ((Y - POWER_SWITCH['y']) ** 2 + (d - POWER_SWITCH['d']) ** 2 <= SWITCH_PAD_R ** 2)
+    z = z | (np.abs(Y) <= WEB_PAD)
+    for r, top in WALL_RIBS:
+        z = z | ((np.abs(Y - r) <= 1.5) & (d >= top))
+    return z
+
 # ── Flange vents (no suction cups when printed flange-down) ──
 VENTS = [(0, -45), (-15, -45), (15, -45), (0, 38), (-15, 38), (15, 38),
          (37, 20), (37, -20), (-37, 20), (-37, -20)]
