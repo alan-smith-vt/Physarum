@@ -111,13 +111,20 @@ def core(x, d, z):
             s |= band & (((Y >= lo0) & (Y <= lo0 + 0.3)) | ((Y >= hi1 - 0.3) & (Y <= hi1)))
     sw = POWER_SWITCH                                  # power switch: teardrop hole through the +X wall
     rs = (sw['hole'] + RESIN_HOLE_COMP) / 2
-    tear = ((Y - sw['y']) ** 2 + (d - sw['d']) ** 2 <= rs * rs) | (
-        (d >= sw['d']) & (np.abs(Y - sw['y']) + (d - sw['d']) <= rs * 1.4142))
+    dd = d - sw['d']                                   # print-up = rig-down; the tip points that way
+    tear = ((Y - sw['y']) ** 2 + dd ** 2 <= rs * rs) | (     # proper teardrop: 45° tangents from the
+        (dd >= rs * 0.7071) & (np.abs(Y - sw['y']) + dd <= rs * 1.4142))   # circle, tip 0.41 r beyond it
     s &= ~((X >= X_IN - 0.01) & (X <= X_OUT) & tear)
     win = CAM_WINDOW + RESIN_HOLE_COMP
     dy = np.abs(Y - CAM_YR)
-    s &= ~((aX >= X_IN - 0.01) & (aX <= X_OUT) & (dy <= win / 2) & (d >= CAM_D - win / 2)
-           & (d <= CAM_D + win / 2 + (win / 2 - dy)))    # pointed top: no 16 mm flat bridge
+    peak = np.minimum(4.0, win / 2 - dy)               # shallow 45° peak: the 16 mm bridge becomes 8 mm
+    window = (dy <= win / 2) & (d >= CAM_D - win / 2) & (d <= CAM_D + win / 2 + peak)
+    for side in (-1, 1):                               # keep solid wall behind every camera boss
+        keep = np.zeros_like(window)
+        for cy, cd in cam_holes(side):
+            keep = keep | ((Y - cy) ** 2 + (d - cd) ** 2 <= (CAM_BOSS_R + 1.0) ** 2)
+        sX = side * X
+        s &= ~((sX >= X_IN - 0.01) & (sX <= X_OUT) & window & ~keep)
     rp = (CAM_PILOT + RESIN_HOLE_COMP) / 2
     for side in (-1, 1):
         sX = side * X

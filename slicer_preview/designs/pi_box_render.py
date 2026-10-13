@@ -47,7 +47,7 @@ MATS = {
 PART_MAT = {
     'core': 'resin', 'core_cut_near': 'resin', 'core_cut_far': 'resin', 'floor': 'resin', 'panel_pi': 'clear_blue', 'panel_pod': 'clear_blue',
     'base_plate': 'alu', 'cross': 'alu', 'standoffs': 'alu', 'box_spacers': 'alu_dark', 'coupler': 'alu_dark',
-    'mid360s': 'lidar', 'pi5': 'pcb', 'cooler': 'alu_dark', 'cameras': 'cam', 'camera_near': 'cam', 'camera_far': 'cam', 'battery': 'battery',
+    'mid360s': 'lidar', 'pi5': 'pcb', 'cooler': 'alu_dark', 'cameras': 'cam', 'camera_near': 'cam', 'camera_far': 'cam', 'lens_near': 'gloss', 'lens_far': 'gloss', 'battery': 'battery',
     'buck_wago': 'orange', 'eth_adapter': 'white', 'power_switch': 'steel', 'pd_trigger': 'black',
     'monopod': 'black', 'cable_ribbons': 'ffc', 'cable_lidar': 'black', 'cable_lidar_power': 'red',
     'cable_battery': 'red', 'cable_buck_in': 'red', 'cable_usbc': 'black',
@@ -248,7 +248,8 @@ def main():
             camera('cam', (0, 0.01, -0.095), (-1.0, 1.15, 0.8), 0.62)
         elif view in ('camera_near', 'camera_far'):     # half-section, flange off: a camera wall's inside face
             near = view == 'camera_near'
-            show(objs, ['core_cut_near' if near else 'core_cut_far', 'camera_near' if near else 'camera_far'])
+            show(objs, ['core_cut_near' if near else 'core_cut_far', 'camera_near' if near else 'camera_far',
+                        'lens_near' if near else 'lens_far'] + ([] if near else ['power_switch']))
             sx = -1 if near else 1
             cam_ob = objs['camera_near' if near else 'camera_far']
             cam_ob.data.materials[0] = material('cam_ghost')

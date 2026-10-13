@@ -148,8 +148,12 @@ def main():
         parts[name] = len(t)
         if name == 'cameras':                                    # also one file per camera
             cx = rig[:, :, 0].mean(1)
-            write_stl(OUT / 'camera_near.stl', rig[cx < 0])
-            write_stl(OUT / 'camera_far.stl', rig[cx > 0])
+            ax = np.abs(rig[:, :, 0]).max(1)                     # lens barrels stick out past the board face
+            lens = ax > R.X_IN - R.CAM_BOSS_H + 0.5
+            write_stl(OUT / 'camera_near.stl', rig[(cx < 0) & ~lens])
+            write_stl(OUT / 'camera_far.stl', rig[(cx > 0) & ~lens])
+            write_stl(OUT / 'lens_near.stl', rig[(cx < 0) & lens])
+            write_stl(OUT / 'lens_far.stl', rig[(cx > 0) & lens])
     (OUT / 'parts.json').write_text(json.dumps(parts, indent=1))
     print(f'-> {OUT}')
 
