@@ -85,7 +85,7 @@ def core(x, d, z):
     # the panel itself passes inside the wall ends: keep the region between the walls open
     s &= ~((aX < X_IN) & ((Y <= Y_MIN + gw) | (Y >= Y_MAX - gw)) & ~tube)
     win = CAM_WINDOW + RESIN_HOLE_COMP
-    s &= ~((aX >= X_IN - 0.01) & (np.abs(Y - CAM_YR) <= win / 2) & (abs(d - CAM_D) <= win / 2))
+    s &= ~((aX >= X_IN - 0.01) & (aX <= X_OUT) & (np.abs(Y - CAM_YR) <= win / 2) & (abs(d - CAM_D) <= win / 2))
     for cy, cd in CAM_HOLES:
         rp = (CAM_PILOT + RESIN_HOLE_COMP) / 2
         if abs(d - cd) < rp:

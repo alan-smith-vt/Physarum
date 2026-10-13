@@ -260,9 +260,9 @@ def build_overlays():
     emit('cable_ribbons', np.concatenate([_strip(RIBBON_NEAR[:-1], 13, 0.3, [0, 1.0, 0]),
                                           _strip(RIBBON_NEAR[-2:], 13, 0.3, [1.0, 0, 0]),
                                           _strip(RIBBON_FAR[:-1], 13, 0.3, [0, 1.0, 0]),
-                                          _strip(RIBBON_FAR[-2:], 13, 0.3, [1.0, 0, 0])]), '#e67e22', 0.85)
-    emit('cable_lidar', _tube(LIDAR_CABLE, 3.5), '#2c3e50', 0.8)
+                                          _strip(RIBBON_FAR[-2:], 13, 0.3, [1.0, 0, 0])]), '#e67e22', 1.0)
+    emit('cable_lidar', _tube(LIDAR_CABLE, 3.5), '#2c3e50', 1.0)
     emit('cable_power', np.concatenate([_tube(LIDAR_POWER, 2.0), _tube(BATTERY_LEAD, 2.0),
-                                        _tube(BUCK_IN, 1.5)]), '#c0392b', 0.8)
-    emit('cable_usbc', _tube(USBC_LEAD, 2.0), '#111111', 0.8)
+                                        _tube(BUCK_IN, 1.5)]), '#c0392b', 1.0)
+    emit('cable_usbc', _tube(USBC_LEAD, 2.0), '#111111', 1.0)
     return out

@@ -267,9 +267,13 @@
   for (const ov of (meta.overlays || [])) {
     ovLoader.load('/stl/' + ov.file, (geometry) => {
       geometry.computeVertexNormals();
+      // opacity 1 → opaque and depth-written (cables), so the translucent overlays,
+      // drawn afterwards, are depth-tested against them instead of painting over them
+      const opacity = ov.opacity ?? 0.35;
+      const solid = opacity >= 0.999;
       const mat = new THREE.MeshLambertMaterial({
-        color: new THREE.Color(ov.color || '#4488cc'), transparent: true,
-        opacity: ov.opacity ?? 0.35, side: THREE.DoubleSide, depthWrite: false
+        color: new THREE.Color(ov.color || '#4488cc'), transparent: !solid,
+        opacity, side: THREE.DoubleSide, depthWrite: solid
       });
       const m = new THREE.Mesh(geometry, mat);
       m.matrixAutoUpdate = false;
