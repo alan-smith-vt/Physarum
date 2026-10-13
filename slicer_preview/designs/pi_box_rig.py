@@ -296,8 +296,13 @@ def build_overlays():
     emit('standoffs', posts, '#7f8c8d', 0.3)
     emit('box_spacers', spacers, '#e67e22', 0.7)
     emit('coupler', _cyl((0, 0, 0), 'z', 6.4, -20.3, 0, 6), '#7f8c8d', 0.6)
-    emit('monopod', np.concatenate([_cyl((0, 0, 0), 'z', 22.5, -30.3, -20.3),
-                                    _cyl((0, 0, 0), 'z', 15, -200, -30.3)]), '#34495e', 0.3)
+    # Amazon Basics 67" monopod, handle end up (measured roughly 2026-10-13): Ø35 end cap at the stud,
+    # Ø40 ring, then the foam grip (~135 mm long, Ø ~40 assumed [MEASURE]). Strap lug cut off for v1.
+    emit('monopod', np.concatenate([_cyl((0, 0, 0), 'z', 17.5, -28.3, -20.3),
+                                    _cyl((0, 0, 0), 'z', 20.0, -38.3, -28.3),
+                                    _cyl((0, 0, 0), 'z', 20.0, -20.3 - 135, -38.3),
+                                    _cyl((0, 0, 0), 'z', 15, -260, -20.3 - 135)]), '#34495e', 0.3,
+         'monopod: cap Ø35, ring Ø40, grip Ø~40 to 135 mm')
 
     # OV9281 boards + lenses (board face on 2 mm bosses off the wall)
     cams = []
