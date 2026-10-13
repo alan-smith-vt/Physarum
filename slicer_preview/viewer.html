@@ -108,7 +108,14 @@
     `pixel: ${meta.pixel_x_um}\u00d7${meta.pixel_y_um} \u00b5m  |  layer: ${meta.layer_um} \u00b5m`;
 
   /* ── Renderer ── */
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  let frameRequested = false;
+  /** Ask for one frame; cheap to call repeatedly (see frame() at the bottom). */
+  function requestRender() {
+    if (frameRequested) return;
+    frameRequested = true;
+    requestAnimationFrame(frame);
+  }
   renderer.setSize(innerWidth, innerHeight);
   renderer.setClearColor(0x0c0e12);
   document.body.appendChild(renderer.domElement);
@@ -146,14 +153,17 @@
       targetOrb.visible = true;
       if (orbTimeout) { clearTimeout(orbTimeout); orbTimeout = null; }
     }
+    requestRender();
   });
   ctl.addEventListener('end', () => {
     if (targetOrb.visible) {
-      orbTimeout = setTimeout(() => { targetOrb.visible = false; }, 600);
+      orbTimeout = setTimeout(() => { targetOrb.visible = false; requestRender(); }, 600);
     }
+    requestRender();
   });
   ctl.addEventListener('change', () => {
     targetOrb.position.copy(ctl.target);
+    requestRender();
   });
 
   /* ── Raycasting (iterate instance positions) ── */
@@ -212,7 +222,8 @@
     targetOrb.position.copy(pt);
     targetOrb.visible = true;
     if (orbTimeout) clearTimeout(orbTimeout);
-    orbTimeout = setTimeout(() => { targetOrb.visible = false; }, 1200);
+    orbTimeout = setTimeout(() => { targetOrb.visible = false; requestRender(); }, 1200);
+    requestRender();
   });
 
   // Double-click: focus on clicked voxel (move both target + camera)
@@ -233,7 +244,8 @@
     targetOrb.position.copy(pt);
     targetOrb.visible = true;
     if (orbTimeout) clearTimeout(orbTimeout);
-    orbTimeout = setTimeout(() => { targetOrb.visible = false; }, 4000);
+    orbTimeout = setTimeout(() => { targetOrb.visible = false; requestRender(); }, 4000);
+    requestRender();
   });
 
   /* ── Instanced voxels (non-square: px × lh × py) ── */
@@ -243,6 +255,8 @@
 
   mesh.instanceMatrix = new THREE.InstancedBufferAttribute(matrices, 16);
   mesh.instanceColor  = new THREE.InstancedBufferAttribute(colors, 3);
+  mesh.matrixAutoUpdate = false;   // static: skip the per-frame matrix recompute
+  mesh.frustumCulled = false;      // bounds are one voxel at the origin, not the instances
   scene.add(mesh);
 
   /* ── Overlays from the design (OVERLAYS → meta.overlays): STLs already in design mm ──
@@ -257,11 +271,14 @@
         color: new THREE.Color(ov.color || '#4488cc'), transparent: true,
         opacity: ov.opacity ?? 0.35, side: THREE.DoubleSide, depthWrite: false
       });
-      overlayGroup.add(new THREE.Mesh(geometry, mat));
+      const m = new THREE.Mesh(geometry, mat);
+      m.matrixAutoUpdate = false;
+      overlayGroup.add(m);
+      requestRender();
     });
   }
   addEventListener('keydown', (e) => {
-    if (e.key === 'o' || e.key === 'O') overlayGroup.visible = !overlayGroup.visible;
+    if (e.key === 'o' || e.key === 'O') { overlayGroup.visible = !overlayGroup.visible; requestRender(); }
   });
 
   /* ── STL overlay (disabled for test piece) ──
@@ -417,14 +434,12 @@
     }
   }
 
-  /* ── Loop (throttled) ── */
-  const TARGET_FPS = 30;
-  const FRAME_MS = 1000 / TARGET_FPS;
-  let lastFrame = 0;
-  (function loop(now) {
-    requestAnimationFrame(loop);
-    if (now - lastFrame < FRAME_MS) return;
-    lastFrame = now;
+  /* ── Render on demand (as in PCO-dev): nothing runs while the view is still.
+     A frame keeps the next one coming only while something moves: controls
+     (drag, damping settle, WASD — update() returns true), or a pick/focus animation. ── */
+  function frame() {
+    frameRequested = false;
+    let more = false;
 
     // Pick/focus animation
     if (pickAnim) {
@@ -435,6 +450,7 @@
         camera.position.lerpVectors(pickAnim.fromCam, pickAnim.toCam, ease);
       }
       if (t >= 1) pickAnim = null;
+      else more = true;
     }
 
     // Target orb scale (constant screen size)
@@ -449,15 +465,21 @@
       }
     }
 
-    ctl.update();
+    if (ctl.update()) more = true;
     renderer.render(scene, camera);
-  })(0);
+    if (more) requestRender();
+  }
+  requestRender();
 
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
+    requestRender();
   });
+  // WASD walking happens inside ctl.update(); a key press has to wake the loop
+  addEventListener('keydown', requestRender);
+  addEventListener('keyup', requestRender);
 })();
 </script>
 </body>
