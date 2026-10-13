@@ -59,7 +59,10 @@ def core(x, d, z):
     if d <= DEPTH - WALL_BOTTOM_SOLID:               # internal vertical ribs on the gyroid walls
         for r, top in WALL_RIBS:
             if d >= top:
-                walls = walls | ((aX >= X_IN - 2.5) & (aX <= X_IN) & (np.abs(Y - r) <= 1.5))
+                rib = (aX >= X_IN - 2.5) & (aX <= X_IN) & (np.abs(Y - r) <= 1.5)
+                if d <= CAM_D + 13.5:                  # beside a camera board: keep the bulge 0.4 off its edge
+                    rib = rib & (Y <= CAM_YR - 15.6 - 0.4)
+                walls = walls | rib
     webs = (aX >= WELL_R + 1) & (aX <= X_IN) & (np.abs(Y) <= WEB_T / 2)
     for x0, x1, d0, d1 in WEB_SLOTS:                 # 45° pointed top: no flat bridge
         roof = d1 + np.minimum(aX - x0, x1 - aX)

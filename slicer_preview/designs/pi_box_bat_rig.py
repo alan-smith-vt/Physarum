@@ -125,13 +125,46 @@ SWITCH_PAD_R = 14.0
 WEB_PAD = 6.0                                 # |Yr| solid round the web / wall feet
 # Internal vertical ribs (3 wide, 2.5 deep), (Yr, top depth): one flanking the camera pad's outer
 # edge (the web is the rib on its other side), one under the power switch, one mid battery side.
-WALL_RIBS = ((-34.0, FLANGE), (POWER_SWITCH['y'], POWER_SWITCH['d'] + SWITCH_PAD_R), (50.0, FLANGE))
+WALL_RIBS = ((-15.0 - CAM_PAD[0] - 1.5, FLANGE), (POWER_SWITCH['y'], POWER_SWITCH['d'] + SWITCH_PAD_R), (50.0, FLANGE))   # first one touches the camera pad
 
 
-def gyroid(X, Y, d):
-    k = 2 * np.pi / GYROID_PERIOD
-    g = (np.sin(k * X) * np.cos(k * Y) + np.sin(k * Y) * np.cos(k * d) + np.sin(k * d) * np.cos(k * X))
-    return np.abs(g) <= GYROID_T
+# Wall fill, selectable for design review: env PI_BOX_FILL = "kind:a:b" (default gyroid:9:0.45).
+#   gyroid|schwarzp|diamond : TPMS sheet, a = period mm, b = sheet half-thickness (TPMS units)
+#   honeycomb               : round holes on a hex grid, a = pitch, b = hole Ø
+#   slits                   : vertical slits, a = pitch, b = slit width (bridged every 30 mm)
+#   lozenge                 : 45° diamond mesh (self-supporting), a = pitch, b = bar width
+import os
+WALL_FILL = os.environ.get('PI_BOX_FILL', f'gyroid:{GYROID_PERIOD:g}:{GYROID_T:g}')
+
+
+def wall_fill(X, Y, d):
+    kind, a, b = WALL_FILL.split(':')
+    a, b = float(a), float(b)
+    k = 2 * np.pi / a
+    if kind == 'gyroid':
+        g = np.sin(k * X) * np.cos(k * Y) + np.sin(k * Y) * np.cos(k * d) + np.sin(k * d) * np.cos(k * X)
+        return np.abs(g) <= b
+    if kind == 'schwarzp':
+        return np.abs(np.cos(k * X) + np.cos(k * Y) + np.cos(k * d)) <= b
+    if kind == 'diamond':
+        sx, sy, sz, cx, cy, cz = np.sin(k * X), np.sin(k * Y), np.sin(k * d), np.cos(k * X), np.cos(k * Y), np.cos(k * d)
+        return np.abs(sx * sy * sz + sx * cy * cz + cx * sy * cz + cx * cy * sz) <= b
+    if kind == 'honeycomb':
+        row = np.floor(d / (a * 0.866))
+        yy = Y - (row % 2) * a / 2
+        cy_ = np.round(yy / a) * a + (row % 2) * a / 2
+        cd_ = (row + 0.5) * a * 0.866
+        return (Y - cy_) ** 2 + (d - cd_) ** 2 > (b / 2) ** 2
+    if kind == 'slits':
+        return (np.mod(Y, a) > b) | (np.mod(d, 30.0) < 3.0)
+    if kind == 'lozenge':
+        u, v = np.mod(Y + d, a), np.mod(Y - d, a)
+        return (u < b) | (v < b)
+    raise ValueError(kind)
+
+
+def gyroid(X, Y, d):                                   # kept name: the core calls this for the wall fill
+    return wall_fill(X, Y, d)
 
 
 def wall_solid_zone(Y, d):

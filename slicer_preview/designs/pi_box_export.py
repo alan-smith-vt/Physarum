@@ -69,8 +69,14 @@ def write_stl(path, tris):
         f.write(b'\0' * 80 + np.uint32(len(tris)).tobytes() + rec.tobytes())
 
 
-def printed_parts():
+def printed_parts(only=None):
     h = VOX
+    if only in ('core_cut_far', 'core_cut_near'):
+        keep = (lambda X: X >= 30.0) if only == 'core_cut_far' else (lambda X: X <= -30.0)
+        def fn(x, d, z):
+            return C.core(x, d, z) & (d >= R.FLANGE) & keep(-(z + C.Z0))
+        return {only: _march(fn, int(C.SIZE_X / h), int(C.DEPTH / h), int(C.SIZE_Z / h), h,
+                             lambda p: R.from_print(np.stack([p[:, 0] + C.X0, p[:, 1], p[:, 2] + C.Z0], 1)))}
     # core: local print (x, d, z) -> print (x + X0, d, z + Z0) -> rig
     core = _march(C.core, int(C.SIZE_X / h), int(C.DEPTH / h), int(C.SIZE_Z / h), h,
                   lambda p: R.from_print(np.stack([p[:, 0] + C.X0, p[:, 1], p[:, 2] + C.Z0], 1)))
@@ -129,6 +135,12 @@ def gopro(z_cross_top):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     parts = {}
+    only = __import__('os').environ.get('PI_BOX_EXPORT_ONLY')   # e.g. core_cut_far, for quick reviews
+    if only:
+        v, f = printed_parts(only)[only]
+        write_ply(OUT / f'{only}.ply', v, f)
+        print(f'{only:12s} {len(f):9,d} tris')
+        return
     alu, z_top = aluminium()
     for name, (v, f) in {**printed_parts(), **alu}.items():
         write_ply(OUT / f'{name}.ply', v, f)
