@@ -2,7 +2,7 @@
 
     blender -b -P designs/pi_box_render.py -- <out_dir> [view ...] [--samples N] [--res W H]
 
-Views: box, assembled, assembled_gopro, exploded, internals. Cycles on the GPU (OptiX,
+Views: box, assembled, assembled_gopro, exploded, internals, pod, pod_no_battery. Cycles on the GPU (OptiX,
 falling back to CUDA, then CPU). Meshes come from out/render/ in the rig frame (mm, Z up).
 """
 import json
@@ -18,7 +18,7 @@ MESHES = HERE.parent / 'out' / 'render'
 ARGV = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT_DIR = Path(ARGV[0]) if ARGV else MESHES / 'png'
 VIEWS = [a for a in ARGV[1:] if not a.startswith('--') and not a.isdigit()] or \
-    ['box', 'assembled', 'assembled_gopro', 'exploded', 'internals']
+    ['box', 'assembled', 'assembled_gopro', 'exploded', 'internals', 'pod', 'pod_no_battery']
 SAMPLES = int(ARGV[ARGV.index('--samples') + 1]) if '--samples' in ARGV else 96
 RES = (int(ARGV[ARGV.index('--res') + 1]), int(ARGV[ARGV.index('--res') + 2])) if '--res' in ARGV else (1600, 1200)
 MM = 0.001
@@ -27,6 +27,7 @@ MM = 0.001
 MATS = {
     'resin':     dict(color=(0.055, 0.058, 0.065), rough=0.42, spec=0.45),
     'clear':     dict(color=(0.85, 0.9, 0.95), rough=0.06, transmission=1.0, ior=1.5),
+    'clear_blue': dict(color=(0.35, 0.62, 0.95), rough=0.1, transmission=1.0, ior=1.5),   # Siraya ABS-like clear blue
     'alu':       dict(color=(0.86, 0.87, 0.89), rough=0.28, metal=1.0),
     'alu_dark':  dict(color=(0.55, 0.56, 0.58), rough=0.35, metal=1.0),
     'black':     dict(color=(0.02, 0.02, 0.022), rough=0.5),
@@ -43,7 +44,7 @@ MATS = {
     'steel':     dict(color=(0.8, 0.8, 0.82), rough=0.2, metal=1.0),
 }
 PART_MAT = {
-    'core': 'resin', 'floor': 'resin', 'panel_pi': 'resin', 'panel_pod': 'clear',
+    'core': 'resin', 'floor': 'resin', 'panel_pi': 'clear_blue', 'panel_pod': 'clear_blue',
     'base_plate': 'alu', 'cross': 'alu', 'standoffs': 'alu', 'box_spacers': 'alu_dark', 'coupler': 'alu_dark',
     'mid360s': 'lidar', 'pi5': 'pcb', 'cooler': 'alu_dark', 'cameras': 'cam', 'battery': 'battery',
     'buck_wago': 'orange', 'eth_adapter': 'white', 'power_switch': 'steel', 'pd_trigger': 'black',
@@ -99,6 +100,8 @@ def load_parts():
             bpy.context.view_layer.objects.active = ob
             mod = ob.modifiers.new('weighted', 'WEIGHTED_NORMAL')
             mod.keep_sharp = True
+        if MATS[PART_MAT.get(name, 'resin')].get('transmission'):
+            ob.visible_shadow = False                   # let light into the box through clear panels
         objs[name] = ob
     return objs
 
@@ -234,6 +237,12 @@ def main():
                        monopod=(0, 0, -150), coupler=(0, 0, 70))
             show(objs, BOX + INSIDE + TOP + GOPRO + POLE, off)
             camera('cam', (0, 0.0, 0.0), iso, 1.3)
+        elif view in ('pod', 'pod_no_battery'):          # the other side: -X / +Y, battery pod toward us
+            names = BOX + INSIDE
+            if view == 'pod_no_battery':
+                names = [n for n in names if n != 'battery']
+            show(objs, names)
+            camera('cam', (0, 0.01, -0.095), (-1.0, 1.15, 0.8), 0.62)
         elif view == 'internals':
             show(objs, ['core', 'floor', 'power_switch'] + INSIDE)
             camera('cam', (0, 0.0, -0.095), (0.75, -1.25, 0.35), 0.6)
