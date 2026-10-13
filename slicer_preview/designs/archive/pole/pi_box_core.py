@@ -1,4 +1,6 @@
-"""Lidar rig Pi box, v1 core (one print): flange, well tube, webs, camera walls.
+"""ARCHIVED 2026-10-13: pole-battery version (the battery-in-box version, pi_box_bat_*, was chosen).
+
+Lidar rig Pi box, v1 core (one print): flange, well tube, webs, camera walls.
 
 Prints flange-down (the face that mates with the aluminium base plate is on the
 build plate) as an open-bottomed ring, so layers are thin walls. Vents through
@@ -16,8 +18,8 @@ Core features (rig depth d = print Y):
 """
 import numpy as np
 from geometry import implicit_piece
-from designs.pi_box_rig import *          # noqa: F401,F403  (constants + helpers)
-from designs import pi_box_rig as R
+from designs.archive.pole.pi_box_rig import *          # noqa: F401,F403  (constants + helpers)
+from designs.archive.pole import pi_box_rig as R
 
 SUPPORTS = False
 EXPOSURE_S = 2.6

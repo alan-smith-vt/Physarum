@@ -1,4 +1,6 @@
-"""Shared geometry for the lidar rig's Pi box (core, floor, panels) + viewer overlays.
+"""ARCHIVED 2026-10-13: pole-battery version (the battery-in-box version, pi_box_bat_*, was chosen).
+
+Shared geometry for the lidar rig's Pi box (core, floor, panels) + viewer overlays.
 
 Box frame (mm): origin at the underside centre of the aluminium base plate,
 X = across the camera walls, Yr = Pi (-) to buck bay (+), Zr = up. The box hangs
@@ -18,7 +20,7 @@ import struct
 from pathlib import Path
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]          # Physarum/
+ROOT = Path(__file__).resolve().parents[4]          # Physarum/
 MODELS = ROOT / 'models'
 OVERLAY_DIR = ROOT / 'slicer_preview' / 'out' / 'overlays'
 

@@ -1,6 +1,6 @@
 """Overhang / island report for a Pi box core, in print orientation (flange on the plate).
 
-    python -m designs.pi_box_overhangs [core_module]     (default pi_box_core)
+    python -m designs.pi_box_overhangs [core_module]     (default pi_box_bat_core)
 
 Slices the core at 0.2 mm and flags pixels with no resin under them within a 45° cone
 (one pixel of growth per layer at this resolution). Clusters are reported by box-frame
@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-C = importlib.import_module('designs.' + (sys.argv[1] if len(sys.argv) > 1 else 'pi_box_core'))
+C = importlib.import_module('designs.' + (sys.argv[1] if len(sys.argv) > 1 else 'pi_box_bat_core'))
 
 PX = 0.2                     # mm, square pixels and layers (45°: one pixel per layer)
 

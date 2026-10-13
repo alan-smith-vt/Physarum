@@ -15,9 +15,6 @@ META_FILE = os.path.join(SCRIPT_DIR, '_meta.json')
 PREVIEW_DIR = os.path.join(SCRIPT_DIR, 'out', 'preview')
 
 ALIASES = {
-    'pole': 'pi_box_core',                 # battery at the bottom of the pole
-    'poleFloor': 'pi_box_lids',            # floor + -Y panel
-    'polePanel': 'pi_box_panel',           # +Y panel
     'battery': 'pi_box_bat_core',          # battery in the box
     'batteryFloor': 'pi_box_bat_lids',
     'batteryPanelPi': 'pi_box_bat_panel_my',

@@ -1,4 +1,6 @@
-"""Lidar rig Pi box, v1 floor + -Y (Pi) panel, printed flat on one plate.
+"""ARCHIVED 2026-10-13: pole-battery version (the battery-in-box version, pi_box_bat_*, was chosen).
+
+Lidar rig Pi box, v1 floor + -Y (Pi) panel, printed flat on one plate.
 
 Floor: outside face on the build plate; collar (round the well tube), web rails
 and the floor top face up. Dowels (3×6) press into Ø3.3 holes and stand 3 mm
@@ -11,7 +13,7 @@ Rig -> print for the floor: (X, Yr, d) -> (x = X, y = DEPTH + FLOOR_T - d, z = -
 """
 import numpy as np
 from geometry import implicit_piece
-from designs.pi_box_rig import *          # noqa: F401,F403
+from designs.archive.pole.pi_box_rig import *          # noqa: F401,F403
 
 SUPPORTS = False
 EXPOSURE_S = 2.6

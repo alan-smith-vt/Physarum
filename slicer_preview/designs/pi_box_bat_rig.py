@@ -1,7 +1,7 @@
-"""Battery-in-box variant of pi_box_rig.py (copy, 2026-10-13): the 15 V bank stands in a +Y pod
+"""CHOSEN VERSION (2026-10-13). Battery-in-box variant of designs/archive/pole/pi_box_rig.py (copy): the 15 V bank stands in a +Y pod
 beyond the buck bay instead of at the bottom of the pole, so no power lead runs down the stick.
 
-Differences from pi_box_rig.py are marked "BATTERY". Everything else is the same design.
+Differences from the archived pole version are marked "BATTERY". Everything else is the same design.
 
 Shared geometry for the lidar rig's Pi box (core, floor, panels) + viewer overlays.
 

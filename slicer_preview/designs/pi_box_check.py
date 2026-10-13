@@ -1,6 +1,6 @@
 """Clash check + section images for the Pi box core.
 
-    python -m designs.pi_box_check [core_module]     (from slicer_preview/; default pi_box_core)
+    python -m designs.pi_box_check [core_module]     (from slicer_preview/; default pi_box_bat_core)
 
 Samples every overlay's vertices (and triangle centroids) against the core's
 solid function and reports how many land inside resin, per overlay, with the
@@ -13,9 +13,9 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from stl_slicer import load_stl                      # noqa: E402
 import importlib                                     # noqa: E402
-from designs.pi_box_rig import ROOT                  # noqa: E402
+from designs.pi_box_bat_rig import ROOT              # noqa: E402
 
-C = importlib.import_module('designs.' + (sys.argv[1] if len(sys.argv) > 1 else 'pi_box_core'))
+C = importlib.import_module('designs.' + (sys.argv[1] if len(sys.argv) > 1 else 'pi_box_bat_core'))
 
 EXPECTED = {'box_spacers', 'monopod', 'standoffs', 'base_plate', 'coupler', 'mid360s'}   # outside the core or meant to sit in it
 

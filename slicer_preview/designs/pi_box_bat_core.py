@@ -6,7 +6,7 @@ Lidar rig Pi box, v1 core (one print): flange, well tube, webs, camera walls.
 Prints flange-down (the face that mates with the aluminium base plate is on the
 build plate) as an open-bottomed ring, so layers are thin walls. Vents through
 the flange stop the pockets acting as suction cups. Print it on its own.
-Geometry and frames: designs/pi_box_rig.py. Floor + panels: designs/pi_box_lids.py.
+Geometry and frames: designs/pi_box_bat_rig.py. Floor: designs/pi_box_bat_lids.py.
 
 Core features (rig depth d = print Y):
   - flange 0..10: 4 stepped bores (Ø8 spacer seat 5.85 deep, Ø10.2 head pocket),
