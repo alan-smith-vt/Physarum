@@ -143,7 +143,8 @@ def tube_window(s):
     y0, y1, d0, d1 = cam_board(s)
     y0, y1, d0, d1 = y0 - 0.5, min(y1 + 0.5, -WEB_T / 2 - 0.5), d0 - 0.3, d1 + 0.5
     apex, yc = d1 + (y1 - y0) / 2, (y0 + y1) / 2
-    return inter(sbox(s, WELL_R - 1, WELL_R + TUBE_T + 1, y0, y1, d0, apex),
+    x0 = CAM_FACE - CAM_LENS_L - 1.0 - 3.6 - 0.5        # assembly back while lined up (lens + board + connector)
+    return inter(sbox(s, x0, WELL_R + TUBE_T + 1, y0, y1, d0, apex),     # through the tube wherever it crosses the path
                  Half(0, 1, 1, apex + yc), Half(0, -1, 1, apex - yc))
 
 
