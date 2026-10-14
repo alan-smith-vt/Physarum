@@ -26,7 +26,7 @@ Core features (rig depth d = print Y):
 """
 import os
 import numpy as np
-from sdf import Box, Cyl, Half, Fn, union, inter, sub, sdf_piece, solid, INF
+from sdf import Box, Cyl, Half, Fn, union, inter, sub, sdf_piece, solid, INF, TIE
 from designs.pi_box_bat_rig import *      # noqa: F401,F403  (constants + helpers)
 from designs import pi_box_bat_rig as R
 
@@ -99,8 +99,8 @@ plate = sub(
           Half(0, 1, -1, Y_MAX - CHAMFER), Half(0, -1, -1, -Y_MIN - CHAMFER)),
     Cyl('d', (0.0, 0.0), WELL_R),
     *[vhole(sx * POST, sy * POST, SPACER_D + SPACER_FIT, 0.0, FLANGE_PLATE) for sx in (-1, 1) for sy in (-1, 1)],
-    *[vhole(sx * LIDAR_M3[0], sy * LIDAR_M3[1], M3_HEAD_D, 0.0, M3_HEAD_RECESS) for sx in (-1, 1) for sy in (-1, 1)],
-    *[vhole(vx, vy, VENT_D, 0.0, FLANGE_PLATE) for vx, vy in VENTS])
+    *[vhole(sx * LIDAR_M3[0], sy * LIDAR_M3[1], M3_HEAD_D, 0.0, M3_HEAD_RECESS) for sx in (-1, 1) for sy in (-1, 1)])
+# (the flange vents are gone: the open flange below has no closed pockets to act as suction cups)
 
 # ── walls: solid zones + gyroid inside the 4 mm slabs ──
 _sw = POWER_SWITCH
@@ -265,7 +265,77 @@ bumps = union(*[sbox(s, X_IN + 0.5, X_IN + GROOVE_D - 0.5, y0, y1, db - 1.5, db 
 below = union(sub(union(tube, walls, ribs, webs, rims, bosses, stop_ribs, rails, seat, clips, feet, cones,
                         posts, cams), cuts, panel_cuts),
               sub(bumps, cuts))
-ROOT = union(plate, below)
+
+
+# ── open flange (2026-10-14): the first core split ~5 mm up where the solid 4 mm plate (~9,700 mm²/layer)
+#    met the walls (~3,800). The plate keeps only what the body below hangs off (plus rings round the M3
+#    recesses, a perimeter band, a ring round the well and the panel-midpoint spokes + diamond ribs),
+#    blurred (σ FLANGE_SIGMA) and thresholded into smooth windows (~6,400 mm²/layer). A quarter-round
+#    fillet (FLANGE_FILLET) joins the body to the plate, only where there is plate under it. ──
+def _flange_field(step=0.1):
+    from scipy.ndimage import distance_transform_edt, gaussian_filter
+    xs = np.arange(-X_OUT, X_OUT + step, step)
+    ys = np.arange(Y_MIN, Y_MAX + step, step)
+    XX, YY = np.meshgrid(xs, ys, indexing='ij')
+    req = solid(below, xs[:, None], ys[None, :], FLANGE_PLATE + 0.5)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            req |= np.hypot(XX - sx * LIDAR_M3[0], YY - sy * LIDAR_M3[1]) <= M3_HEAD_D / 2 + 2.0
+    b = FLANGE_BAND
+    req |= (np.abs(XX) >= X_OUT - b) | (YY <= Y_MIN + b) | (YY >= Y_MAX - b)
+    r = np.hypot(XX, YY)
+    req |= (r >= WELL_R) & (r <= WELL_R + 3.0)
+    ye = Y_MAX - PANEL_LIP - GW                         # panel edge (inner face of its slot)
+
+    def seg(ax, ay, bx, by):
+        vx, vy = bx - ax, by - ay
+        t = np.clip(((XX - ax) * vx + (YY - ay) * vy) / (vx * vx + vy * vy), 0, 1)
+        return np.hypot(XX - ax - t * vx, YY - ay - t * vy) <= FLANGE_RIB_W / 2
+    mids = [(0.0, -ye), (X_IN, 0.0), (0.0, ye), (-X_IN, 0.0)]
+    req |= seg(0.0, -ye, 0.0, -WELL_R) | seg(0.0, ye, 0.0, WELL_R)              # panel midpoints -> tube
+    for i in range(4):
+        req |= seg(*mids[i], *mids[(i + 1) % 4])                                  # diamond
+    keep = gaussian_filter(req.astype(float), FLANGE_SIGMA / step) > FLANGE_THRESH
+    sd = (distance_transform_edt(~keep) - distance_transform_edt(keep)) * step
+    return xs[0], ys[0], step, sd.astype(np.float32)
+
+
+_fx0, _fy0, _fst, _fsd = _flange_field()
+_fsd_dev = {}
+
+
+def _flange_sd(X, Y, d, xp):
+    """Signed distance to the flange's solid footprint (bilinear in the 0.1 mm field)."""
+    g = _fsd if xp is np else _fsd_dev.setdefault(id(xp), xp.asarray(_fsd))
+    u = xp.clip((X - _fx0) / _fst, 0, g.shape[0] - 1.001)
+    v = xp.clip((Y - _fy0) / _fst, 0, g.shape[1] - 1.001)
+    i, j = xp.floor(u).astype(int), xp.floor(v).astype(int)
+    fu, fv = u - i, v - j
+    i, j = xp.broadcast_arrays(i, j)
+    fu, fv = xp.broadcast_arrays(fu, fv)
+    return ((1 - fu) * (1 - fv) * g[i, j] + fu * (1 - fv) * g[i + 1, j]
+            + (1 - fu) * fv * g[i, j + 1] + fu * fv * g[i + 1, j + 1])
+
+
+_flange_bounds = (-X_OUT, X_OUT, Y_MIN, Y_MAX, -INF, INF)
+plate = inter(plate, Fn(_flange_sd, _flange_bounds))
+_fillet_keep_out = union(*[Cyl('d', (sx * POST, sy * POST), (HEAD_D + RESIN_HOLE_COMP) / 2 + 0.3)
+                           for sx in (-1, 1) for sy in (-1, 1)],                 # head counterbores stay full size
+                         Box(-_notch_r - 0.3, _notch_r + 0.3, Y_MAX - PANEL_LIP - GW - 2.5, INF))   # lidar cable notch
+
+
+def _fillet(X, Y, d, xp):
+    h = d - FLANGE_PLATE
+    if not 0.0 < h < FLANGE_FILLET:
+        return INF
+    e = FLANGE_FILLET - np.sqrt(max(FLANGE_FILLET ** 2 - (FLANGE_FILLET - h) ** 2, 0.0))    # quarter-round reach
+    grown = below(X, Y, d, xp) - e
+    top = plate(X, Y, FLANGE_PLATE - 0.01, xp)                                  # only over plate
+    return xp.maximum(xp.maximum(grown, top), TIE - _fillet_keep_out(X, Y, d, xp))
+
+
+fillet = Fn(_fillet, (-X_OUT, X_OUT, Y_MIN, Y_MAX, FLANGE_PLATE, FLANGE_PLATE + FLANGE_FILLET))
+ROOT = union(plate, below, fillet)
 
 
 def core(x, d, z, xp=np):
