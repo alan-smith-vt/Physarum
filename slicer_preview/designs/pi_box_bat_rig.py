@@ -160,7 +160,7 @@ def clip_centre(axis, base, along, D, out=None):
 #    the nut still seats. [MEASURE] body, thread.
 # Part: Gebildet 16 mm stainless latching push button, 12-24 V / 5 A, power-symbol LED. Solder the
 # leads to the switch tabs (heat-shrink them) instead of its clip-on socket plug, which adds ~20 mm.
-POWER_SWITCH = dict(side=-1, y=-45.0, d=155.0, hole=16.0, body_r=8.0, body_len=30.0)
+POWER_SWITCH = dict(side=-1, y=CAM_YR, d=155.0, hole=16.0, body_r=8.0, body_len=30.0)
 # Buck (36 × 10 × 45) stands against the -Y panel under the Pi; two WAGO 221-413 beside the switch. [MEASURE]
 BUCK = (-10.0, 26.0, -56.0, -46.0, 128.0, 173.0)   # X, Yr, depth ranges
 WAGOS = [(-14.0, -9.0, -45.0, -36.0, 166.0, 178.0), (-7.5, -2.5, -45.0, -36.0, 166.0, 178.0)]
