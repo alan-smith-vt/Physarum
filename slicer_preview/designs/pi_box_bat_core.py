@@ -118,11 +118,9 @@ solid_zone = union(
 gyroid = Fn(wall_fill_dist, (-X_OUT, X_OUT, Y_MIN, Y_MAX, TOP, BOT))
 walls = union(*[inter(sbox(s, X_IN, X_OUT, Y_MIN, Y_MAX), union(solid_zone, gyroid)) for s in (-1, 1)])
 
-# internal ribs on the walls (stop at the bottom band; clipped beside the camera board)
-_cam_clip = CAM_D + 13.5
-ribs = union(*[sbox(s, X_IN - 2.5, X_IN, r - 1.5, r + 1.5, max(top, _cam_clip), DEPTH - WALL_BOTTOM_SOLID)
-               for s in (-1, 1) for r, top in WALL_RIBS],
-             *[sbox(s, X_IN - 2.5, X_IN, r - 1.5, min(r + 1.5, CAM_YR - 15.6 - 0.4), top, _cam_clip)
+# internal ribs on the walls (stop at the bottom band; beside the camera board, not over it)
+_rib_end = {-1: DEPTH - WALL_BOTTOM_SOLID, 1: DEPTH - ETH_ADAPTER['h'] - 1.0}     # +X: stops above the UE300
+ribs = union(*[sbox(s, X_IN - 2.5, X_IN, r - 1.5, r + 1.5, top, _rib_end[s])
                for s in (-1, 1) for r, top in WALL_RIBS])
 
 
@@ -135,20 +133,6 @@ def web_slot(s, x0, x1, d0, d1):
 webs = sub(union(*[sbox(s, WELL_R + 1, X_IN, -WEB_T / 2, WEB_T / 2) for s in (-1, 1)]),
            *[web_slot(s, *ws) for s in (-1, 1) for ws in WEB_SLOTS])
 tube = sub(Cyl('d', (0.0, 0.0), WELL_R + TUBE_T, TOP, BOT), Cyl('d', (0.0, 0.0), WELL_R))
-
-
-def tube_window(s):
-    """Camera insertion window in the tube (2026-10-14): the board + lens + connector (22.6 deep) lines up
-    partly inside the empty well, then slides out lens-first into its seat. 45° peak, no flat bridge."""
-    y0, y1, d0, d1 = cam_board(s)
-    y0, y1, d0, d1 = y0 - 0.5, min(y1 + 0.5, -WEB_T / 2 - 0.5), d0 - 0.3, d1 + 0.5
-    apex, yc = d1 + (y1 - y0) / 2, (y0 + y1) / 2
-    x0 = CAM_FACE - CAM_LENS_L - 1.0 - 3.6 - 0.5        # assembly back while lined up (lens + board + connector)
-    return inter(sbox(s, x0, WELL_R + TUBE_T + 1, y0, y1, d0, apex),     # through the tube wherever it crosses the path
-                 Half(0, 1, 1, apex + yc), Half(0, -1, 1, apex - yc))
-
-
-tube = sub(tube, *[tube_window(s) for s in (-1, 1)])
 
 # ── panel-stop rims (RIM_D deep) with the lidar cable notch, bore bosses (FLANGE deep) ──
 _notch_r = (CABLE_NOTCH_W + RESIN_HOLE_COMP) / 2
@@ -262,6 +246,7 @@ panel_cuts = union(*[sbox(s, X_IN, X_IN + GROOVE_D, y0, y1, RIM_D, BOT + 1)
 _win = Cyl('x', (CAM_YR, CAM_D), (CAM_WINDOW + RESIN_HOLE_COMP) / 2)
 cuts = union(
     bores, pi_holes,
+    *[vhole(sx * POST, -POST, HEAD_D, FLANGE - 0.01, cam_board(sx)[3] + 1) for sx in (-1, 1)],   # M4 + key up through the camera blocks
     hhole('x', _sw['y'], _sw['d'], _sw['hole'], *sorted((_sw['side'] * (X_IN - 0.01), _sw['side'] * X_OUT))),
     *[sub(inter(_win, sbox(s, CAM_FACE - 0.01, X_OUT, -INF, INF, -INF, INF)),     # lens window, solid kept round the bosses
           *[Cyl('x', (cy, cd), CAM_BOSS_R + 1.0) for cy, cd in cam_holes(s)]) for s in (-1, 1)],

@@ -64,6 +64,11 @@ PANEL_LIP = 1.5                   # wall material outside the panel at each box 
 GROOVE_W = PANEL_T + 0.4              # cast/extruded sheet ±0.2; + RESIN_HOLE_COMP applied where cut
 GROOVE_D = 2.0                        # into the wall from its inner face
 
+# Cameras in the -Y corners (2026-10-14): board's -Yr edge on the panel-slot solid band, so the lens axis sits
+# over the corner M4 (a Ø HEAD_D bore through the camera block reaches it; screw first, then the camera).
+CAM_YR = Y_MIN + PANEL_LIP + GROOVE_W + RESIN_HOLE_COMP + 4.0 + 12.5     # ≈ -40.1
+CAM_RIB_Y = CAM_YR + 12.5 + 1.5                                          # rib flanking the board's +Yr edge
+
 # ── Webs, wall feet, dowels, floor bosses ──
 WEB_T = 3.0
 WEB_SLOTS = [(30.0, 41.0, 24.0, 34.0), (28.5, 45.5, 76.0, 98.0)]   # |X| range, depth range: cable pass-throughs
@@ -134,13 +139,13 @@ CABLE_NOTCH_W = 9.0                           # notch width (X, centred on 0); h
 # signed Yr = base, at X = along. Clips stand off toward -sign(base) unless an optional 6th entry
 # gives the direction (+1 / -1), e.g. on the battery-side face of a web.
 CLIP_T, CLIP_H, CLIP_STEM = 1.2, 14.0, 1.0
-CLIP_S, CLIP_RIB_DS = 4.5, (40.0, 75.0, 110.0)   # small clip Ø; camera-pad rib clip depths (40: just below the boards)
+CLIP_S, CLIP_RIB_DS = 4.5, (55.0, 80.0, 104.0)   # small clip Ø; camera rib clip depths (below the camera blocks, above the UE300)
 CLIPS = ([('y', 28.5, -38.0, 76.0, CABLE_D),   # -X bay, on the battery stop rib: lidar cable below its coil
           ('y', -1.5, -37.0, 110.0, CABLE_D),  # -X web, Pi side: lidar cable after the low slot
           ('y', 28.5, 38.0, 103.0, CABLE_D),   # +X bay stop rib: one big, centred on the rib's run
           ('y', 1.5, 37.0, 50.75, CLIP_S, 1),  # +X web, battery side (opposite the stop rib): two small,
           ('y', 1.5, 37.0, 107.0, CLIP_S, 1)]  #   one centred between the two slots, one past the low slot
-         + [('x', sx * 43.5, -31.5, cd, CLIP_S) for sx in (-1, 1) for cd in CLIP_RIB_DS])   # camera-pad ribs (USB-C on -X)
+         + [('x', sx * 43.5, CAM_RIB_Y, cd, CLIP_S) for sx in (-1, 1) for cd in CLIP_RIB_DS if sx < 0 or cd < 100])   # camera ribs (USB-C on -X)
 
 
 def clip_centre(axis, base, along, D, out=None):
@@ -179,7 +184,7 @@ SWITCH_PAD_R = 14.0
 WEB_PAD = 6.0                                 # |Yr| solid round the web / wall feet
 # Internal vertical ribs (3 wide, 2.5 deep), (Yr, top depth): one flanking the camera pad's outer
 # edge (the web is the rib on its other side). On the battery side the cradle rails are the ribs.
-WALL_RIBS = ((-15.0 - CAM_PAD[0] - 1.5, FLANGE),)   # touches the camera pad; the cradle rails are the battery-side ribs
+WALL_RIBS = ((CAM_RIB_Y, FLANGE),)   # flanks the camera board's +Yr edge; the cradle rails are the battery-side ribs
 
 
 # Wall fill, selectable for design review: env PI_BOX_FILL = "kind:a:b" (default gyroid:12:0.35).
@@ -260,7 +265,7 @@ PI_INSERT_D, PI_INSERT_L, PI_SCREW_CLEAR, PI_HOLE_DEPTH = 3.5, 3.0, 2.7, 8.0   #
 
 # ── OV9281 cameras (25 × 23.86 board, lens 18 mm from the board face) ──
 # Lens axes just under the flange: the stiffest spot, ~55 mm from the lidar instead of ~90.
-CAM_YR, CAM_D = -15.0, 30.0               # lens axis (both cameras); 30 (was 23, 2026-10-14): board clears the upper Pi standoff on its way in
+CAM_D = 30.0                              # lens axis depth (both cameras; CAM_YR above); 30 (was 23, 2026-10-14): board clears the upper Pi standoff on its way in
 CAM_WINDOW = 19.0                         # ROUND lens window Ø (lens holder must pass: round, or square ≤ ~13) [MEASURE]
 CAM_BOSS_R, CAM_BOSS_H = 3.0, 2.0
 # Inset (2026-10-13): the 160° lens can't sit behind the wall (each 1 mm of recess needs ~5.7 mm more
@@ -410,9 +415,10 @@ def _quad_box(a, b, hw, hn):
 PI_CONN = [(-19.0, -35.5, -(PI_TOP_D + 49)), (-19.0, -35.5, -(PI_TOP_D + 57))]     # near, far
 CAM_CONN = [(-(CAM_FACE + 2.0), CAM_YR, -(CAM_D + 15.0)),            # -X near: connector edge down (in its pocket)
             (CAM_FACE + 2.0, CAM_YR, -(CAM_D + 15.0))]                 # +X far: connector edge down too
-RIBBON_NEAR = [PI_CONN[0], (-26, -35.5, -60), (-26, -35.5, -50), (-36, -24, -(CAM_D + 21)), CAM_CONN[0]]
+RIBBON_NEAR = [PI_CONN[0], (-26, -35.5, -60), (-32, CAM_YR, -(CAM_D + 23)), (CAM_CONN[0][0], CAM_YR, -(CAM_D + 23)),
+               CAM_CONN[0]]                                                                    # up into its pocket
 RIBBON_FAR = [PI_CONN[1], (-26, -35.5, -68), (-26, -35.5, -42), (-29.8, -35.5, -40), (-29.8, -29.6, -40),
-              (29.8, -29.6, -40), (31, -18, -(CAM_D + 23)), (CAM_FACE + 2.0, CAM_YR, -(CAM_D + 23)), CAM_CONN[1]]   # up into its pocket
+              (29.8, -29.6, -40), (29.8, -29.6, -(CAM_D + 23)), (33, CAM_YR, -(CAM_D + 23)), (CAM_FACE + 2.0, CAM_YR, -(CAM_D + 23)), CAM_CONN[1]]   # up into its pocket
 # Pi 5 port end (bottom, ~99-104 mm down): Ethernet is the jack beside the micro-HDMI edge (-X here,
 # board y ~2-18 -> X -26..-10); the two USB-A stacks are toward +X.
 ETH = (-18.0, -40.0, -(PI_TOP_D + 88.5))
@@ -446,8 +452,8 @@ BUILTIN_CORD = [CORD_ROOT, (30, 43, -16), (29, 30, -16), (33, 22, -22), (36, 18,
 BATTERY_LEAD = [(36, 10, -PD_TRIGGER[5] + 2), (37, 5.95, -50), (37, 5.95, -68), (37, 0, -90), (28, -25, -95),
                 (24, -50, -110), (-10, -52, -150), SW_C, WAGO_C]  # trigger -> battery-side web clip -> low web slot -> under the Pi -> switch -> WAGO
 BUCK_IN = [WAGO_C, (8.0, -46.5, -170.0)]
-USBC_LEAD = [(8.0, -51.0, -BUCK[4]), (-30, -50, -128), (-39.05, -31.5, -126), (-39.05, -31.5, -38),
-             (-33, -34, -25)]                                     # through the -X camera-pad rib's clips to the right-angle plug
+USBC_LEAD = [(8.0, -51.0, -BUCK[4]), (-30, -50, -128), (-39.05, CAM_RIB_Y, -126), (-39.05, CAM_RIB_Y, -50),
+             (-33, CAM_RIB_Y, -47), (-33, -34, -25)]              # up the -X camera rib's clips, inboard of the camera block, to the plug
 
 
 def _decimate(tris, grid=0.25):
