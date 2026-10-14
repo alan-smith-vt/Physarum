@@ -35,6 +35,25 @@ Design notes / decisions history live in the Notes vault:
 - Horizontal holes (Pi, cameras, switch) print +0.35 wide, +0.55 tall (`HORIZ_HOLE_EXTRA` 0.2):
   between the fit strip's too-tight round and too-loose ellipse. First core is the fit test.
 
+## Amazon cart (2026-10-13, not yet ordered), for review
+In the cart:
+- USB-C female-female coupler, 2-pack (bank's built-in cord -> PD trigger)
+- M2×5 socket cap ×50 (cameras), M2.5×6 socket cap ×50 (Pi), M3×6 button head ×50 (floor)
+- FFVRVSS 300-pc brass insert kit M2..M5 (heat-set kit; used here GLUED, resin can't be heat-set)
+- Gebildet 16 mm latching push button, 12-24 V / 5 A, LED, 2-pack (power switch)
+
+Gaps found against these notes (check what's already on hand):
+- **Pi 5 camera cables ×2: 22-pin (Pi 5) to 15-pin (OV9281), ~150 mm.** OV9281 boards ship with
+  15-15 cables, which don't fit the Pi 5. Not in the cart.
+- **Superglue (gel CA)** for the inserts, if none on hand.
+- PD trigger (corded male USB-C, 15 V), 15->5 V USB-C buck, 2× WAGO 221-413: from the earlier rig
+  (cage handoff power chain); confirm they're on hand.
+- Right-angle USB-C lead, buck -> Pi (the route assumes a right-angle plug at the Pi).
+- TP-Link UE300 (USB 3 gigabit) for the office link: confirm owned.
+- Already owned per the cage handoff: M4×18 truss + 6 mm Al spacers, 3×6 dowels, M3×10 lidar screws.
+- Optional: thin foam for the bank / dongle (+1 mm margins), heat-shrink for the switch leads,
+  1/8" polycarbonate for the final panels (DXF `out/pi_box_panel.dxf`, 95.2 × 165.8, qty 2).
+
 ## [MEASURE] before trusting the fit
 Bank height (157 + 1 margin), UE300 height (71, +1 margin), lidar cable Ø (7: notch, clips),
 lens holder (Ø19 bore passes round or ≤ ~13 square), M2/M2.5 insert OD (3.2 / 3.5 placeholders),
