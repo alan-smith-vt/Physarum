@@ -5,6 +5,14 @@ Design notes / decisions history live in the Notes vault:
 `Reference/assets/pi-box-renders/`). The vault is NOT updated with this session's changes yet
 (it was on the laptop); renders for it are in `slicer_preview/out/renders_2026-10-13/` (gitignored).
 
+## Print in progress (started 2026-10-13 ~22:50)
+- `pi_box_bat_core.goo` (3600 layers, ~11-12 h, 2.6 s / 20 s bottom, 75/25 Fast gray / Tenacious) is running
+  on the Saturn 4 Ultra 16K from the printer's own storage (`/local/pi_box_bat_core.goo`); the desktop
+  can be off. Check it: `python sdcp.py status` (PrintInfo.Status: 13/3/4 printing, 9 complete,
+  6 paused, 8 stopped; ErrorNumber 0 = OK) or `python sdcp.py watch`; `history` lists finished jobs.
+  Printer 192.168.0.4, found by discovery. A start right after an upload can return `Ack 1`: retry.
+- After it: wash + post-cure fully before gluing inserts (liquid CA on the insert's knurl, waxed screw in it).
+
 ## State
 - Chosen design: **battery-in-box** (`pi_box_bat_*`), now the **compact symmetric layout**:
   `Y_MAX = -Y_MIN` (design rule: the box is symmetric about the aluminium plate, ±62).
