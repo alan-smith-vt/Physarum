@@ -1,6 +1,9 @@
 """Build a design at full printer resolution → out/<design>.goo.
 
-Usage:  python to_goo.py <design>        (designs/<design>.py)
+Usage:  python to_goo.py <design> [--gpu]        (designs/<design>.py)
+
+--gpu: slice on the GPU with CuPy (implicit pieces only; ~50 ms/layer on a 4090 vs ~2-4 s/layer/core,
+and the CPU pool is memory-bandwidth bound). Needs cupy-cuda12x + nvidia-cuda-nvrtc-cu12.
 
 Uses the Siraya test-model .goo as a template: its header (preview images,
 printer config, print settings incl. bottom-layer exposure) is kept and all
@@ -31,7 +34,7 @@ printer.LY_MM = printer.LAYER_UM / 1000
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'chromosome'))
 from goo_punch_hole_v2 import parse_goo
-from compose import load_design, compute_bounds, make_global_slice
+from compose import load_design, compute_bounds, make_global_slice, _pixel_offsets
 
 TEMPLATE = Path(__file__).parent.parent / 'Siraya Tech Test Model 2021 v5.STL_0.05_2_2026_03_28_20_51_00.goo'
 OUT_DIR  = Path(__file__).parent / 'out'
@@ -155,7 +158,43 @@ def _process_layer(args):
     return z, rle
 
 
-def main(name):
+def _encode_packed(args):
+    """Worker (GPU mode): unpack a 1-bit slice from the GPU and RLE-encode it."""
+    z, packed, H, W, x0, y0, W_goo, H_goo = args
+    img = np.unpackbits(packed, count=H * W).reshape(H, W) * np.uint8(255)
+    return z, goo_encode_placed(img, x0, y0, W_goo, H_goo)
+
+
+def _gpu_slices(name, pieces, bounds, args):
+    """Slice on the GPU (CuPy): each implicit piece's solid_fn runs on whole-slice GPU arrays,
+    with the design modules' `np` pointed at cupy. Yields encoder jobs with 1-bit packed slices."""
+    os.environ.setdefault('CUPY_ACCELERATORS', '')    # CUB needs newer CUDA headers than the 11.8 toolkit on PATH
+    import cupy as cp
+    if not hasattr(cp, 'broadcast_shapes'):
+        cp.broadcast_shapes = np.broadcast_shapes
+    if any('solid_fn' not in p for p in pieces):
+        sys.exit("--gpu needs implicit pieces (solid_fn); this design has others")
+    for mod in [m for k, m in sys.modules.items() if k.startswith('designs.') and getattr(m, 'np', None) is np]:
+        mod.np = cp
+    W, H = bounds[3], bounds[4]
+    grids = []
+    for p in pieces:
+        x = cp.asarray(((np.arange(p['W']) + 0.5) * printer.PX_MM)[None, :])
+        z = cp.asarray(((np.arange(p['H']) + 0.5) * printer.PZ_MM)[:, None])
+        grids.append((x, z) + _pixel_offsets(p, bounds))
+    for z_layer, x0, y0, W_goo, H_goo in args:
+        img = cp.zeros((H, W), cp.uint8)
+        for p, (xg, zg, dx, dy, dz) in zip(pieces, grids):
+            local = z_layer - dy
+            if not 0 <= local < p['N_SLICES']:
+                continue
+            m = cp.broadcast_to(p['solid_fn'](xg, (local + 0.5) * printer.LY_MM, zg), (p['H'], p['W']))
+            region = img[dz:dz + p['H'], dx:dx + p['W']]
+            cp.maximum(region, m[:region.shape[0], :region.shape[1]].astype(cp.uint8), out=region)
+        yield z_layer, cp.asnumpy(cp.packbits(img.ravel())), H, W, x0, y0, W_goo, H_goo
+
+
+def main(name, gpu=False):
     pieces, bounds = _build(name)
     design = load_design(name)
     exposure_s = getattr(design, 'EXPOSURE_S', GOO_EXPOSURE_S)
@@ -194,15 +233,21 @@ def main(name):
     print(f"Placing {W}x{H} pattern at ({x0}, {y0}) on {W_goo}x{H_goo} plate")
     print(f"{N_SLICES} layers at {GOO_LAYER_UM} µm")
 
-    n_workers = max(1, (os.cpu_count() or 4) - 4)
-    print(f"Using {n_workers} worker processes", flush=True)
-
     t0 = time.time()
     results = {}
     args = [(z, x0, y0, W_goo, H_goo) for z in range(N_SLICES)]
 
-    with Pool(n_workers, initializer=_init_worker, initargs=(name,)) as pool:
-        for z, rle in pool.imap_unordered(_process_layer, args):
+    if gpu:   # slices on the GPU in this process; a few CPU workers only RLE-encode
+        n_workers = min(12, max(1, (os.cpu_count() or 4) - 4))
+        print(f"GPU slicing, {n_workers} encoder processes", flush=True)
+        pool, jobs, fn = Pool(n_workers), _gpu_slices(name, pieces, bounds, args), _encode_packed
+    else:
+        n_workers = max(1, (os.cpu_count() or 4) - 4)
+        print(f"Using {n_workers} worker processes", flush=True)
+        pool, jobs, fn = Pool(n_workers, initializer=_init_worker, initargs=(name,)), args, _process_layer
+
+    with pool:
+        for z, rle in pool.imap_unordered(fn, jobs):
             results[z] = rle
             done = len(results)
             if done <= 20 or done % 100 == 0 or done == N_SLICES:
@@ -257,6 +302,7 @@ def main(name):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    names = [a for a in sys.argv[1:] if a != '--gpu']
+    if len(names) != 1:
         sys.exit(__doc__)
-    main(sys.argv[1])
+    main(names[0], gpu='--gpu' in sys.argv)

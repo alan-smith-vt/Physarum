@@ -197,7 +197,7 @@ def wall_fill(X, Y, d):
     kind, a, b = WALL_FILL.split(':')
     a, b = float(a), float(b)
     k = 2 * np.pi / a
-    t = np.clip((d - (DEPTH - WALL_BOTTOM_SOLID - FILL_RAMP)) / FILL_RAMP, 0.0, 1.0)
+    t = min(max((d - (DEPTH - WALL_BOTTOM_SOLID - FILL_RAMP)) / FILL_RAMP, 0.0), 1.0)   # d is a scalar (also on GPU)
     if kind in ('gyroid', 'schwarzp', 'diamond'):
         b = b + t * ((3.1 if kind == 'schwarzp' else 1.6) - b)   # past max |TPMS|: fully solid at the band
     if kind == 'gyroid':

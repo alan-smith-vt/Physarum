@@ -78,7 +78,10 @@ def core(x, d, z):
 
     # ── below the flange plate ──
     tube = (r2 >= WELL_R ** 2) & (r2 <= (WELL_R + TUBE_T) ** 2)
-    walls = (aX >= X_IN) & inside & (wall_solid_zone(Y, d, X) | gyroid(X, Y, d))
+    if np.any(aX >= X_IN):                             # (row bands: skip the trig where there's no wall)
+        walls = (aX >= X_IN) & inside & (wall_solid_zone(Y, d, X) | gyroid(X, Y, d))
+    else:
+        walls = np.zeros(np.broadcast_shapes(X.shape, Y.shape), bool)
     if d <= DEPTH - WALL_BOTTOM_SOLID:               # internal vertical ribs on the gyroid walls
         for r, top in WALL_RIBS:
             if d >= top:

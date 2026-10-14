@@ -603,12 +603,19 @@ def implicit_piece(size_x, size_y, size_z, solid_fn, x0=0.0, y0=0.0, z0=0.0):
     x = ((np.arange(W) + 0.5) * PX_MM)[None, :]
     z = ((np.arange(H) + 0.5) * PZ_MM)[:, None]
 
-    def make_slice(layer):
-        mask = np.broadcast_to(solid_fn(x, (layer + 0.5) * LY_MM, z), (H, W))
-        return mask.astype(np.uint8) * 255
+    def make_slice(layer, band=256):
+        # Row bands: full-res slices are ~50 Mpx, and a solid_fn's float temporaries for the whole
+        # slice run to GBs per layer (memory-bound, and multiplied by every pool worker).
+        y = (layer + 0.5) * LY_MM
+        out = np.empty((H, W), np.uint8)
+        for r0 in range(0, H, band):
+            m = solid_fn(x, y, z[r0:r0 + band])
+            out[r0:r0 + band] = np.broadcast_to(m, (min(band, H - r0), W))
+        return out * 255
 
     return dict(
         W=W, H=H, N_SLICES=N_SLICES,
         OFFSET_X_MM=x0, OFFSET_Y_MM=y0, OFFSET_Z_MM=z0,
         make_slice=make_slice,
+        solid_fn=solid_fn,              # lets to_goo --gpu evaluate whole slices on the GPU
     )
