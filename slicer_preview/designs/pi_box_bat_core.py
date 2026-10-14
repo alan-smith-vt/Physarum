@@ -98,7 +98,7 @@ plate = sub(
           Half(1, 0, -1, X_OUT - CHAMFER), Half(-1, 0, -1, X_OUT - CHAMFER),     # 1 mm chamfer on the plate face
           Half(0, 1, -1, Y_MAX - CHAMFER), Half(0, -1, -1, -Y_MIN - CHAMFER)),
     Cyl('d', (0.0, 0.0), WELL_R),
-    *[vhole(sx * POST, sy * POST, SPACER_D, 0.0, FLANGE_PLATE) for sx in (-1, 1) for sy in (-1, 1)],
+    *[vhole(sx * POST, sy * POST, SPACER_D + SPACER_FIT, 0.0, FLANGE_PLATE) for sx in (-1, 1) for sy in (-1, 1)],
     *[vhole(sx * LIDAR_M3[0], sy * LIDAR_M3[1], M3_HEAD_D, 0.0, M3_HEAD_RECESS) for sx in (-1, 1) for sy in (-1, 1)],
     *[vhole(vx, vy, VENT_D, 0.0, FLANGE_PLATE) for vx, vy in VENTS])
 
@@ -142,7 +142,7 @@ rims = union(Box(-X_OUT, X_OUT, Y_MIN, Y_MIN + PANEL_LIP + GW + 1.5, TOP, RIM_D)
              sub(Box(-X_OUT, X_OUT, Y_MAX - PANEL_LIP - GW - 1.5, Y_MAX, TOP, RIM_D),
                  Box(-_notch_r, _notch_r, Y_MAX - PANEL_LIP - GW - 1.6, Y_MAX + 1, FLANGE_PLATE, RIM_D + 1)))
 bosses = union(*[Cyl('d', (sx * POST, sy * POST), CORNER_BOSS_R, TOP, FLANGE) for sx in (-1, 1) for sy in (-1, 1)])
-bores = union(*[vhole(sx * POST, sy * POST, SPACER_D, TOP - 1, SPACER_SEAT) for sx in (-1, 1) for sy in (-1, 1)],
+bores = union(*[vhole(sx * POST, sy * POST, SPACER_D + SPACER_FIT, TOP - 1, SPACER_SEAT) for sx in (-1, 1) for sy in (-1, 1)],
               *[vhole(sx * POST, sy * POST, HEAD_D, SPACER_SEAT, FLANGE) for sx in (-1, 1) for sy in (-1, 1)])
 
 # ── battery: stop ribs merged with the first cradle rail (stepped flap), second rail; 45° shoulders ──

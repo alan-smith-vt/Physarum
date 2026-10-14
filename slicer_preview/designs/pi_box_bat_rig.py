@@ -46,6 +46,7 @@ WELL_R, TUBE_T = 26.0, 2.0
 # ── Box mount: M4×18 + 6 mm Al spacer (Ø8) per standoff, stepped bore ──
 POST = 40.0
 SPACER_D, SPACER_SEAT = 8.0, 5.85     # print 5.85 deep, sand until the spacer sits flush
+SPACER_FIT = 0.25                     # extra on top of RESIN_HOLE_COMP: Ø8.35 as cut was just too tight (core print 2026-10-14)
 HEAD_D = 10.2                         # M4 truss head ~9.5 + clearance [MEASURE]
 
 # ── Lidar M3 button heads stand proud under the plate: (±24, ±18) in the lidar's frame
