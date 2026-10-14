@@ -136,6 +136,19 @@ webs = sub(union(*[sbox(s, WELL_R + 1, X_IN, -WEB_T / 2, WEB_T / 2) for s in (-1
            *[web_slot(s, *ws) for s in (-1, 1) for ws in WEB_SLOTS])
 tube = sub(Cyl('d', (0.0, 0.0), WELL_R + TUBE_T, TOP, BOT), Cyl('d', (0.0, 0.0), WELL_R))
 
+
+def tube_window(s):
+    """Camera insertion window in the tube (2026-10-14): the board + lens + connector (22.6 deep) lines up
+    partly inside the empty well, then slides out lens-first into its seat. 45° peak, no flat bridge."""
+    y0, y1, d0, d1 = cam_board(s)
+    y0, y1, d0, d1 = y0 - 0.5, min(y1 + 0.5, -WEB_T / 2 - 0.5), d0 - 0.3, d1 + 0.5
+    apex, yc = d1 + (y1 - y0) / 2, (y0 + y1) / 2
+    return inter(sbox(s, WELL_R - 1, WELL_R + TUBE_T + 1, y0, y1, d0, apex),
+                 Half(0, 1, 1, apex + yc), Half(0, -1, 1, apex - yc))
+
+
+tube = sub(tube, *[tube_window(s) for s in (-1, 1)])
+
 # ── panel-stop rims (RIM_D deep) with the lidar cable notch, bore bosses (FLANGE deep) ──
 _notch_r = (CABLE_NOTCH_W + RESIN_HOLE_COMP) / 2
 rims = union(Box(-X_OUT, X_OUT, Y_MIN, Y_MIN + PANEL_LIP + GW + 1.5, TOP, RIM_D),

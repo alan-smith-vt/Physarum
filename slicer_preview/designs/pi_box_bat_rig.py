@@ -260,7 +260,7 @@ PI_INSERT_D, PI_INSERT_L, PI_SCREW_CLEAR, PI_HOLE_DEPTH = 3.5, 3.0, 2.7, 8.0   #
 
 # ── OV9281 cameras (25 × 23.86 board, lens 18 mm from the board face) ──
 # Lens axes just under the flange: the stiffest spot, ~55 mm from the lidar instead of ~90.
-CAM_YR, CAM_D = -15.0, 23.0               # lens axis (both cameras)
+CAM_YR, CAM_D = -15.0, 30.0               # lens axis (both cameras); 30 (was 23, 2026-10-14): board clears the upper Pi standoff on its way in
 CAM_WINDOW = 19.0                         # ROUND lens window Ø (lens holder must pass: round, or square ≤ ~13) [MEASURE]
 CAM_BOSS_R, CAM_BOSS_H = 3.0, 2.0
 # Inset (2026-10-13): the 160° lens can't sit behind the wall (each 1 mm of recess needs ~5.7 mm more
@@ -410,9 +410,9 @@ def _quad_box(a, b, hw, hn):
 PI_CONN = [(-19.0, -35.5, -(PI_TOP_D + 49)), (-19.0, -35.5, -(PI_TOP_D + 57))]     # near, far
 CAM_CONN = [(-(CAM_FACE + 2.0), CAM_YR, -(CAM_D + 15.0)),            # -X near: connector edge down (in its pocket)
             (CAM_FACE + 2.0, CAM_YR, -(CAM_D + 15.0))]                 # +X far: connector edge down too
-RIBBON_NEAR = [PI_CONN[0], (-26, -35.5, -60), (-26, -35.5, -50), (-36, -24, -44), CAM_CONN[0]]
+RIBBON_NEAR = [PI_CONN[0], (-26, -35.5, -60), (-26, -35.5, -50), (-36, -24, -(CAM_D + 21)), CAM_CONN[0]]
 RIBBON_FAR = [PI_CONN[1], (-26, -35.5, -68), (-26, -35.5, -42), (-29.8, -35.5, -40), (-29.8, -29.6, -40),
-              (29.8, -29.6, -40), (31, -18, -46), (CAM_FACE + 2.0, CAM_YR, -46), CAM_CONN[1]]   # up into its pocket
+              (29.8, -29.6, -40), (31, -18, -(CAM_D + 23)), (CAM_FACE + 2.0, CAM_YR, -(CAM_D + 23)), CAM_CONN[1]]   # up into its pocket
 # Pi 5 port end (bottom, ~99-104 mm down): Ethernet is the jack beside the micro-HDMI edge (-X here,
 # board y ~2-18 -> X -26..-10); the two USB-A stacks are toward +X.
 ETH = (-18.0, -40.0, -(PI_TOP_D + 88.5))
