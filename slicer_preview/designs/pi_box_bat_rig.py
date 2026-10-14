@@ -180,7 +180,7 @@ CORNER_BOSS_R = 10.0
 GYROID_PERIOD, GYROID_T = 12.0, 0.35          # mm; sheet half-thickness in gyroid units (~25 % solid; chosen over gyroid 7 / diamond 9)
 WALL_TOP_SOLID, WALL_BOTTOM_SOLID = FLANGE + 2.0, 14.0
 CAM_PAD = (15.0, 16.0)                        # half-width along Yr, reach past CAM_D: solid round each camera
-SWITCH_PAD_R = 14.0
+SWITCH_PAD_R = 12.5                           # half-size of the SQUARE solid pad: fills between the slot band and the camera rib
 WEB_PAD = 6.0                                 # |Yr| solid round the web / wall feet
 # Internal vertical ribs (3 wide, 2.5 deep), (Yr, top depth): one flanking the camera pad's outer
 # edge (the web is the rib on its other side). On the battery side the cradle rails are the ribs.
@@ -238,7 +238,7 @@ def wall_solid_zone(Y, d, X=None):
     z = (d <= WALL_TOP_SOLID) | (d >= DEPTH - WALL_BOTTOM_SOLID)
     z = z | (Y <= Y_MIN + PANEL_LIP + gw + 4.0) | (Y >= Y_MAX - PANEL_LIP - gw - 4.0)
     z = z | ((np.abs(Y - CAM_YR) <= CAM_PAD[0]) & (d <= CAM_D + CAM_PAD[1]))
-    pad = (Y - POWER_SWITCH['y']) ** 2 + (d - POWER_SWITCH['d']) ** 2 <= SWITCH_PAD_R ** 2
+    pad = (np.abs(Y - POWER_SWITCH['y']) <= SWITCH_PAD_R) & (np.abs(d - POWER_SWITCH['d']) <= SWITCH_PAD_R)
     if X is not None:
         pad = pad & (np.sign(X) == POWER_SWITCH['side'])
     z = z | pad
