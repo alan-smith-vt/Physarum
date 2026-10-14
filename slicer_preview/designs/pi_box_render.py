@@ -2,7 +2,8 @@
 
     blender -b -P designs/pi_box_render.py -- <out_dir> [view ...] [--samples N] [--res W H]
 
-Views: box, assembled, assembled_gopro, exploded, internals, pod, pod_no_battery. Cycles on the GPU (OptiX,
+Views: box, assembled, assembled_gopro, exploded, internals, pod, pod_no_battery, pi_bay, side_px/mx/py/my,
+camera_near/far, wall_out/in, wall_band (default: all but wall_band). Cycles on the GPU (OptiX,
 falling back to CUDA, then CPU). Meshes come from out/render/ in the rig frame (mm, Z up).
 """
 import json
@@ -18,7 +19,8 @@ MESHES = HERE.parent / 'out' / 'render'
 ARGV = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT_DIR = Path(ARGV[0]) if ARGV else MESHES / 'png'
 VIEWS = [a for a in ARGV[1:] if not a.startswith('--') and not a.isdigit()] or \
-    ['box', 'assembled', 'assembled_gopro', 'exploded', 'internals', 'pod', 'pod_no_battery', 'camera_near', 'camera_far']
+    ['box', 'assembled', 'assembled_gopro', 'exploded', 'internals', 'pod', 'pod_no_battery', 'pi_bay',
+     'side_px', 'side_mx', 'side_py', 'side_my', 'camera_near', 'camera_far', 'wall_out', 'wall_in']
 SAMPLES = int(ARGV[ARGV.index('--samples') + 1]) if '--samples' in ARGV else 96
 RES = (int(ARGV[ARGV.index('--res') + 1]), int(ARGV[ARGV.index('--res') + 2])) if '--res' in ARGV else (1600, 1200)
 MM = 0.001
@@ -49,14 +51,14 @@ PART_MAT = {
     'base_plate': 'alu', 'cross': 'alu', 'standoffs': 'alu', 'box_spacers': 'alu_dark', 'coupler': 'alu_dark',
     'mid360s': 'lidar', 'pi5': 'pcb', 'cooler': 'alu_dark', 'cameras': 'cam', 'camera_near': 'cam', 'camera_far': 'cam', 'lens_near': 'gloss', 'lens_far': 'gloss', 'battery': 'battery',
     'buck_wago': 'orange', 'eth_adapter': 'white', 'power_switch': 'steel', 'pd_trigger': 'black',
-    'monopod': 'black', 'cable_ribbons': 'ffc', 'cable_lidar': 'black', 'cable_lidar_power': 'red',
+    'monopod': 'black', 'cable_ribbons': 'ffc', 'cable_lidar': 'black', 'm12_plug': 'black','cable_lidar_power': 'red',
     'cable_battery': 'red', 'cable_buck_in': 'red', 'cable_usbc': 'black',
     'gopro_adapter': 'navy', 'gopro_cage': 'black', 'gopro_body': 'black', 'gopro_lenses': 'gloss',
 }
 BOX = ['core', 'floor', 'panel_pi', 'panel_pod', 'power_switch']
 INSIDE = ['pi5', 'cooler', 'cameras', 'battery', 'buck_wago', 'eth_adapter', 'pd_trigger', 'box_spacers',
           'cable_ribbons', 'cable_lidar_power', 'cable_battery', 'cable_buck_in', 'cable_usbc']
-TOP = ['base_plate', 'standoffs', 'cross', 'mid360s', 'coupler']
+TOP = ['base_plate', 'standoffs', 'cross', 'mid360s', 'coupler', 'm12_plug']
 GOPRO = ['gopro_adapter', 'gopro_cage', 'gopro_body', 'gopro_lenses']
 POLE = ['monopod']
 
@@ -260,6 +262,17 @@ def main():
                 camera('cam', (0.048, 0.010, -0.090), (1.0, -0.12, 0.10), 0.36, lens=50)
             else:
                 camera('cam', (0.046, 0.010, -0.090), (-1.0, -0.12, 0.10), 0.36, lens=50)
+        elif view == 'wall_band':                       # +X wall inside, where the gyroid meets the bottom band
+            show(objs, ['core_cut_far'])
+            camera('cam', (0.046, 0.0, -0.160), (-1.0, -0.25, 0.45), 0.16, lens=50)
+        elif view.startswith('side_'):                  # straight-on views of each side, everything fitted
+            show(objs, every)
+            d = {'side_px': (1, 0, 0.12), 'side_mx': (-1, 0, 0.12), 'side_py': (0, 1, 0.12), 'side_my': (0, -1, 0.12)}[view]
+            camera('cam', (0, 0.0, -0.04), d, 0.85)
+        elif view == 'pi_bay':                          # Pi side, panel + Pi + cooler removed: looking into that bay
+            gone = ('panel_pi', 'pi5', 'cooler')
+            show(objs, [n for n in BOX + INSIDE + ['cable_lidar'] if n not in gone])
+            camera('cam', (0, -0.02, -0.095), (0.75, -1.25, 0.55), 0.6)
         elif view == 'internals':
             show(objs, ['core', 'floor', 'power_switch'] + INSIDE)
             camera('cam', (0, 0.0, -0.095), (0.75, -1.25, 0.35), 0.6)

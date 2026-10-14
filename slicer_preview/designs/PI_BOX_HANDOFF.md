@@ -1,40 +1,61 @@
-# Pi box (lidar rig): handoff, 2026-10-13
+# Pi box (lidar rig): handoff, 2026-10-13 (evening)
 
 Design notes / decisions history live in the Notes vault:
 `D:\Notes\Reference\lidar-photo-rig-cage-handoff.md` (Pi box section, renders in
-`Reference/assets/pi-box-renders/`). Read that first.
+`Reference/assets/pi-box-renders/`). The vault is NOT updated with this session's changes yet
+(it was on the laptop); renders for it are in `slicer_preview/out/renders_2026-10-13/` (gitignored).
 
 ## State
-- Chosen design: **battery-in-box** (`pi_box_bat_*`). Pole version archived in `designs/archive/pole/`.
-- Weight reduction done: 4 mm flange plate, Ø20x10 bore bosses, 10 mm panel-stop rims,
-  TPMS camera/switch walls with solid zones round cameras, switch, web and wall top/bottom.
-- Ribs (`WALL_RIBS` in `pi_box_bat_rig.py`): one touching the camera pad edge (clipped beside the
-  far camera board), one under the power switch, one at Yr 50.
-- **Wall fill chosen: gyroid 12 mm, half-thickness 0.35** (now the default). Core ~268 cm3 (~308 g)
-  vs solid 359 cm3. Runners-up were gyroid 7 (282) and diamond 9 (272).
-  `PI_BOX_FILL="kind:a:b"` still overrides for experiments.
-- Clash check clean with gyroid 12 (`python -m designs.pi_box_check`).
+- Chosen design: **battery-in-box** (`pi_box_bat_*`), now the **compact symmetric layout**:
+  `Y_MAX = -Y_MIN` (design rule: the box is symmetric about the aluminium plate, ±62).
+  Core 281 cm3 (~324 g), 124 × 105 × 180 in print.
+- Wall fill: gyroid 12 mm / 0.35; sheets thicken over 6 mm into the bottom band (`FILL_RAMP`), no flat start.
+- Bank (Yr 30.8..55.8) right past the tube. Cradle: per wall one **stepped flap** (stop rib + front rail
+  merged) and a second rail near +Y; 45° shoulders over the bank's top corners; floor traps it below.
+  Rails/flap run solid through the gyroid as ribs. They avoid the M4 bores' screw path (Yr 34.7..45.3).
+- Under the Pi: buck + 2 WAGOs against the -Y panel, **power switch on the -X wall** (Yr -45, 155 deep).
+- Bank built-in cord (~15 cm) -> USB-C female coupler in the +X bay -> PD trigger's own long cord ->
+  battery-side web clip -> low web slot -> switch -> WAGO.
+- Lidar cable: M12 plug sticks out +Yr; cable loops 180° outside the +Y end, lies up into a **U-notch in
+  the +Y rim** (flange plate stays solid), panel closes it; over the bank, slack coil in the -X bay,
+  stop-rib clip, -X low web slot (17 × 22, RJ45 + ferrite pass), Pi-side web clip, up into the jack.
+  Rims at both ends are 14 deep (`RIM_D`) so panels stay identical (165.8 tall; DXF regenerated).
+- UE300 Ethernet dongle flush on the +X web (Pi side) on the floor, capped by a seat ledge on the web.
+  The +X Pi-side dowel/foot was removed for it (3 dowels now).
+- Cameras (OV9281, 160°, lens 18 from board face) 8 mm deeper on solid blocks grown from the flange;
+  lens ~4 proud, 2 mm guard lip; both connectors face down, ribbons drop out of block pockets.
+- Push-in C clips (opening 0.85 Ø): 3 per camera-pad rib, lidar clips on the -X stop rib and -X web,
+  big clip on the +X stop rib, two small on the +X web's battery face.
+
+## Fasteners / fits
+- Plate: M4×18 truss + 6 mm Al spacer (stepped bores, unchanged).
+- Floor: M3×6 button heads into glued M3 inserts (Ø4 × 3, in hand).
+- Pi: M2.5×6 socket caps into glued M2.5 inserts (kit). Cameras: M2×5 socket caps into glued M2 inserts.
+- Glue inserts with **superglue, not threadlocker** (anaerobic Loctite cures poorly on resin and can craze it).
+- Horizontal holes (Pi, cameras, switch) print +0.35 wide, +0.55 tall (`HORIZ_HOLE_EXTRA` 0.2):
+  between the fit strip's too-tight round and too-loose ellipse. First core is the fit test.
+
+## [MEASURE] before trusting the fit
+Bank height (157 + 1 margin), UE300 height (71, +1 margin), lidar cable Ø (7: notch, clips),
+lens holder (Ø19 bore passes round or ≤ ~13 square), M2/M2.5 insert OD (3.2 / 3.5 placeholders),
+camera-board keep-out round the holes (Ø6 bearing), buck/WAGO/switch body sizes.
 
 ## Next steps
-1. Full Blender render set with gyroid 12 into the vault (`Reference/assets/pi-box-renders/`):
-   box, assembled, assembled_gopro, exploded, internals, pod, pod_no_battery, camera_near,
-   camera_far (+ wall_out/wall_in if useful). Then update the vault handoff (fill choice, ribs,
-   volumes) and commit/push the vault.
-2. Overhang report (`python -m designs.pi_box_overhangs`); ignore round-hole arch flags (user:
-   resin bridges circular arches; no teardrops).
-3. Open questions offered to the user: drop the Yr 50 rib (duplicates the battery stop rib)?
-   Lighter wall settings? Carry-modes write-up for recording notes.
-4. Regenerate viewer previews (`generate.py`) so /battery routes show the gyroid.
+1. Print the core (`out/pi_box_bat_core.goo`), fit-test inserts, horizontal holes, clips, cradle.
+2. Take the measurements above; adjust; print floor + panels (blanks or cut PC from the DXF).
+3. Copy `out/renders_2026-10-13/` into the vault and update the vault handoff.
 
 ## Commands (run from `slicer_preview/`)
-- Export meshes: `python -m designs.pi_box_export > log 2>&1` then check the log for `Traceback`
-  (never pipe it into grep; a failed export leaves stale meshes that render silently).
-  Core only: `PI_BOX_EXPORT_ONLY=core` (also `core_cut_far`, `core_cut_near`).
-- Render: `"C:/Program Files/Blender Foundation/Blender 4.3/blender.exe" -b -t 4 -P designs/pi_box_render.py -- <outdir> <views...> --samples 96 --res 1200 900`
-- Panels DXF: `python -m designs.pi_box_panel_dxf` -> `out/pi_box_panel.dxf` (1/8in PC, qty 2).
+- Export meshes: `python -m designs.pi_box_export > log 2>&1`, check the log for `Traceback`
+  (a failed export leaves stale meshes that render silently). Core only: `PI_BOX_EXPORT_ONLY=core`.
+- Checks: `python -m designs.pi_box_check` (overlay clashes), `python -m designs.pi_box_overhangs`.
+- Render: `"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -t 4 -P designs/pi_box_render.py -- <outdir> [views] --samples 96 --res 1600 1200`
+  (default = full set incl. side_px/mx/py/my and pi_bay).
+- Viewer: `python generate.py pi_box_bat_panel pi_box_bat_lids pi_box_bat_core`, `python server.py` -> /battery.
+- Panels DXF: `python -m designs.pi_box_panel_dxf`. Print file: `python to_goo.py pi_box_bat_core`.
+- Reference models: `models/README.md` (Pi 5 + Mid-360S STEP -> STL via `models/step2stl.py`).
 
 ## Gotchas
 - Never render the web viewer headless (CPU fallback maxes the machine).
-- Constants in `pi_box_bat_rig.py` are order-dependent (WALL_RIBS uses literal -15 = CAM_YR because
-  CAM_YR is defined later).
-- Print frame: print x=Yr, z=-X, y=d (`to_print` / `from_print`).
+- Don't edit `pi_box_bat_rig.py` with PowerShell Get/Set-Content: it re-encodes the UTF-8 (Ø × °).
+- Print frame: print x=Yr, y=d, z=-X (`to_print` / `from_print`). Viewer "up" = rig depth (floor end).

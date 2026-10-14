@@ -28,11 +28,16 @@ MODELS = ROOT / 'models'
 OVERLAY_DIR = ROOT / 'slicer_preview' / 'out' / 'overlays_battery'
 
 RESIN_HOLE_COMP = 0.35        # holes/slots print ~0.35 undersize (cage v1 fit strip)
+HORIZ_HOLE_EXTRA = 0.2        # horizontal holes also sag ~0.15-0.2 in print height (cage v2 fit strip)
 
 # ── Box envelope ──
 X_OUT, X_IN = 50.0, 46.0      # camera wall outer / inner face (|X|)
-Y_MIN, Y_MAX = -62.0, 81.0    # box ends (outside the panel lips)  BATTERY: +Y pod for the bank
+# DESIGN CONSTRAINT (2026-10-13): the box is symmetric about the aluminium plate (centred on the
+# standoff square) in Yr, so Y_MAX = -Y_MIN. Both ends overhang the plate edge (±45) by 17 mm.
+Y_MIN = -62.0                 # box ends (outside the panel lips)
+Y_MAX = -Y_MIN
 DEPTH, FLANGE = 180.0, 10.0   # core bottom edge / flange thickness  BATTERY: the 157 mm bank stands on the floor
+RIM_D = 14.0                  # panel-stop rims at both ends (deeper than the bore bosses: room for the lidar cable notch)
 CHAMFER = 1.0                 # flange plate-face edge: elephant foot + scraper entry
 
 # ── Well (coupler + monopod platform pass through) ──
@@ -60,28 +65,44 @@ GROOVE_D = 2.0                        # into the wall from its inner face
 
 # ── Webs, wall feet, dowels, floor bosses ──
 WEB_T = 3.0
-WEB_SLOTS = [(30.0, 41.0, 24.0, 34.0), (30.0, 41.0, 82.0, 93.0)]   # |X| range, depth range: cable pass-throughs
+WEB_SLOTS = [(30.0, 41.0, 24.0, 34.0), (28.5, 45.5, 76.0, 98.0)]   # |X| range, depth range: cable pass-throughs
+# (low slot: the lidar's RJ45 + boot ~13.5 x 16 and its Ø~16 ferrite, estimated from a product photo [MEASURE])
 FOOT_X0, FOOT_Y, FOOT_H = 42.0, 9.0, 10.0          # |X| 42..50, |Yr| < 9, bottom 10 mm
-PINS = [(sx * 46.0, sy * 5.5) for sx in (-1, 1) for sy in (-1, 1)]
+# Three dowels: the +X Pi-side one (and that half of its foot) gave way to the UE300, which stands
+# flush against the web there.
+PINS = [(-46.0, -5.5), (-46.0, 5.5), (46.0, 5.5)]
 PIN_SLIP, PIN_PRESS, PIN_DEPTH = 3.4, 3.3, 4.0      # fit-strip values (no extra comp)
 BOSSES = [(sx * 44.0, y) for sx in (-1, 1) for y in (Y_MIN + 10.5, Y_MAX - 10.5)]   # clear of the slots
-BOSS_R, INSERT_D, INSERT_DEPTH = 4.5, 4.0, 6.0      # glued M2.5 brass insert [MEASURE]
+BOSS_R, INSERT_D, INSERT_DEPTH = 4.5, 4.0, 6.0      # glued M3 brass insert, Ø4 × 3 (in hand); M3×6 button from below
 
-# ── BATTERY: Anker 20K 87 W bank, 157 × 74 × 25, standing on the floor, ports UP (a right-angle
-#    PD-trigger plug fits the ~13 mm under the flange). It can't sit between the M4 columns
-#    (74 > ~66 mm), so it's outboard of the buck bay. Two stop ribs on the core (|X| 30..46,
-#    leaving the middle open for cables) keep it off the buck; the +Y panel holds the other face. ──
-BAT = dict(x=37.5, y0=49.8, y1=74.8, d0=DEPTH - 157.0, d1=DEPTH)
-BAT_RIB = (30.0, X_IN, 47.0, 49.5)            # |X| range, Yr range
+# ── BATTERY: Anker 20K 87 W bank, 157 × 74 × 25, standing on the floor. Compact layout (2026-10-13):
+#    the bank sits right past the well tube (its face just clear of the floor collar), between two stop
+#    ribs (|X| 30..46) and the +Y panel. The buck, WAGOs and power switch live under the Pi instead. ──
+BAT_H_MARGIN = 1.0                            # unmeasured bank height: +1 so the floor always closes (foam takes up rattle)
+BAT = dict(x=37.5, y0=30.8, y1=55.8, d0=DEPTH - 157.0 - BAT_H_MARGIN, d1=DEPTH)
+BAT_RIB = (30.0, X_IN, 28.5, 30.5)            # |X| range, Yr range; starts at BAT_RAIL_D0 (cord passes above)
+BAT_RAIL_D0 = 40.0
+# Cradle rails, two per camera wall (near each Yr face of the bank, leaving the middle of its top free for
+# the built-in cord), from the flange to the floor. Face 0.5 off the bank (+0.2: outer faces print
+# oversize); above the bank's top a 45° shoulder reaches in over its top corners, so with the floor on
+# the bank is trapped top and bottom (slid up in from below before the floor goes on). Bank height [MEASURE].
+# Two rails per wall, each backed solid through the TPMS wall as a rib. The first merges with the stop rib
+# into one stepped flap (stop part across the bank's face, rail part beside it); both stay clear of the
+# M4 bores' screw path (head clearance Yr 34.7..45.3) and the built-in cord (Yr ~43).
+BAT_RAIL_X, BAT_RAIL_W = BAT['x'] + 0.5 + 0.2, 3.5
+BAT_RAIL_YS = (BAT['y0'] + 2.0, BAT['y1'] - 3.5)
+BAT_SHOULDER_X = 33.5                         # shoulder's innermost |X| (bank corners at 37)
 # Power: the bank stands PORTS DOWN, its front (display + button) facing the +Y panel. Its two
 # ports sit over a floor window, for charging the bank or other devices from under the rig (not
 # while the rig runs: with two outputs in use the built-in cord drops to 5/9 V). The built-in cord
-# leaves the bank's top end and runs over it into the buck bay, to a PD trigger (female-input board,
-# or the male trigger + a PD coupler) set to 15 V; its output goes through the power switch to the
-# existing WAGO split. Positions from the product photo [MEASURE].
-PORT_WINDOW = (-22.0, 22.0, 56.0, 69.0)       # floor: X range, Yr range under the bank's end face
-CORD_ROOT = (33.0, 62.0, -(DEPTH - 157.0))    # built-in cord leaves the bank's top end here
-PD_TRIGGER = (30.0, 42.0, 33.0, 45.0, 38.0, 60.0)   # envelope incl. coupler: X, Yr, depth ranges (clear of the lidar cable)
+# (~15 cm) leaves the bank's top end, runs over the stop rib into the +X bay beside the tube, to a PD
+# trigger (female-input board, or the male trigger + a PD coupler) set to 15 V; its thin 15 V pair runs
+# through the +X upper web slot to the power switch and WAGOs under the Pi. Positions [MEASURE].
+PORT_WINDOW = (-22.0, 22.0, 36.8, 49.8)       # floor: X range, Yr range under the bank's end face
+CORD_ROOT = (33.0, 43.3, -(DEPTH - 157.0))    # built-in cord leaves the bank's top end here
+PD_TRIGGER = (30.0, 42.0, 8.0, 20.0, 26.0, 48.0)    # USB-C female coupler on the built-in cord: X, Yr, depth (+X bay by the tube)
+# The PD trigger is itself a long corded plug: it plugs into the coupler and its 15 V lead (plenty of
+# slack) runs through the upper web slot to the switch and WAGOs under the Pi.
 BUTTON = dict(x=-22.0, d=DEPTH - 22.0, hole=10.0)   # bank's display button, through the clear +Y panel
 # BATTERY: office link. A TP-Link UE300 (USB 3 gigabit; body 71 × 25.4 × 15) stands on the floor in
 # the corner between the Pi pocket and the +X camera wall, RJ45 end down through a floor cutout, in a
@@ -89,22 +110,54 @@ BUTTON = dict(x=-22.0, d=DEPTH - 22.0, hole=10.0)   # bank's display button, thr
 # USB-A plug (~20-25 mm with its housing) that needs to go straight up into the blue port before the
 # cord can turn, then loops down and back up to the adapter (~5-6 cm of cord). [MEASURE] cord, plug.
 # The lidar stays on the Pi's own Ethernet jack.
-ETH_ADAPTER = dict(x=35.5, y=-31.5, wx=15.2, wy=25.4, h=71.0)   # centre X, Yr; footprint along X / Yr
+# Now flush against the web (Pi side), between the floor collar and the +X wall; a ledge on the web
+# (ETH_SEAT) caps its top end so it can't slide off the floor with the rig upside down.
+ETH_ADAPTER = dict(x=38.15, y=-14.6, wx=15.2, wy=25.4, h=71.0)  # centre X, Yr; footprint along X / Yr
+ETH_SEAT = dict(clear=1.4, reach=5.0)         # gap over the adapter's top (0.4 + 1 unmeasured margin), ledge reach off the web (Yr) [MEASURE] height
 ADAPTER_JACK = (13.5, 16.0)                   # RJ45 opening in its end face, along X / Yr [MEASURE]
 USB3_PORT = (12.0, -41.0, -102.5)             # blue port mouth: Pi top 14 + 88.5 (+X stack assumed) [MEASURE]
 CRADLE_H, CRADLE_WALL, CRADLE_CLEAR = 12.0, 2.0, 0.3
-# BATTERY: the pod overhangs the aluminium plate (edge at Yr 45), so the lidar cable drops straight
-# through the flange there; Ø16 passes the RJ45 plug. It also vents the pod.
-CABLE_HOLE = (15.0, 60.0, 16.0)               # X, Yr, Ø                      # floor: |X| < 20, Yr > 53, open to the +Y edge (charging cable)
+# LIDAR CABLE ENTRY (2026-10-13): the M12 plug sticks straight out along +Yr (X 0, ~23 above the plate
+# underside) to Yr ~83, so the cable turns 180° outside the box and lies down into an open slot in the
+# flange, cut from the +Y end inward past the plate edge (Yr 45) to CABLE_SLOT_Y0. The bare cable is laid
+# in from the end (no plug threading); it drops in over the bank's top, and the +Y panel slides up and
+# closes the slot's outer part. Then: slack coil in the -X bay beside the tube, the -X low web slot
+# (RJ45 + ferrite pass there) to the Pi side, up into the Ethernet jack. Cable Ø [MEASURE].
+# Revised: the flange plate stays solid; the cable goes in sideways through a U-notch cut up into the
+# +Y rim from below (between the 4 mm plate and the panel's top edge, which closes it). Cable Ø [MEASURE].
+CABLE_D = 7.0
+CABLE_NOTCH_W = 9.0                           # notch width (X, centred on 0); height FLANGE_PLATE..RIM_D
+# Push-in cable clips: a C of two claws round a vertical cable, on a short stem off a surface; opening
+# 0.85 Ø (claws flex ~0.5 mm: elastic), 45° lead-in below (print). (axis, base, along, d0, cable Ø):
+# axis 'x' sits on a wall/rib face at signed X = base, at Yr = along; axis 'y' on a web/rib face at
+# signed Yr = base, at X = along. Clips stand off toward -sign(base) unless an optional 6th entry
+# gives the direction (+1 / -1), e.g. on the battery-side face of a web.
+CLIP_T, CLIP_H, CLIP_STEM = 1.2, 14.0, 1.0
+CLIP_S, CLIP_RIB_DS = 4.5, (40.0, 75.0, 110.0)   # small clip Ø; camera-pad rib clip depths (40: just below the boards)
+CLIPS = ([('y', 28.5, -38.0, 76.0, CABLE_D),   # -X bay, on the battery stop rib: lidar cable below its coil
+          ('y', -1.5, -37.0, 110.0, CABLE_D),  # -X web, Pi side: lidar cable after the low slot
+          ('y', 28.5, 38.0, 103.0, CABLE_D),   # +X bay stop rib: one big, centred on the rib's run
+          ('y', 1.5, 37.0, 50.75, CLIP_S, 1),  # +X web, battery side (opposite the stop rib): two small,
+          ('y', 1.5, 37.0, 107.0, CLIP_S, 1)]  #   one centred between the two slots, one past the low slot
+         + [('x', sx * 43.5, -31.5, cd, CLIP_S) for sx in (-1, 1) for cd in CLIP_RIB_DS])   # camera-pad ribs (USB-C on -X)
+
+
+def clip_centre(axis, base, along, D, out=None):
+    """(X, Yr) of the cable centre held by a clip."""
+    c = (D + RESIN_HOLE_COMP) / 2 + CLIP_T + CLIP_STEM
+    u = base + (out if out else -np.sign(base)) * c
+    return (u, along) if axis == 'x' else (along, u)
 
 # ── Power switch: 16 mm panel-mount latching push button (LED ring ideal) in the 15 V line between
-#    the PD trigger and the WAGOs, so it cuts lidar + Pi together. On the +X camera wall, battery side
-#    of the web, near the top: its ~30 mm body sits in the empty upper part of that camera bay.
-#    Teardrop hole (pointed top prints without a bridge); the nut still seats. [MEASURE] body, thread ──
-# Part: Gebildet 16 mm stainless latching push button, 12-24 V / 5 A, power-symbol LED. The camera
-# bay is only ~20-30 mm deep from the wall to the well tube, so solder the leads to the switch tabs
-# (heat-shrink them) instead of using its clip-on socket plug, which adds ~20 mm. Body ~30 mm [MEASURE].
-POWER_SWITCH = dict(y=30.0, d=26.0, hole=16.0, body_r=8.0, body_len=30.0)
+#    the PD trigger and the WAGOs, so it cuts lidar + Pi together. On the -X camera wall under the Pi,
+#    opposite the UE300 (+X); its ~30 mm body points in below the Pi's port end. Plain round hole;
+#    the nut still seats. [MEASURE] body, thread.
+# Part: Gebildet 16 mm stainless latching push button, 12-24 V / 5 A, power-symbol LED. Solder the
+# leads to the switch tabs (heat-shrink them) instead of its clip-on socket plug, which adds ~20 mm.
+POWER_SWITCH = dict(side=-1, y=-45.0, d=155.0, hole=16.0, body_r=8.0, body_len=30.0)
+# Buck (36 × 10 × 45) stands against the -Y panel under the Pi; two WAGO 221-413 beside the switch. [MEASURE]
+BUCK = (-10.0, 26.0, -56.0, -46.0, 128.0, 173.0)   # X, Yr, depth ranges
+WAGOS = [(-14.0, -9.0, -45.0, -36.0, 166.0, 178.0), (-7.5, -2.5, -45.0, -36.0, 166.0, 178.0)]
 
 # ── Wall vents (instead of panel vents): vertical slots through both camera walls. Low on the Pi
 #    side to feed the cooler now that its panel is solid; beside the buck bay on the battery side,
@@ -124,8 +177,8 @@ CAM_PAD = (15.0, 16.0)                        # half-width along Yr, reach past 
 SWITCH_PAD_R = 14.0
 WEB_PAD = 6.0                                 # |Yr| solid round the web / wall feet
 # Internal vertical ribs (3 wide, 2.5 deep), (Yr, top depth): one flanking the camera pad's outer
-# edge (the web is the rib on its other side), one under the power switch, one mid battery side.
-WALL_RIBS = ((-15.0 - CAM_PAD[0] - 1.5, FLANGE), (POWER_SWITCH['y'], POWER_SWITCH['d'] + SWITCH_PAD_R), (50.0, FLANGE))   # first one touches the camera pad
+# edge (the web is the rib on its other side). On the battery side the cradle rails are the ribs.
+WALL_RIBS = ((-15.0 - CAM_PAD[0] - 1.5, FLANGE),)   # touches the camera pad; the cradle rails are the battery-side ribs
 
 
 # Wall fill, selectable for design review: env PI_BOX_FILL = "kind:a:b" (default gyroid:12:0.35).
@@ -137,10 +190,16 @@ import os
 WALL_FILL = os.environ.get('PI_BOX_FILL', f'gyroid:{GYROID_PERIOD:g}:{GYROID_T:g}')
 
 
+FILL_RAMP = 6.0               # mm above the bottom band: TPMS sheets thicken until they merge (no flat start)
+
+
 def wall_fill(X, Y, d):
     kind, a, b = WALL_FILL.split(':')
     a, b = float(a), float(b)
     k = 2 * np.pi / a
+    t = np.clip((d - (DEPTH - WALL_BOTTOM_SOLID - FILL_RAMP)) / FILL_RAMP, 0.0, 1.0)
+    if kind in ('gyroid', 'schwarzp', 'diamond'):
+        b = b + t * ((3.1 if kind == 'schwarzp' else 1.6) - b)   # past max |TPMS|: fully solid at the band
     if kind == 'gyroid':
         g = np.sin(k * X) * np.cos(k * Y) + np.sin(k * Y) * np.cos(k * d) + np.sin(k * d) * np.cos(k * X)
         return np.abs(g) <= b
@@ -167,16 +226,22 @@ def gyroid(X, Y, d):                                   # kept name: the core cal
     return wall_fill(X, Y, d)
 
 
-def wall_solid_zone(Y, d):
-    """Where the camera walls stay solid (everything else is gyroid)."""
+def wall_solid_zone(Y, d, X=None):
+    """Where the camera walls stay solid (everything else is gyroid). X: only the switch wall gets its pad."""
     gw = GROOVE_W + RESIN_HOLE_COMP
     z = (d <= WALL_TOP_SOLID) | (d >= DEPTH - WALL_BOTTOM_SOLID)
     z = z | (Y <= Y_MIN + PANEL_LIP + gw + 4.0) | (Y >= Y_MAX - PANEL_LIP - gw - 4.0)
     z = z | ((np.abs(Y - CAM_YR) <= CAM_PAD[0]) & (d <= CAM_D + CAM_PAD[1]))
-    z = z | ((Y - POWER_SWITCH['y']) ** 2 + (d - POWER_SWITCH['d']) ** 2 <= SWITCH_PAD_R ** 2)
+    pad = (Y - POWER_SWITCH['y']) ** 2 + (d - POWER_SWITCH['d']) ** 2 <= SWITCH_PAD_R ** 2
+    if X is not None:
+        pad = pad & (np.sign(X) == POWER_SWITCH['side'])
+    z = z | pad
     z = z | (np.abs(Y) <= WEB_PAD)
     for r, top in WALL_RIBS:
         z = z | ((np.abs(Y - r) <= 1.5) & (d >= top))
+    for ry in BAT_RAIL_YS:                             # the cradle rails run through the wall as ribs
+        z = z | (np.abs(Y - ry) <= BAT_RAIL_W / 2)
+    z = z | ((Y >= BAT_RIB[2]) & (Y <= BAT_RAIL_YS[0]))   # ...the first one merged with the stop rib
     return z
 
 # ── Flange vents (no suction cups when printed flange-down) ──
@@ -188,17 +253,29 @@ VENT_D = 4.0
 PCB_YR = -31.0                # back (underside) of the PCB
 PI_TOP_D = 14.0               # SD/PCIe end of the board; the card stops ~2 mm short of the flange
 PI_HOLES = [(sx * 24.5, PI_TOP_D + bx) for sx in (-1, 1) for bx in (3.5, 61.5)]
-PI_POST_R, PI_PILOT = 3.2, 2.2            # M2.5 self-tap (horizontal hole)
+PI_POST_R = 3.2
+# Glued M2.5 brass insert (kit: L 2.5) at the PCB end, clearance hole beyond for the M2.5×6 socket cap's tip
+PI_INSERT_D, PI_INSERT_L, PI_SCREW_CLEAR, PI_HOLE_DEPTH = 3.5, 3.0, 2.7, 8.0   # [MEASURE] insert OD
 
 # ── OV9281 cameras (25 × 23.86 board, lens 18 mm from the board face) ──
 # Lens axes just under the flange: the stiffest spot, ~55 mm from the lidar instead of ~90.
 CAM_YR, CAM_D = -15.0, 23.0               # lens axis (both cameras)
 CAM_WINDOW = 19.0                         # ROUND lens window Ø (lens holder must pass: round, or square ≤ ~13) [MEASURE]
-CAM_BOSS_R, CAM_PILOT, CAM_BOSS_H = 2.25, 1.6, 2.0
+CAM_BOSS_R, CAM_BOSS_H = 3.0, 2.0
+# Inset (2026-10-13): the 160° lens can't sit behind the wall (each 1 mm of recess needs ~5.7 mm more
+# window radius at 80° off-axis), so the board moves CAM_INSET deeper and the lens front (18 mm from the
+# board face, spec sheet) stands ~4 mm proud instead of ~12. The board mounts on a solid block that grows
+# from the flange plate (no overhang) to the board's far edge, window bored through; a pocket at the
+# connector edge clears the FFC connector and lets the ribbon out.
+CAM_INSET, CAM_LENS_L = 8.0, 18.0
+CAM_FACE = X_IN - CAM_BOSS_H - CAM_INSET      # |X| of the board's front face (the block's inner face)
+CAM_POCKET = (6.0, 4.0)                       # connector pocket: width in from the board edge, depth into the block
+# Glued M2 brass insert (kit: L 2) in each boss, clearance beyond for the M2×5 socket cap's tip
+CAM_INSERT_D, CAM_INSERT_L, CAM_SCREW_CLEAR, CAM_HOLE_DEPTH = 3.2, 2.5, 2.2, 5.0   # [MEASURE] insert OD
 # Connector edge direction per side. Board 25 × 23.86; the lens sits 8.25 from the edge opposite
 # the connector and the 21 × 12.5 holes are symmetric about it. The -X (near) camera turns its
 # connector down so its ribbon runs down to the Pi, clear of the Pi's USB-C plug ~25 mm down.
-CAM_CONN_DIR = {-1: 'down', 1: '-y'}
+CAM_CONN_DIR = {-1: 'down', 1: 'down'}      # both down (2026-10-13): the ribbons drop straight out of the block's pocket
 
 
 def cam_holes(s):
@@ -211,7 +288,7 @@ def cam_board(s):
     if CAM_CONN_DIR[s] == '-y':
         return CAM_YR - 15.6, CAM_YR + 8.25, CAM_D - 12.5, CAM_D + 12.5
     return CAM_YR - 12.5, CAM_YR + 12.5, CAM_D - 8.25, CAM_D + 15.6
-GUARD_R0, GUARD_R1, GUARD_X = (CAM_WINDOW + RESIN_HOLE_COMP) / 2, 11.7, 57.0   # guard ring: same bore as the window
+GUARD_R0, GUARD_R1, GUARD_X = (CAM_WINDOW + RESIN_HOLE_COMP) / 2, 11.7, X_OUT + 2.0   # low guard lip, ~2 mm behind the lens front
 
 # ── Exhaust slots in the camera walls beside the Pi ──
 EXHAUST = [(-38 - 4 * i, -36 - 4 * i) for i in range(4)]   # Yr ranges
@@ -222,6 +299,12 @@ def hole(cx, cy, d, a, b):
     """Disk test for a hole drawn at the wanted size, compensated for resin shrink."""
     r = (d + RESIN_HOLE_COMP) / 2
     return (a - cx) ** 2 + (b - cy) ** 2 <= r * r
+
+
+def hole_h(cu, cd, dia, u, d):
+    """Horizontal-axis hole (u across, d = print height): +comp, and taller by HORIZ_HOLE_EXTRA."""
+    ru, rd = (dia + RESIN_HOLE_COMP) / 2, (dia + RESIN_HOLE_COMP + HORIZ_HOLE_EXTRA) / 2
+    return ((u - cu) / ru) ** 2 + ((d - cd) / rd) ** 2 <= 1.0
 
 
 def to_print(pts):
@@ -324,40 +407,46 @@ def _quad_box(a, b, hw, hn):
 #    space it needs, not the slack. Ribbons leave the Pi connectors along the board
 #    (upward assumed), 22-pin FFC ~13 mm wide. ──
 PI_CONN = [(-19.0, -35.5, -(PI_TOP_D + 49)), (-19.0, -35.5, -(PI_TOP_D + 57))]     # near, far
-CAM_CONN = [(-(X_IN - CAM_BOSS_H - 3.6), CAM_YR, -(CAM_D + 15.0)),     # -X near: connector edge down
-            (X_IN - CAM_BOSS_H - 3.6, CAM_YR - 15.0, -CAM_D)]          # +X far: connector edge toward -Yr
+CAM_CONN = [(-(CAM_FACE + 2.0), CAM_YR, -(CAM_D + 15.0)),            # -X near: connector edge down (in its pocket)
+            (CAM_FACE + 2.0, CAM_YR, -(CAM_D + 15.0))]                 # +X far: connector edge down too
 RIBBON_NEAR = [PI_CONN[0], (-26, -35.5, -60), (-26, -35.5, -50), (-36, -24, -44), CAM_CONN[0]]
 RIBBON_FAR = [PI_CONN[1], (-26, -35.5, -68), (-26, -35.5, -42), (-29.8, -35.5, -40), (-29.8, -29.6, -40),
-              (29.8, -29.6, -40), (37, -30, -30), CAM_CONN[1]]
+              (29.8, -29.6, -40), (31, -18, -46), (CAM_FACE + 2.0, CAM_YR, -46), CAM_CONN[1]]   # up into its pocket
 # Pi 5 port end (bottom, ~99-104 mm down): Ethernet is the jack beside the micro-HDMI edge (-X here,
 # board y ~2-18 -> X -26..-10); the two USB-A stacks are toward +X.
 ETH = (-18.0, -40.0, -(PI_TOP_D + 88.5))
-# Lidar cable: off the M12 connector (box +Yr), straight down outside the +Y panel and in through a
-# notch at its top (the panel slides up round it, no plug threading), a flat coil
-# in the buck bay, through the low web slot to the Pi side, and out of the floor notch to come up
-# into the downward-facing Ethernet jack. The power pair splits off at the coil to the WAGOs.
-PANEL_NOTCH_X, PANEL_NOTCH_D, PANEL_NOTCH_W = 22.0, 20.0, 8.0   # BATTERY: inside the stop ribs     # notch centre X, bottom depth, width
-COIL = dict(c=(-5.0, 37.0, -82.0), r=17.0, turns=2.0, y0=34.0, y1=40.0)
+# Lidar cable (see LIDAR CABLE ENTRY above): plug, 180° loop outside the +Y end, in through the flange
+# slot, over the bank, a 2-turn slack coil in the -X bay, the -X low web slot, up into the Pi's jack.
+PANEL_NOTCH_X, PANEL_NOTCH_D, PANEL_NOTCH_W = 22.0, 20.0, 8.0   # notch centre X, bottom depth, width (unused)
+M12_ZR, M12_PLUG = 23.6, (38.3, 83.0, 8.0)    # connector axis height (rig Zr); plug Yr range, radius [MEASURE]
+SLACK = dict(c=(-35.0, 15.0, -60.0), r=8.5, turns=2.0, x0=-38.0, x1=-32.0)   # coil in the Yr-d plane, clear of the Yr 15 rib
 
 
-def _coil_pts(n=40):
-    cx, _, cz = COIL['c']
-    t = np.linspace(0, 2 * np.pi * COIL['turns'], int(n * COIL['turns']) + 1)
-    y = COIL['y0'] + (COIL['y1'] - COIL['y0']) * t / t[-1]
-    return [(cx + COIL['r'] * np.cos(a), yy, cz + COIL['r'] * np.sin(a)) for a, yy in zip(t, y)]
+def _slack_pts(n=40):
+    _, cy, cz = SLACK['c']
+    t = np.linspace(0, 2 * np.pi * SLACK['turns'], int(n * SLACK['turns']) + 1)
+    x = SLACK['x0'] + (SLACK['x1'] - SLACK['x0']) * t / t[-1]
+    return [(xx, cy + SLACK['r'] * np.sin(a), cz + SLACK['r'] * np.cos(a)) for a, xx in zip(t, x)]
 
 
-_COIL = _coil_pts()
-LIDAR_CABLE = ([(0, 40, 20), (CABLE_HOLE[0], CABLE_HOLE[1], 14), (CABLE_HOLE[0], CABLE_HOLE[1], -16),
-                (CABLE_HOLE[0], 46, -19), (24, 36, -50), (14, 36, -60)]    # BATTERY: down the flange hole, over the bank's top
-               + _COIL
-               + [(-37, 20, -85), (-37, -45, -95), (-24, -46, -118), (-18, -42, -130), ETH])   # BATTERY: -X web slot, clear of the USB adapter
-LIDAR_POWER = [_COIL[-1], (20, 36, -76), (24, 35, -74)]          # Livox splitter's power pair -> WAGO
-BUILTIN_CORD = [CORD_ROOT, (33, 62, -16), (24, 52, -16), (24, 44, -20), (36, 40, -PD_TRIGGER[4])]   # through the ribs' open middle
-BATTERY_LEAD = [(32, 34, -PD_TRIGGER[4]), (20, POWER_SWITCH['y'], -30), (20, POWER_SWITCH['y'], -POWER_SWITCH['d']),
-                (16, 33, -45), (18, 35, -66)]                      # trigger -> switch -> WAGO
-BUCK_IN = [(14, 36, -38), (19, 36, -66)]
-USBC_LEAD = [(-22, 36, -30), (-37, 20, -30), (-37, -20, -28), (-33, -34, -25)]   # right-angle plug at the Pi
+_NOTCH_D = (FLANGE_PLATE + RIM_D) / 2                                   # cable centre in the rim notch
+_LOOP_R = (M12_ZR + _NOTCH_D) / 2                                         # plug axis down to the notch
+_LOOP = [(0, M12_PLUG[1] + _LOOP_R * np.sin(a), M12_ZR - _LOOP_R + _LOOP_R * np.cos(a)) for a in np.linspace(0, np.pi, 13)]
+LIDAR_CABLE = (_LOOP +                                                   # 180° turn outside the box end
+               [(0, 62, -_NOTCH_D), (0, 51, -_NOTCH_D), (0, 47, -15), (-20, 40, -15), (-29, 30, -15), (-35, 18, -30)]   # rim notch, over the bank
+               + _slack_pts()
+               + [(-38, 22.8, -72), (-38, 22.8, -92), (-37, 0, -93),       # stop-rib clip, -X low web slot
+                  (-37, -7.2, -100), (-37, -7.2, -126),                    # Pi-side web clip
+                  (-30, -40, -128), (-18, -42, -135), ETH])                # up into the jack
+SW_C = (POWER_SWITCH['side'] * (X_IN - POWER_SWITCH['body_len']), POWER_SWITCH['y'], -POWER_SWITCH['d'])   # switch body's inner end
+WAGO_C = (-8.0, -40.0, -172.0)
+LIDAR_POWER = [(-30, -40, -112), (-20, -48, -140), (-12, -44, -160), WAGO_C]   # Livox split's power pair -> WAGO
+BUILTIN_CORD = [CORD_ROOT, (30, 43, -16), (29, 30, -16), (33, 22, -22), (36, 18, -PD_TRIGGER[4])]   # between the cradle rails, into the +X bay
+BATTERY_LEAD = [(36, 10, -PD_TRIGGER[5] + 2), (37, 5.95, -50), (37, 5.95, -68), (37, 0, -90), (28, -25, -95),
+                (24, -50, -110), (-10, -52, -150), SW_C, WAGO_C]  # trigger -> battery-side web clip -> low web slot -> under the Pi -> switch -> WAGO
+BUCK_IN = [WAGO_C, (8.0, -46.5, -170.0)]
+USBC_LEAD = [(8.0, -51.0, -BUCK[4]), (-30, -50, -128), (-39.05, -31.5, -126), (-39.05, -31.5, -38),
+             (-33, -34, -25)]                                     # through the -X camera-pad rib's clips to the right-angle plug
 
 
 def _decimate(tris, grid=0.25):
@@ -417,14 +506,16 @@ def build_overlays():
                                     _cyl((0, 0, 0), 'z', 15, -260, -20.3 - 135)]), '#34495e', 0.3,
          'monopod: cap Ø35, ring Ø40, grip < Ø40 to 135 mm')
 
-    # OV9281 boards + lenses (board face on 2 mm bosses off the wall)
+    # OV9281 boards + lenses (board face on the camera block), back-side parts 3.57 tall (spec sheet)
     cams = []
     for s in (-1, 1):
-        xf = s * (X_IN - CAM_BOSS_H)                      # board front face
+        xf = s * CAM_FACE                                 # board front face
         y0, y1, d0, d1 = cam_board(s)
         cams.append(_box(min(xf, xf - s), max(xf, xf - s), y0, y1, -d1, -d0))
-        cams.append(_cyl((0, CAM_YR, -CAM_D), 'x', 7, xf, xf + s * 18) if s > 0 else
-                    _cyl((0, CAM_YR, -CAM_D), 'x', 7, xf + s * 18, xf))
+        xb = xf - s * 4.57                                # back of the tallest back-side parts
+        cams.append(_box(min(xf - s, xb), max(xf - s, xb), y0 + 2, y1 - 2, -d1 + 2, -d0 - 2))
+        cams.append(_cyl((0, CAM_YR, -CAM_D), 'x', 7, xf, xf + s * CAM_LENS_L) if s > 0 else
+                    _cyl((0, CAM_YR, -CAM_D), 'x', 7, xf + s * CAM_LENS_L, xf))
     emit('cameras', np.concatenate(cams), '#8e44ad', 0.6, 'OV9281 boards + lenses')
 
     # BATTERY: the bank
@@ -439,17 +530,21 @@ def build_overlays():
         '#ecf0f1', 0.8, 'TP-Link UE300 → office link (RJ45 in the floor)')
     x0, x1, y0, y1, d0, d1 = PD_TRIGGER
     emit('pd_trigger', np.concatenate([_box(x0, x1, y0, y1, -d1, -d0), _tube(BUILTIN_CORD, 2.0)]),
-         '#2c3e50', 0.9, 'built-in cord (bank top) → PD trigger 15 V [MEASURE]')
+         '#2c3e50', 0.9, 'built-in cord (bank top) → USB-C coupler [MEASURE]')
     emit('battery', _box(-BAT['x'] + 0.5, BAT['x'] - 0.5, BAT['y0'], BAT['y1'], -BAT['d1'], -BAT['d0']),
          '#34495e', 0.5, 'Anker 20K bank, ports DOWN, display toward +Y')
 
-    # 15→5 V buck and two WAGO 221-413 in the +Y bay [MEASURE]
-    emit('buck_wago', np.concatenate([_box(-22, 14, 31, 41, -60, -15), _box(17, 22, 31, 40, -78, -66),
-                                      _box(23.5, 28.5, 31, 40, -78, -66)]), '#f39c12', 0.5, 'buck + 2 WAGO [MEASURE]')
+    # 15→5 V buck and two WAGO 221-413 under the Pi [MEASURE]
+    x0, x1, y0, y1, d0, d1 = BUCK
+    emit('buck_wago', np.concatenate([_box(x0, x1, y0, y1, -d1, -d0)] +
+                                     [_box(a, b, c, e, -g, -f) for a, b, c, e, f, g in WAGOS]),
+         '#f39c12', 0.5, 'buck + 2 WAGO under the Pi [MEASURE]')
 
-    sw = POWER_SWITCH
-    emit('power_switch', np.concatenate([_cyl((0, sw['y'], -sw['d']), 'x', 9.5, X_OUT, X_OUT + 3),
-                                         _cyl((0, sw['y'], -sw['d']), 'x', sw['body_r'], X_OUT - sw['body_len'], X_OUT)]),
+    sw, sx = POWER_SWITCH, POWER_SWITCH['side']
+    bezel = sorted((sx * (X_OUT + 0.05), sx * (X_OUT + 3)))       # sits on the wall's outer face
+    body = sorted((sx * (X_OUT - sw['body_len']), sx * X_OUT))
+    emit('power_switch', np.concatenate([_cyl((0, sw['y'], -sw['d']), 'x', 9.5, *bezel),
+                                         _cyl((0, sw['y'], -sw['d']), 'x', sw['body_r'], *body)]),
          '#e74c3c', 0.8, 'power switch, 16 mm latching (15 V line)')
 
     # Cables (schematic routes, see the route constants above)
@@ -458,9 +553,11 @@ def build_overlays():
                                           _strip(RIBBON_FAR[:-1], 13, 0.3, [0, 1.0, 0]),
                                           _strip(RIBBON_FAR[-2:], 13, 0.3, [1.0, 0, 0])]), '#e67e22', 1.0,
          'camera ribbons (15→22-pin, 150 mm)')
-    emit('cable_lidar', _tube(LIDAR_CABLE, 3.5), '#1f4e79', 1.0, 'lidar cable: M12 → RJ45 (Pi Ethernet)')
-    emit('cable_lidar_power', _tube(LIDAR_POWER, 2.0), '#8e1b1b', 1.0, 'lidar power pair (Livox splitter) → WAGO')
-    emit('cable_battery', _tube(BATTERY_LEAD, 2.0), '#e74c3c', 1.0, 'PD trigger → power switch → WAGO')
+    emit('m12_plug', _cyl((0, 0, M12_ZR), 'y', M12_PLUG[2], M12_PLUG[0], M12_PLUG[1]), '#1f4e79', 0.9,
+         'M12 plug (straight, ~45 long) [MEASURE]')
+    emit('cable_lidar', _tube(LIDAR_CABLE, 3.5), '#1f4e79', 1.0, 'lidar cable: M12 → flange slot → slack → RJ45 (Pi Ethernet)')
+    emit('cable_lidar_power', _tube(LIDAR_POWER, 2.0), '#8e1b1b', 1.0, 'lidar power pair (split) → WAGO')
+    emit('cable_battery', _tube(BATTERY_LEAD, 2.0), '#e74c3c', 1.0, 'PD trigger cord (15 V) → power switch → WAGO')
     emit('cable_buck_in', _tube(BUCK_IN, 1.5), '#f1948a', 1.0, 'WAGO → buck input')
     emit('cable_usbc', _tube(USBC_LEAD, 2.0), '#111111', 1.0, 'buck USB-C → Pi power (right-angle plug)')
     return out

@@ -18,4 +18,5 @@ w.ASCIIMode = False
 assert w.Write(shape, dst)
 b = Bnd_Box()
 BRepBndLib.Add_s(shape, b)
-print("bbox", [round(v, 2) for v in b.Get()])
+lo, hi = b.CornerMin(), b.CornerMax()           # Bnd_Box.Get() no longer converts in newer OCP
+print("bbox", [round(v, 2) for v in (lo.X(), lo.Y(), lo.Z(), hi.X(), hi.Y(), hi.Z())])

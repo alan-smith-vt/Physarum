@@ -58,7 +58,7 @@ def main():
         if name == "pi5":                     # PCB back face resting on the standoff posts is contact, not a clash
             hit &= np.abs(C.from_print(pts)[:, 1] - C.PCB_YR) > 0.05
         if name == "cameras":                 # camera board face resting on its bosses
-            hit &= np.abs(np.abs(C.from_print(pts)[:, 0]) - (C.X_IN - C.CAM_BOSS_H)) > 0.05
+            hit &= np.abs(np.abs(C.from_print(pts)[:, 0]) - C.CAM_FACE) > 0.05
         if name == "power_switch":            # bezel seated on the wall's outer face
             hit &= np.abs(C.from_print(pts)[:, 0] - C.X_OUT) > 0.05
         if name == "base_plate":              # flange face against the plate

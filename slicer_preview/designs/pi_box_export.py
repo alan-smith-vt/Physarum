@@ -90,7 +90,7 @@ def printed_parts(only=None):
     # panels: local (x across, y thickness, z down the panel)
     def panel_to_rig(face_y, sign):
         return lambda p: np.stack([p[:, 0] - L.PANEL_W / 2, face_y + sign * p[:, 1],
-                                   -(p[:, 2] + R.FLANGE + 0.1)], 1)
+                                   -(p[:, 2] + R.RIM_D + 0.1)], 1)
     pm = _march(lambda x, y, z: L.panel(x, y, z, grille=False), int(L.PANEL_W / h), int(L.PANEL_T / h) + 1,
                 int(L.PANEL_H / h), h, panel_to_rig(R.Y_MIN + R.PANEL_LIP, +1))
     pp = _march(lambda x, y, z: L.panel(x, y, z, grille=False), int(L.PANEL_W / h),
@@ -164,7 +164,7 @@ def main():
         if name == 'cameras':                                    # also one file per camera
             cx = rig[:, :, 0].mean(1)
             ax = np.abs(rig[:, :, 0]).max(1)                     # lens barrels stick out past the board face
-            lens = ax > R.X_IN - R.CAM_BOSS_H + 0.5
+            lens = ax > R.CAM_FACE + 0.5
             write_stl(OUT / 'camera_near.stl', rig[(cx < 0) & ~lens])
             write_stl(OUT / 'camera_far.stl', rig[(cx > 0) & ~lens])
             write_stl(OUT / 'lens_near.stl', rig[(cx < 0) & lens])

@@ -6,7 +6,7 @@ Lidar rig Pi box, v1 floor + -Y (Pi) panel, printed flat on one plate.
 
 Floor: outside face on the build plate; collar (round the well tube), web rails
 and the floor top face up. Dowels (3×6) press into Ø3.3 holes and stand 3 mm
-proud into the wall feet. 4 × M2.5 screws up into the core's glued inserts,
+proud into the wall feet. 4 × M3×6 button screws up into the core's glued M3 inserts,
 heads in shallow counterbores. Open notch under the Pi so its cables stay plugged in.
 Panel: slides up into the camera-wall grooves; intake grille in front of the cooler.
 The +Y panel is the same blank without the grille: designs/pi_box_panel.py.
@@ -28,10 +28,10 @@ COLLAR_R1 = COLLAR_R0 + 1.8
 RAIL_H, RAIL_W = 4.0, 1.5
 RAIL_X = (WELL_R + 3.0, FOOT_X0 - 0.5)
 NOTCH_X, NOTCH_Y = 29.0, PCB_YR - 0.5                        # open to the -Y edge
-SCREW_CLEAR, HEAD_CB, HEAD_CB_DEPTH = 2.9, 5.4, 1.5
+SCREW_CLEAR, HEAD_CB, HEAD_CB_DEPTH = 3.3, 6.2, 1.5     # M3×6 button head (Ø5.7) into the core's M3 inserts
 
 PANEL_W = 2 * (X_IN + GROOVE_D) - 0.8      # external faces print ~0.35 oversize
-PANEL_H = DEPTH - FLANGE - 0.2
+PANEL_H = DEPTH - RIM_D - 0.2
 GRILLE = [(-20.0 + 5.5 * i, -20.0 + 5.5 * i + 2.6) for i in range(8)]
 GRILLE_D = (25.0, 85.0)
 
@@ -62,22 +62,23 @@ def floor(x, y, z):
     s = (r2 >= COLLAR_R0 ** 2) & (r2 <= COLLAR_R1 ** 2) & (h <= COLLAR_H)
     gap = WEB_T / 2 + 0.15 + RESIN_HOLE_COMP / 2
     rails = (aX >= RAIL_X[0]) & (aX <= RAIL_X[1]) & (np.abs(Yr) >= gap) & (np.abs(Yr) <= gap + RAIL_W)
+    rails &= ~((X > 0) & (Yr < 0))                     # the UE300 stands there, flush on the web
     s |= rails & (h <= RAIL_H)
-    # BATTERY: cradle for the UE300 (a zip tie through two wall windows clamps it against the plug)
+    # Cradle for the UE300: walls on its two open sides only (the web and the +X wall bound the other
+    # two); the core's seat over its top end holds it down on the floor.
     a = ETH_ADAPTER
     ix, iy = (a['wx'] + CRADLE_CLEAR + RESIN_HOLE_COMP) / 2, (a['wy'] + CRADLE_CLEAR + RESIN_HOLE_COMP) / 2
     dx, dy = np.abs(X - a['x']), np.abs(Yr - a['y'])
     wall = (dx <= ix + CRADLE_WALL) & (dy <= iy + CRADLE_WALL) & ~((dx <= ix) & (dy <= iy))
-    # zip-tie windows: a diamond (45° top, no bridge) mid-way along each ±X wall; the tie goes in
-    # one, round the adapter body, out the other, and is cinched outside round the cradle
-    strap = (dx > ix) & (np.abs(Yr - a['y']) + np.abs(h - 6.5) <= 2.5)
-    s |= wall & ~strap & (h <= CRADLE_H)
+    wall &= (X < a['x']) | (Yr < a['y'])               # tube-side and far-Yr walls
+    wall &= (Yr < -WEB_T / 2 - 0.5) & (X < X_IN - 0.5) & (r2 > (COLLAR_R1 + 0.3) ** 2)
+    s |= wall & (h <= CRADLE_H)
     return s
 
 
 def panel(x, y, z, grille=True, cable_notch=False, button=False):
     X = x - PANEL_W / 2
-    d = z + FLANGE + 0.1                   # print z runs down the panel
+    d = z + RIM_D + 0.1                    # print z runs down the panel
     s = np.ones(np.broadcast_shapes(X.shape, d.shape), bool)
     inset = max(CHAMFER * 0.5 - y, 0.0)
     s &= (np.abs(X) <= PANEL_W / 2 - inset)
