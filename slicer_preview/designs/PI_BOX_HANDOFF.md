@@ -72,6 +72,18 @@ camera-board keep-out round the holes (Ø6 bearing), buck/WAGO/switch body sizes
 2. Take the measurements above; adjust; print floor + panels (blanks or cut PC from the DXF).
 3. Copy `out/renders_2026-10-13/` into the vault and update the vault handoff.
 
+## Modelling: SDF core (2026-10-13)
+- `pi_box_bat_core.py` is a signed-distance tree (`slicer_preview/sdf.py`: Box / Cyl / Half / Fn, union /
+  inter / sub, smooth_union / smooth_sub for fillets, offset, shell). Every node has a bounding box;
+  slices are evaluated in tiles (128 px CPU, 2048 px GPU) on only the nodes that reach each tile.
+- Verified against the previous mask core: identical at preview res (141 layers) and full res
+  (10 layers; 2 tie pixels on a vent edge). Full-res slice 0.2-0.3 s/core CPU (was ~2.5), ~35 ms GPU;
+  `to_goo --gpu` 2.1 min (was 3.6). Check 4 s (was ~1 min), overhangs 20 s, mesh export 10 s.
+- Anti-aliasing: `PI_BOX_AA=1` writes grayscale edges (~2 % of lit pixels). OFF by default: gray
+  pixels cure less than white, so edges/fits shift. Calibrate first (exposure_test with gray edges)
+  before using it on fit-critical parts.
+- Floor / panels are still mask functions (`implicit_piece`); port them the same way if needed.
+
 ## Commands (run from `slicer_preview/`)
 - Export meshes: `python -m designs.pi_box_export > log 2>&1`, check the log for `Traceback`
   (a failed export leaves stale meshes that render silently). Core only: `PI_BOX_EXPORT_ONLY=core`.

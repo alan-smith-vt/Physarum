@@ -161,7 +161,10 @@ def _process_layer(args):
 def _encode_packed(args):
     """Worker (GPU mode): unpack a 1-bit slice from the GPU and RLE-encode it."""
     z, packed, H, W, x0, y0, W_goo, H_goo = args
-    img = np.unpackbits(packed, count=H * W).reshape(H, W) * np.uint8(255)
+    if packed.ndim == 2:                               # anti-aliased 8-bit slice, sent as is
+        img = packed
+    else:
+        img = np.unpackbits(packed, count=H * W).reshape(H, W) * np.uint8(255)
     return z, goo_encode_placed(img, x0, y0, W_goo, H_goo)
 
 
@@ -172,10 +175,12 @@ def _gpu_slices(name, pieces, bounds, args):
     import cupy as cp
     if not hasattr(cp, 'broadcast_shapes'):
         cp.broadcast_shapes = np.broadcast_shapes
-    if any('solid_fn' not in p for p in pieces):
-        sys.exit("--gpu needs implicit pieces (solid_fn); this design has others")
-    for mod in [m for k, m in sys.modules.items() if k.startswith('designs.') and getattr(m, 'np', None) is np]:
-        mod.np = cp
+    if any('solid_fn' not in p and 'slice_xp' not in p for p in pieces):
+        sys.exit("--gpu needs implicit or SDF pieces (solid_fn / slice_xp); this design has others")
+    if any('slice_xp' not in p for p in pieces):        # mask pieces: run their numpy code on cupy
+        for mod in [m for k, m in sys.modules.items() if k.startswith('designs.') and getattr(m, 'np', None) is np]:
+            mod.np = cp
+    gray = any(p.get('aa') for p in pieces)
     W, H = bounds[3], bounds[4]
     grids = []
     for p in pieces:
@@ -188,10 +193,16 @@ def _gpu_slices(name, pieces, bounds, args):
             local = z_layer - dy
             if not 0 <= local < p['N_SLICES']:
                 continue
-            m = cp.broadcast_to(p['solid_fn'](xg, (local + 0.5) * printer.LY_MM, zg), (p['H'], p['W']))
+            if 'slice_xp' in p:                        # SDF piece: tiled + culled, 0..255 (grayscale if aa)
+                m = p['slice_xp'](local, cp)
+            else:
+                m = cp.broadcast_to(p['solid_fn'](xg, (local + 0.5) * printer.LY_MM, zg), (p['H'], p['W'])).astype(cp.uint8) * 255
             region = img[dz:dz + p['H'], dx:dx + p['W']]
-            cp.maximum(region, m[:region.shape[0], :region.shape[1]].astype(cp.uint8), out=region)
-        yield z_layer, cp.asnumpy(cp.packbits(img.ravel())), H, W, x0, y0, W_goo, H_goo
+            cp.maximum(region, m[:region.shape[0], :region.shape[1]], out=region)
+        if gray:                                       # anti-aliased: ship the 8-bit image
+            yield z_layer, cp.asnumpy(img), H, W, x0, y0, W_goo, H_goo
+        else:                                          # binary: 1 bit per pixel to the encoders
+            yield z_layer, cp.asnumpy(cp.packbits(img.ravel() > 0)), H, W, x0, y0, W_goo, H_goo
 
 
 def main(name, gpu=False):
