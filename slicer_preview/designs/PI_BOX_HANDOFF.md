@@ -85,6 +85,10 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   - M3 insert holes at the far end: Ø4.0 + 0.35 is slightly loose (~0.1–0.2), which is good for glued inserts.
   - The allowance may scale with hole size; there's not enough data yet.
   - A small chamfer at the hole mouth on the plate face is an alternative.
+- **Resin change (planned, no rush):** the black Fast/Tenacious blend runs out after the Monday prints. The
+  restock is Fast (any colour) + **clear** Tenacious. Clear cures deeper and bleeds more than black, so redo the
+  exposure test and one hole-fit print (spacer bore, insert hole) first. Expect a shorter exposure and different
+  hole allowances. Print the coupons in the new blend too.
 - Glue inserts with CA (superglue), not threadlocker. Wash and fully post-cure before gluing.
 
 ## Test-fit results on the first core (2026-10-14)
