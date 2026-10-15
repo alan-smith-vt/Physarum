@@ -118,6 +118,7 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   smaller tube is the backup. Also suggested: a tether from the cage to the pole below the coupler.
 
 ## Flood-fill gyroid support: coupon tests (2026-10-14, before the panels)
+Background (patterns, mechanics, support and infill trade-offs): [`../TPMS_NOTES.md`](../TPMS_NOTES.md).
 Goal (user): supports as a brute-force flood fill that needs no judgement, unlike trees.
 - The pipeline: encase the part in gyroid, cull to the part's "shadow" (columns under downward-facing surfaces),
   clear by distance from the part, then grade sparse→dense toward the interface.
