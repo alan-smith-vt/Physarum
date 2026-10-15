@@ -106,7 +106,8 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   The cross is in `CAGE_HANDOFF.md`'s scope.
 - **Panels:** don't print them yet. The print file (`pi_box_bat_panel.py`) currently makes a 12 mm gyroid panel
   with a 6 mm solid frame (max layer 6,628 mm²). A plain panel printed flat would be ~16,000 mm² per layer, which
-  is too much, but the user prefers the plain look. **First run the backlogged coupon experiments:** flat coupons
+  is too much, but the user prefers the plain look. **First run the backlogged coupon experiments** (start from the 2026-10-11 coupon,
+  [`tpms_coupon.py`](tpms_coupon.py): 4×4 cells, solid fraction 15–40 % × cap gap 0.10–0.50 mm): flat coupons
   printed on TPMS support cubes / thin gyroid rafts with different parameters (period, sheet thickness, raft
   height, gap to the plate). They tell us how much the TPMS roughens the coupon's face. If a thin gyroid raft with
   a flat plate on top gives an acceptable finish, print the plain panel that way. Otherwise keep the gyroid panel
