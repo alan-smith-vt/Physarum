@@ -112,8 +112,8 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - Power: Anker 20K bank → PD trigger at 15 V → two WAGO 221-413 → lidar, and → buck → Pi. On 22 AWG solid the Pi
   reads 5.20 V with throttled 0x0.
 - Pi host `lidarpi`, user `lidar`, key-only SSH.
-- Lidar: Mid-360 at 192.168.1.171, Pi eth0 at 192.168.1.50. **The lidar is mounted upside down**; the IMU reads
-  z ≈ −1 g, so its extrinsic needs a 180° roll about x.
+- Lidar: Mid-360 at 192.168.1.171, Pi eth0 at 192.168.1.50. The lidar is **right side up** in the rig. The bench
+  test read z ≈ −1 g only because it sat upside down on the bench (coupler nut), so the extrinsic needs no flip.
 - Livox-SDK2 receives nothing yet (raw UDP works).
 - Both OV9281 cameras work (dtoverlay ov9281 cam0 and cam1) and are focused.
 
