@@ -47,7 +47,7 @@ MATS = {
     'cam_ghost': dict(color=(0.55, 0.3, 0.75), rough=0.4, alpha=0.35),   # see-through camera, seat visible
 }
 PART_MAT = {
-    'core': 'resin', 'core_cut_near': 'resin', 'core_cut_far': 'resin', 'floor': 'resin', 'panel_pi': 'clear_blue', 'panel_pod': 'clear_blue',
+    'core': 'resin', 'core_cut_near': 'resin', 'core_cut_far': 'resin', 'floor': 'clear_blue', 'panel_pi': 'clear_blue', 'panel_pod': 'clear_blue',
     'base_plate': 'alu', 'cross': 'alu', 'standoffs': 'alu', 'box_spacers': 'alu_dark', 'coupler': 'alu_dark',
     'mid360s': 'lidar', 'pi5': 'pcb', 'cooler': 'alu_dark', 'cameras': 'cam', 'camera_near': 'cam', 'camera_far': 'cam', 'lens_near': 'gloss', 'lens_far': 'gloss', 'battery': 'battery',
     'buck_wago': 'orange', 'eth_adapter': 'white', 'power_switch': 'steel', 'pd_trigger': 'black',

@@ -91,10 +91,11 @@ def printed_parts(only=None):
     def panel_to_rig(face_y, sign):
         return lambda p: np.stack([p[:, 0] - L.PANEL_W / 2, face_y + sign * p[:, 1],
                                    -(p[:, 2] + R.RIM_D + 0.1)], 1)
-    pm = _march(lambda x, y, z: L.panel(x, y, z, grille=False), int(L.PANEL_W / h), int(L.PANEL_T / h) + 1,
-                int(L.PANEL_H / h), h, panel_to_rig(R.Y_MIN + R.PANEL_LIP, +1))
-    pp = _march(lambda x, y, z: L.panel(x, y, z, grille=False), int(L.PANEL_W / h),
-                int(L.PANEL_T / h) + 1, int(L.PANEL_H / h), h, panel_to_rig(R.Y_MAX - R.PANEL_LIP, -1))
+    def gyro_panel(face_y, sign):
+        return _march(lambda x, y, z: L.panel(x, y, z, grille=False, gyroid=(face_y, sign)), int(L.PANEL_W / h),
+                      int(L.PANEL_T / h) + 1, int(L.PANEL_H / h), h, panel_to_rig(face_y, sign))
+    pm = gyro_panel(R.Y_MIN + R.PANEL_LIP, +1)
+    pp = gyro_panel(R.Y_MAX - R.PANEL_LIP, -1)
     # half-sections without the flange, for looking straight at each camera wall's inside face
     def cut(keep_x):
         def fn(x, d, z):

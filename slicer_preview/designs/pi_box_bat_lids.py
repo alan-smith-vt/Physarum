@@ -76,10 +76,21 @@ def floor(x, y, z):
     return s
 
 
-def panel(x, y, z, grille=True, cable_notch=False, button=False):
+PANEL_BORDER = 6.0                         # solid frame round a gyroid panel (2 of it sits in the wall grooves)
+
+
+def panel(x, y, z, grille=True, cable_notch=False, button=False, gyroid=None):
+    """gyroid=(face_Yr, sign): open sheet gyroid (the walls' period and thickness, in rig coordinates so
+    it lines up with the walls) inside a PANEL_BORDER solid frame; y = face_Yr + sign * y is the rig Yr."""
     X = x - PANEL_W / 2
     d = z + RIM_D + 0.1                    # print z runs down the panel
     s = np.ones(np.broadcast_shapes(X.shape, d.shape), bool)
+    if gyroid is not None:
+        k = 2 * np.pi / GYROID_PERIOD
+        Y = gyroid[0] + gyroid[1] * y
+        g = np.sin(k * X) * np.cos(k * Y) + np.sin(k * Y) * np.cos(k * d) + np.sin(k * d) * np.cos(k * X)
+        inner = (np.abs(X) <= PANEL_W / 2 - PANEL_BORDER) & (z >= PANEL_BORDER) & (z <= PANEL_H - PANEL_BORDER)
+        s &= ~inner | (np.abs(g) <= GYROID_T)
     inset = max(CHAMFER * 0.5 - y, 0.0)
     s &= (np.abs(X) <= PANEL_W / 2 - inset)
     if grille:
