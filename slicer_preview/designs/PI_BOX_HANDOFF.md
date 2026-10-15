@@ -13,9 +13,41 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - **No extra pieces unless asked.** For example, a separate camera cartridge or plug was rejected outright.
 - Commit and push as you go. Push with `git -c sendpack.sideband=false push`.
 
+## Assembly paused 2026-10-15 evening: the user is printing the last bits at home
+- **Wiring done**, including the power switch (Gebildet 16 mm latching, 5-wire pigtail, colours confirmed with a
+  meter): **green = C** (from the PD trigger +15 V, via an inline WAGO), **yellow = NO** (to the + WAGO with lidar +,
+  buck + and red), **white = NC** (unused, insulated), **red = LED +** (on the NO side, so the ring means "powered"),
+  **black = LED −** (ground WAGO). Ground never goes through the switch.
+- **Cameras verified in the box** over SSH (guest Wi-Fi, `lidarpi` at 172.16.25.240): both OV9281s are listed
+  (index 0 = CAM0 `i2c@88000`, index 1 = CAM1 `i2c@80000`), both stream 1280×800, sharp, focus held after
+  the filed seats. `throttled=0x0` with the switch in the loop. Which camera is −X / +X is **not** mapped yet
+  (cover one lens and re-grab).
+  - **Gotcha:** `rpicam-still` JPEGs come out solid black (every pixel 1) on these mono sensors. Use
+    `rpicam-vid --codec yuv420` (or raw) frames; they're fine.
+- **Inserts:** M3 Ø4 × 4 in the floor bosses; M2.5 in the Pi posts at d 75.5 (×2) and in the flip adapter at
+  d 133.5 (×2, set before gluing the adapter), none in the unused d 17.5 posts; M2 × 8 in the camera bosses.
+- **Cross:** the user is flying the hand-countersunk 4.76 cross on Monday with a ≥1 mm ¼" washer under the CAMVATE
+  mount (otherwise the 13.6 mm screw bottoms out ~0.2 mm before clamping), red Loctite and a witness mark. That
+  supersedes "Don't fly it" below. `cage_v4.py` (hub 8.0, csk from the lidar face) is modelled and was shown in the
+  viewer; it's the spare / long-term part. Layer-area check and `.goo` not run yet.
+- **Not modelled yet:** the Pi flip **post + arch adapter** (d 133.5, X ±24.5). Sketch it for the user first
+  (hard rule), then viewer, then checks. Its M2.5 bores: caliper the inserts first (`PI_INSERT_D` is [MEASURE]).
+
 ## Status
 - **Core v2 printed clean (2026-10-15).** See "Print results: core v2". It's in use. The camera seats were filed
-  to fit; there are fixes for a v3.
+  to fit.
+- **No core v3 (user decision, 2026-10-15).** The "v3 fix" notes below are a record only. The right-angle USB-C plug
+  hits the −X camera board, so the plan is to **flip the Pi 180° in its plane** (USB-C to the +X edge, d ~126).
+  Its port-end holes reuse the existing lower posts (d 75.5). The two free-end holes (d 133.5, X ±24.5) get a
+  printed **post + arch adapter glued to the inner core**. If the existing posts don't work out, print a second
+  adapter and glue both. Overlay study: `PI_FLIP=1 python generate.py pi_box_bat_core`. The user is mocking up the
+  cable routing with two screws first.
+- **UE300 after the flip: its cord doesn't reach.** The port moves to X −12, d 48 and faces the flange. That leaves
+  93 mm in a straight line from the plug top to the cord exit, plus a U-turn, against 38 mm of cord (½" rigid plug).
+  **Not needed for Monday:** it's the office link, there to save wear on the M12 plug. Plan: a "uni" USB 3 gigabit
+  adapter (body 53 × 24 mm, thickness [MEASURE]; 142 mm cord, plug excluded), which reaches from the floor cradle
+  with ~15–30 mm of slack. It's smaller than the UE300 cradle, so glue it to the cradle's sidewalls. Reprint the
+  floor later only if needed.
 - Core reprint started 2026-10-14 night from the commit after `e572396` (flat seat; cord and lidar cable re-routed
   inboard over it, |X| < 22; clash check clean apart from the bank's intended contact at d 22). Layer areas, read
   from the .goo: peak 7,117 mm² (flange, 0–4 mm), a single −25% step to 5,319 at 4.00 mm (plate top, the fillet

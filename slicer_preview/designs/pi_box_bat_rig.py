@@ -460,6 +460,26 @@ USBC_LEAD = [(8.0, -51.0, -BUCK[4]), (-30, -50, -128), (-39.05, CAM_RIB_Y, -126)
              (-33, CAM_RIB_Y, -47), (-33, -34, -25)]              # up the -X camera rib's clips, inboard of the camera block, to the plug
 
 
+# ── PI_FLIP=1 (overlay study, 2026-10-15): Pi turned 180° in its plane so the USB-C clears the -X camera.
+#    Its USB/Ethernet-end holes land on the existing lower posts (d 75.5); two new posts go at d 133.5.
+#    Only the overlays move; routes ending at the Pi are hidden and its ports shown as markers. ──
+PI_FLIP = os.environ.get('PI_FLIP') == '1'
+PI_FLIP_TOP = PI_TOP_D + 61.5 - (85.0 - 61.5)        # 52: the port end of the board
+
+
+# UE300 (user, 2026-10-15): the rigid USB-A plug stands ~1/2" out of the port, then ~1.5" of flexible cord to the
+# adapter body. Flipped, the port faces the flange, so the plug points up and the cord must U-turn back down.
+UE_PLUG_L, UE_CORD_L = 12.7, 38.1
+UE_PLUG_X, UE_PORT_D = 28.0 - 40.0, PI_FLIP_TOP - 3.5     # board by 40; port mouth ~3.5 past the board's port end
+
+
+def pi_pt(bx, by):
+    """Pi board coords (bx from the SD end, by from the HDMI edge) -> rig (X, depth), flipped or not."""
+    if PI_FLIP:
+        return 28.0 - by, PI_FLIP_TOP + 85.0 - bx
+    return by - 28.0, PI_TOP_D + bx
+
+
 def _decimate(tris, grid=0.25):
     """Vertex clustering: snap to a grid and drop collapsed triangles (overlay only)."""
     q = np.round(tris / grid) * grid
@@ -491,9 +511,23 @@ def build_overlays():
     if (MODELS / 'rpi5.stl').exists():
         t = _decimate(_load('rpi5.stl'))
         bx, by, bz = t[..., 0], t[..., 1], t[..., 2]
-        emit('pi5', np.stack([by - 28.0, PCB_YR - bz, -(PI_TOP_D + bx)], -1), '#2ecc71', 0.55, 'Pi 5 (official STEP)')
-    # Active Cooler envelope [MEASURE]: over the SoC area, ~14 mm above the board
-    emit('cooler', _box(-24, 18, PCB_YR - 1.6 - 14, PCB_YR - 1.6, -(PI_TOP_D + 62), -(PI_TOP_D + 12)), '#95a5a6', 0.35, 'Active Cooler envelope [MEASURE]')
+        X, D = pi_pt(bx, by)
+        emit('pi5', np.stack([X, PCB_YR - bz, -D], -1), '#2ecc71', 0.55,
+             'Pi 5 (official STEP)' + (', FLIPPED' if PI_FLIP else ''))
+    # Active Cooler envelope [MEASURE]: over the SoC area, ~14 mm above the board (board by 4..46, bx 12..62)
+    (cx0, cd0), (cx1, cd1) = pi_pt(12, 4), pi_pt(62, 46)
+    emit('cooler', _box(min(cx0, cx1), max(cx0, cx1), PCB_YR - 1.6 - 14, PCB_YR - 1.6, -max(cd0, cd1), -min(cd0, cd1)),
+         '#95a5a6', 0.35, 'Active Cooler envelope [MEASURE]')
+    if PI_FLIP:
+        holes = [pi_pt(bx, by) for bx in (3.5, 61.5) for by in (3.5, 52.5)]
+        emit('pi_flip_screws', np.concatenate([_cyl((x, 0, -d), 'y', 1.25, PCB_YR - 6, PCB_YR + 12) for x, d in holes]),
+             '#c0392b', 0.9, 'flipped Pi: M2.5 screw axes (two at d 133.5 need new posts)')
+        marks = {'Ethernet jack': (88.5, 10), 'USB 3 port (UE300)': (88.5, 40), 'camera connectors': (53, 9),
+                 'USB-C (power)': (11.2, 0)}
+        emit('pi_flip_ports', np.concatenate([_box(x - 2, x + 2, PCB_YR - 14, PCB_YR - 6, -d - 2, -d + 2)
+                                              for x, d in (pi_pt(bx, by) for bx, by in marks.values())]),
+             '#f1c40f', 1.0, 'flipped Pi port markers: ' + ', '.join(f'{k} X {pi_pt(*v)[0]:.0f} d {pi_pt(*v)[1]:.0f}'
+                                                              for k, v in marks.items()))
 
     # Mid-360S: model Y up (base at -25.92), connector +X; sits on the 6.35 plate
     if (MODELS / 'mid360s.stl').exists():
@@ -532,12 +566,15 @@ def build_overlays():
     # BATTERY: the bank
     a = ETH_ADAPTER
     emit('eth_adapter', np.concatenate([
-        _box(a['x'] - a['wx'] / 2, a['x'] + a['wx'] / 2, a['y'] - a['wy'] / 2, a['y'] + a['wy'] / 2, -DEPTH, -DEPTH + a['h']),
-        _box(USB3_PORT[0] - 6, USB3_PORT[0] + 6, USB3_PORT[1] - 2.5, USB3_PORT[1] + 2.5,
+        _box(a['x'] - a['wx'] / 2, a['x'] + a['wx'] / 2, a['y'] - a['wy'] / 2, a['y'] + a['wy'] / 2, -DEPTH, -DEPTH + a['h'])]
+        + ([_box(UE_PLUG_X - 7.5, UE_PLUG_X + 7.5, USB3_PORT[1] - 3.5, USB3_PORT[1] + 3.5,     # plug + housing in the port
+                 -UE_PORT_D, -UE_PORT_D + UE_PLUG_L),
+            _tube([(a['x'], a['y'], -DEPTH + a['h']), (a['x'], a['y'], -DEPTH + a['h'] + UE_CORD_L)], 1.8)]   # cord, straight up = max reach
+           if PI_FLIP else [_box(USB3_PORT[0] - 6, USB3_PORT[0] + 6, USB3_PORT[1] - 2.5, USB3_PORT[1] + 2.5,
              USB3_PORT[2] - 22, USB3_PORT[2]),                          # USB-A plug + housing
         _tube([(a['x'], a['y'], -DEPTH + a['h']), (a['x'], a['y'], -DEPTH + a['h'] + 4), (25, -37, -DEPTH + a['h'] + 4),
                (25, -38, USB3_PORT[2] - 28), (USB3_PORT[0], USB3_PORT[1], USB3_PORT[2] - 28),
-               (USB3_PORT[0], USB3_PORT[1], USB3_PORT[2] - 22)], 1.8)]),
+               (USB3_PORT[0], USB3_PORT[1], USB3_PORT[2] - 22)], 1.8)])),
         '#ecf0f1', 0.8, 'TP-Link UE300 → office link (RJ45 in the floor)')
     x0, x1, y0, y1, d0, d1 = PD_TRIGGER
     emit('pd_trigger', np.concatenate([_box(x0, x1, y0, y1, -d1, -d0), _tube(BUILTIN_CORD, 2.0)]),
@@ -559,6 +596,13 @@ def build_overlays():
          '#e74c3c', 0.8, 'power switch, 16 mm latching (15 V line)')
 
     # Cables (schematic routes, see the route constants above)
+    if PI_FLIP:    # routes ending at the Pi are stale once it's flipped: show only the ones that don't
+        emit('m12_plug', _cyl((0, 0, M12_ZR), 'y', M12_PLUG[2], M12_PLUG[0], M12_PLUG[1]), '#1f4e79', 0.9,
+             'M12 plug (straight, ~45 long) [MEASURE]')
+        emit('cable_lidar_power', _tube(LIDAR_POWER, 2.0), '#8e1b1b', 1.0, 'lidar power pair (split) → WAGO')
+        emit('cable_battery', _tube(BATTERY_LEAD, 2.0), '#e74c3c', 1.0, 'PD trigger cord (15 V) → power switch → WAGO')
+        emit('cable_buck_in', _tube(BUCK_IN, 1.5), '#f1948a', 1.0, 'WAGO → buck input')
+        return out
     emit('cable_ribbons', np.concatenate([_strip(RIBBON_NEAR[:-1], 13, 0.3, [0, 1.0, 0]),
                                           _strip(RIBBON_NEAR[-2:], 13, 0.3, [1.0, 0, 0]),
                                           _strip(RIBBON_FAR[:-1], 13, 0.3, [0, 1.0, 0]),
