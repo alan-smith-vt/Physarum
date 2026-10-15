@@ -29,7 +29,7 @@ MM = 0.001
 MATS = {
     'resin':     dict(color=(0.055, 0.058, 0.065), rough=0.42, spec=0.45),
     'clear':     dict(color=(0.85, 0.9, 0.95), rough=0.06, transmission=1.0, ior=1.5),
-    'clear_blue': dict(color=(0.35, 0.62, 0.95), rough=0.1, transmission=1.0, ior=1.5),   # Siraya ABS-like clear blue
+    'clear_blue': dict(color=(0.35, 0.62, 0.95), rough=0.1, transmission=1.0, ior=1.5),   # Elegoo ABS-like clear blue
     'alu':       dict(color=(0.86, 0.87, 0.89), rough=0.28, metal=1.0),
     'alu_dark':  dict(color=(0.55, 0.56, 0.58), rough=0.35, metal=1.0),
     'black':     dict(color=(0.02, 0.02, 0.022), rough=0.5),
