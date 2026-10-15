@@ -131,6 +131,24 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - **Monday site visit with the plastic cage:** the ¼" screw through the resin flange is the only load path. The
   smaller tube is the backup. Also suggested: a tether from the cage to the pole below the coupler.
 
+## Printer network: slow uploads (test when no print is running)
+- Measured 2026-10-14 over the same link:
+  - Ping: 0 % loss, ~5 ms.
+  - Download from the printer (a timelapse): **3.3 MB/s**.
+  - Upload of a 241 MB .goo: **0.28 MB/s** (~15 min). That's ~3.7 s per 1 MB chunk, against ~0.3 s for the bytes.
+  - So the time goes to the printer's per-chunk handling, not to the network.
+- `sdcp.py upload` now prints per-chunk time and rate, and takes `chunk=` / `check=` options for testing.
+- Tests (with a ~20 MB .goo, printer idle):
+  1. Default upload. Is chunk time constant, or does it grow with offset? Growth means the whole file is
+     re-hashed per chunk.
+  2. `check=0`.
+  3. `chunk=4194304`, then `chunk=8388608`, if the printer accepts them.
+  4. Send the same file from ELEGOO's software and time it, to see whether it's just as slow (firmware).
+  Keep whatever is fastest and still verifies (the file prints).
+- Also found: **telnet (port 23) is open** with a Linux `login:` prompt. The board runs embedded Linux
+  (RTSP server "ireader/media-server"). Not logged into; see the firmware discussion with the user before
+  trying anything.
+
 ## Flood-fill gyroid support: coupon tests (2026-10-14, before the panels)
 Background (patterns, mechanics, support and infill trade-offs): [`../TPMS_NOTES.md`](../TPMS_NOTES.md).
 Goal (user): supports as a brute-force flood fill that needs no judgement, unlike trees.

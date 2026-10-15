@@ -9,7 +9,8 @@ Usage:
   python sdcp.py status
   python sdcp.py files
   python sdcp.py history [N]
-  python sdcp.py upload out/part.goo          (stores on printer, doesn't print)
+  python sdcp.py upload out/part.goo          (stores on printer, doesn't print; per-chunk timing)
+  python sdcp.py upload f.goo chunk=4194304 check=0   (upload speed tests)
   python sdcp.py print part.goo --yes         (starts a print!)
   python sdcp.py pause | resume | stop
   python sdcp.py watch                        (live status log, Ctrl+C to quit)
@@ -109,24 +110,31 @@ class Printer:
             rows += self.call(CMD_HISTORY_DETAIL, {"Id": ids[i:i + 10]}).get('HistoryDetailList', [])
         return sorted(rows, key=lambda t: t.get('BeginTime', 0))
 
-    def upload(self, path):
-        """Chunked upload to the printer's local storage. Does not start a print."""
+    def upload(self, path, chunk=CHUNK, check=1):
+        """Chunked upload to the printer's local storage. Does not start a print.
+        Prints per-chunk time and rate: uploads run ~0.28 MB/s against ~3.3 MB/s for downloads over the same
+        link (2026-10-14), so the time goes to the printer's per-chunk handling. chunk / check are for testing that."""
         import requests
         path = Path(path)
         data = path.read_bytes()
         md5 = hashlib.md5(data).hexdigest()
         upload_id = uuid.uuid4().hex
-        for offset in range(0, len(data), CHUNK):
-            chunk = data[offset:offset + CHUNK]
+        t_start = time.time()
+        for offset in range(0, len(data), chunk):
+            t0 = time.time()
+            piece = data[offset:offset + chunk]
             r = requests.post(f'http://{self.ip}:{PORT_WS}/uploadFile/upload', timeout=60,
-                              data={'S-File-MD5': md5, 'Check': '1', 'Offset': str(offset),
+                              data={'S-File-MD5': md5, 'Check': str(check), 'Offset': str(offset),
                                     'Uuid': upload_id, 'TotalSize': str(len(data))},
-                              files={'File': (path.name, chunk, 'application/octet-stream')})
+                              files={'File': (path.name, piece, 'application/octet-stream')})
             r.raise_for_status()
             body = r.json()
             if not body.get('success', body.get('code') in (0, '000000')):
                 raise RuntimeError(f"Upload rejected at offset {offset}: {body}")
-            print(f"  {min(offset + CHUNK, len(data)):,}/{len(data):,} bytes", flush=True)
+            dt, el = time.time() - t0, time.time() - t_start
+            done = min(offset + chunk, len(data))
+            print(f"  {done:,}/{len(data):,} bytes  chunk {dt:5.2f} s ({len(piece) / dt / 1e6:4.2f} MB/s)  "
+                  f"total {el:6.1f} s ({done / el / 1e6:4.2f} MB/s)", flush=True)
         return path.name
 
     def video_url(self):
@@ -236,7 +244,8 @@ def main(argv):
             print(f"{_fmt_time(t.get('BeginTime'))} → {_fmt_time(t.get('EndTime'))}  "
                   f"status={t.get('TaskStatus')}  {t.get('TaskName')}")
     elif cmd == 'upload':
-        print(f"Uploaded {p.upload(args[0])} to {p.ip}")
+        opt = dict(a.split('=', 1) for a in args[1:] if '=' in a)   # testing: chunk=4194304 check=0
+        print(f"Uploaded {p.upload(args[0], int(opt.get('chunk', CHUNK)), int(opt.get('check', 1)))} to {p.ip}")
     elif cmd == 'print':
         if '--yes' not in args:
             sys.exit("Starting a print moves the plate into the vat. Re-run with --yes.")
