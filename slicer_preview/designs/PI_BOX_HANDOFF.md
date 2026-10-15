@@ -14,7 +14,9 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - Commit and push as you go. Push with `git -c sendpack.sideband=false push`.
 
 ## Status
-- **Core reprint STARTED 2026-10-14 night** from the commit after `e572396` (flat seat; cord and lidar cable re-routed
+- **Core v2 printed clean (2026-10-15).** See "Print results: core v2". It's in use. The camera seats were filed
+  to fit; there are fixes for a v3.
+- Core reprint started 2026-10-14 night from the commit after `e572396` (flat seat; cord and lidar cable re-routed
   inboard over it, |X| < 22; clash check clean apart from the bank's intended contact at d 22). Layer areas, read
   from the .goo: peak 7,117 mm² (flange, 0–4 mm), a single −25% step to 5,319 at 4.00 mm (plate top, the fillet
   ramps it after that), and 950–1,800 above 25 mm. 3,600 layers at 2.6 s. Check on it with `python sdcp.py status`.
@@ -90,6 +92,22 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   exposure test and one hole-fit print (spacer bore, insert hole) first. Expect a shorter exposure and different
   hole allowances. Print the coupons in the new blend too.
 - Glue inserts with CA (superglue), not threadlocker. Wash and fully post-cure before gluing.
+
+## Print results: core v2 (reprint of 2026-10-14 night, checked 2026-10-15)
+- **Clean print.** The open flange held, with no delamination at the flange or at the 4 mm step.
+- **Minor delamination under the floor screw seats on the Pi side.** The battery-side seats line up with a rib and
+  printed clean. If there's a v3, give the Pi-side seats a rib or web underneath, or ramp them in.
+- **Surface:** no terracing on the flange fillet or chamfers, so Z-AA isn't needed (see Modelling notes).
+- **Spacers:** fit the Ø8.6 bores. The plate-face allowance is confirmed.
+- **Cable clips:** the big clips are exactly right for the M12. The small clips are a little too big to clip onto
+  the smaller cords. Tighten them for v3.
+- **Battery:** fits on the flat seat with ~1 mm vertical and ~2 mm horizontal clearance (totals, not per side).
+  The plan is to pad the bank's edges for a snug fit. No geometry change.
+- **Camera seats: the only major issue.** Each camera board has two small nubs, one on either side, where the lens
+  screws attach to the PCB. They hold the board ~4 mm off its seat. The user filed the seats down to fit this
+  print. **v3 fix:** two horizontal bores in each camera seat, centred vertically between the screw holes, for
+  clearance.
+- **Not checked yet:** the thread inserts haven't arrived (`PI_INSERT_D` / `CAM_INSERT_D` are still [MEASURE]).
 
 ## Test-fit results on the first core (2026-10-14)
 - **Pi:** standoff alignment passes with the real board. The insert bores take an M3, so they're ≥ Ø3.0. The deeper
