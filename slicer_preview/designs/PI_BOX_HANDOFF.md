@@ -106,12 +106,44 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   The cross is in `CAGE_HANDOFF.md`'s scope.
 - **Panels:** don't print them yet. The print file (`pi_box_bat_panel.py`) currently makes a 12 mm gyroid panel
   with a 6 mm solid frame (max layer 6,628 mm²). A plain panel printed flat would be ~16,000 mm² per layer, which
-  is too much, but the user prefers the plain look. **First run the backlogged coupon experiments** (start from the 2026-10-11 coupon,
-  [`tpms_coupon.py`](tpms_coupon.py): 4×4 cells, solid fraction 15–40 % × cap gap 0.10–0.50 mm): flat coupons
-  printed on TPMS support cubes / thin gyroid rafts with different parameters (period, sheet thickness, raft
-  height, gap to the plate). They tell us how much the TPMS roughens the coupon's face. If a thin gyroid raft with
-  a flat plate on top gives an acceptable finish, print the plain panel that way. Otherwise keep the gyroid panel
-  (or print it on edge).
+  is too much, but the user prefers the plain look. Run the coupon tests below first. If a gyroid raft with a fine
+  lattice interface leaves an acceptable face, print the plain panel on one. Otherwise keep the gyroid panel (or
+  print it on edge).
+
+## Flood-fill gyroid support: coupon tests (2026-10-14, before the panels)
+Goal (user): supports as a brute-force flood fill that needs no judgement, unlike trees.
+- The pipeline: encase the part in gyroid, cull to the part's "shadow" (columns under downward-facing surfaces),
+  clear by distance from the part, then grade sparse→dense toward the interface.
+- The interface is a **fine-lattice band** only where the surface faces down past ~45°. Every other surface gets an
+  air gap.
+- Drop lattice islands that don't reach the plate. Leave out the insides of closed cavities. Run the layer-area
+  check, then print.
+- Tips/cones were rejected: if we wanted tips we'd use trees.
+
+Start from [`tpms_coupon.py`](tpms_coupon.py) (2026-10-11, never printed; not in the printer history):
+- 4×4 cells, each a TPMS block with a solid cap floating above it.
+- Rows: solid fraction 15–40 %. Columns: cap gap 0.10–0.50 mm.
+- ID holes are punched in the caps.
+
+Extend it so each cell is a **graded gyroid block → fine-lattice interface band → flat cap** (the cap stands in
+for the part's down-facing face). Variables:
+- fine-lattice period and sheet thickness
+- interface band height
+- the air gap between band and cap (the cap only holds if the gap is under the cure depth, so the gap is part of
+  what's being tested)
+
+**Measure two things per cell:**
+1. **Finish:** how rough the cap's underside is. Compare it to the plate-side face and to a tree-supported face.
+2. **Break-off force per mm² of interface:** a spring scale or weights, until the cap comes off. Also time how long
+   cleanup takes.
+
+Pick gap and lattice settings once from these and reuse them.
+- Break-off force should become an automatic check: the interface must let go at less force than the part's
+  weakest feature (its cross-section × resin strength), so freeing a thin arm doesn't snap it.
+- Also try one cell with an enclosed pocket (a lattice-filled gap like between an arm and a torso). It shows
+  whether fine lattice can be picked out of confined spaces.
+- Show the coupon layout to the user before modelling (hard rule).
+
 - **Monday site visit with the plastic cage:** the ¼" screw through the resin flange is the only load path. The
   smaller tube is the backup. Also suggested: a tether from the cage to the pole below the coupler.
 
