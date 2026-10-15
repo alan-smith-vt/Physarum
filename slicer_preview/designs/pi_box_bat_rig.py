@@ -444,7 +444,7 @@ _NOTCH_D = (FLANGE_PLATE + RIM_D) / 2                                   # cable 
 _LOOP_R = (M12_ZR + _NOTCH_D) / 2                                         # plug axis down to the notch
 _LOOP = [(0, M12_PLUG[1] + _LOOP_R * np.sin(a), M12_ZR - _LOOP_R + _LOOP_R * np.cos(a)) for a in np.linspace(0, np.pi, 13)]
 LIDAR_CABLE = (_LOOP +                                                   # 180° turn outside the box end
-               [(0, 62, -_NOTCH_D), (0, 51, -_NOTCH_D), (0, 47, -15), (-20, 40, -15), (-29, 30, -15), (-35, 18, -30)]   # rim notch, over the bank
+               [(0, 62, -_NOTCH_D), (0, 51, -_NOTCH_D), (0, 47, -15), (-18, 40, -15), (-18, 28, -15), (-29, 25, -18), (-35, 18, -30)]   # rim notch, over the bank inboard of the flat seat
                + _slack_pts()
                + [(-38, 22.8, -72), (-38, 22.8, -92), (-37, 0, -93),       # stop-rib clip, -X low web slot
                   (-37, -7.2, -100), (-37, -7.2, -126),                    # Pi-side web clip
@@ -452,7 +452,7 @@ LIDAR_CABLE = (_LOOP +                                                   # 180°
 SW_C = (POWER_SWITCH['side'] * (X_IN - POWER_SWITCH['body_len']), POWER_SWITCH['y'], -POWER_SWITCH['d'])   # switch body's inner end
 WAGO_C = (-8.0, -40.0, -172.0)
 LIDAR_POWER = [(-30, -40, -112), (-20, -48, -140), (-12, -44, -160), WAGO_C]   # Livox split's power pair -> WAGO
-BUILTIN_CORD = [CORD_ROOT, (30, 43, -16), (29, 30, -16), (33, 22, -22), (36, 18, -PD_TRIGGER[4])]   # between the cradle rails, into the +X bay
+BUILTIN_CORD = [CORD_ROOT, (30, 43, -16), (20, 38, -16), (20, 28, -16), (33, 22, -22), (36, 18, -PD_TRIGGER[4])]   # between the cradle rails, over the bank inboard of the flat seat, into the +X bay
 BATTERY_LEAD = [(36, 10, -PD_TRIGGER[5] + 2), (37, 5.95, -50), (37, 5.95, -68), (37, 0, -90), (28, -25, -95),
                 (24, -50, -110), (-10, -52, -150), SW_C, WAGO_C]  # trigger -> battery-side web clip -> low web slot -> under the Pi -> switch -> WAGO
 BUCK_IN = [WAGO_C, (8.0, -46.5, -170.0)]
