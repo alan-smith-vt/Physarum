@@ -14,6 +14,10 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - Commit and push as you go. Push with `git -c sendpack.sideband=false push`.
 
 ## Status
+- **Core reprint STARTED 2026-10-14 night** from the commit after `e572396` (flat seat; cord and lidar cable re-routed
+  inboard over it, |X| < 22; clash check clean apart from the bank's intended contact at d 22). Layer areas, read
+  from the .goo: peak 7,117 mm² (flange, 0–4 mm), a single −25% step to 5,319 at 4.00 mm (plate top, the fillet
+  ramps it after that), and 950–1,800 above 25 mm. 3,600 layers at 2.6 s. Check on it with `python sdcp.py status`.
 - **First core printed 2026-10-13/14** (Physarum `1b3f47e`). It stays as the mock-up. Problems found:
   1. The flange delaminated ~5 mm up.
   2. The inset camera seats can't be assembled.
