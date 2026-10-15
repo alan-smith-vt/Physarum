@@ -105,9 +105,23 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   - M2.5 / M2 inserts: caliper their OD, then set `PI_INSERT_D` / `CAM_INSERT_D`, which are still [MEASURE]
 
 ## Other to-dos (not for tonight's core)
-- **Reprint the cross top** with a **countersunk ¼" head** on one side, thickened for safety, so the GoPro can be
-  attached Monday. The GoPro mount isn't a fixed orientation; it gets calibrated as-is for that one day.
-  The cross is in `CAGE_HANDOFF.md`'s scope.
+- **Reprint the cross top: a STRUCTURAL requirement for Monday, not a convenience.** It needs a **countersunk ¼"
+  head** on one side, and it must be **thickened**.
+  - On Monday the ¼" screw through the resin is the only load path holding the GoPro.
+  - The existing crosses are 4.76 mm thick. Sinking a ¼" flat head flush (82°, ~12.7 mm head, ~3.6 mm deep)
+    leaves only ~1.1 mm of plate under the cone.
+  - The user is drilling one of the two existing crosses for **practice and fit only**. Don't fly it.
+  - Print the thickened version in the calibrated black blend before Monday.
+  - The GoPro mount isn't a fixed orientation; it gets calibrated as-is for that one day. The cross is in
+    `CAGE_HANDOFF.md`'s scope.
+- **Regenerate the floor and the panels before printing them.** Any outputs from before 2026-10-14 are stale:
+  - The floor's collar follows `WELL_R` (now 21.5 for the Ø43 tube).
+  - The panel print file is now the gyroid panel.
+  - Re-run `generate.py` and `to_goo.py` for `pi_box_bat_lids` and `pi_box_bat_panel` from current main, and check
+    their layer areas.
+- **Battery fit fallback.** If the bank doesn't quite fit under the new flat seat (the floor won't close, or it
+  pinches), cut a **slight recess into the floor** under the bank. That's the agreed fallback; don't re-slope
+  the seat. `BAT_H_MARGIN` is +1 mm on an unmeasured bank height, so caliper the bank first.
 - **Panels:** don't print them yet. The print file (`pi_box_bat_panel.py`) currently makes a 12 mm gyroid panel
   with a 6 mm solid frame (max layer 6,628 mm²). A plain panel printed flat would be ~16,000 mm² per layer, which
   is too much, but the user prefers the plain look. Run the coupon tests below first. If a gyroid raft with a fine
@@ -166,6 +180,17 @@ Pick gap and lattice settings once from these and reuse them.
   smooth ops). `Half(nx, ny, nd, c)` is the half-space nx·X + ny·Y + nd·d ≤ c.
 - Rig constants are in `pi_box_bat_rig.py`. Lines marked BATTERY are overrides. The core imports them with `*`.
 - `PI_BOX_AA=1` turns on grayscale edges. It's off by default, because gray pixels cure less and shift fits.
+  - **Verdict (2026-10-14): in-plane AA isn't needed at 16K.** The first core's tube bore came out "smooth as
+    glass". The pixels are 14 × 19 µm, and light bleed already softens the steps.
+  - Leave it off. It isn't part of the restock calibration.
+- **Z anti-aliasing (potential, not built):** the visible artefact left at 16K is **layer terracing on shallow
+  slopes** (fillets, chamfers, domes): 50 µm steps. In-plane AA can't fix it.
+  - The fix would be greyscale blending between layers: each edge pixel's grey set by where the surface crosses
+    the layer, from the SDF.
+  - `sdf.py` already has the distance it needs.
+  - Look at the reprinted core's flange fillet and chamfers first. Only pursue this if the terracing there
+    matters.
+  - It needs its own exposure calibration (grey → cure-depth curve), like any greyscale.
 - Floor and panels are still mask functions (`implicit_piece`).
 - Preview resolution is 16× coarser than the print: 224×304 µm pixels and 160 µm layers, against 14×19 µm and 50 µm.
 
