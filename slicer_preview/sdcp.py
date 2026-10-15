@@ -13,9 +13,25 @@ Usage:
   python sdcp.py print part.goo --yes         (starts a print!)
   python sdcp.py pause | resume | stop
   python sdcp.py watch                        (live status log, Ctrl+C to quit)
+  python sdcp.py camera                       (live view in ffplay; quit with q / close the window)
+  python sdcp.py snapshot [out.jpg]           (one camera frame)
+  python sdcp.py timelapse [N] [out.mp4]      (timelapse of the Nth-latest print, default 1 = latest)
 
 Verified 2026-10-11: discover, status, files, history, watch, upload, print
 (exposure_test.goo ran to completion). NOT yet verified: pause/resume/stop.
+
+Camera (found 2026-10-14):
+  - Cmd 386 {"Enable": 1} switches the stream on and returns rtsp://<ip>:554/video (H.264, 1280×720, 30 fps).
+  - The SDP says "H264/9000": the RTP clock is misreported (H.264 is always 90000), so players that trust
+    the timestamps show ~3 fps. Use -use_wallclock_as_timestamps 1 (time frames by arrival).
+  - UDP only: the server answers a TCP-interleaved SETUP with a UDP transport, which ffmpeg rejects
+    ("Nonmatching transport"). Expect some packet loss over Wi-Fi; -buffer_size 4000000 helps.
+  - At most 2 viewers (attributes MaximumVideoStreamAllowed). Sessions that are killed without an RTSP
+    TEARDOWN stay counted (NumberOfVideoStreamConnected) and did NOT time out after minutes; once over the
+    limit, Cmd 386 returns Ack 1 for both on and off. Only a printer power-cycle cleared it. So: let
+    ffmpeg/ffplay exit on their own (frame limit, q, window close, -timeout), never kill them, and check
+    the count before connecting (camera/snapshot below refuse when it's full).
+  - Timelapses: history detail has TimeLapseVideoUrl (a path); download http://<ip>:3030<path>.
 """
 import sys, json, time, uuid, socket, hashlib, asyncio, datetime
 from pathlib import Path
@@ -27,6 +43,7 @@ CHUNK = 1024 * 1024
 CMD_STATUS, CMD_ATTRIBUTES = 0, 1
 CMD_PRINT, CMD_PAUSE, CMD_STOP, CMD_RESUME = 128, 129, 130, 131
 CMD_FILES, CMD_HISTORY, CMD_HISTORY_DETAIL = 258, 320, 321
+CMD_VIDEO = 386
 
 
 def discover(timeout=3.0):
@@ -112,6 +129,36 @@ class Printer:
             print(f"  {min(offset + CHUNK, len(data)):,}/{len(data):,} bytes", flush=True)
         return path.name
 
+    def video_url(self):
+        """Switch the camera stream on and return its RTSP URL, refusing if all viewer slots are taken
+        (stale sessions would lock the camera until a power-cycle; see the module notes)."""
+        a = self.attributes()
+        n, cap = a.get('NumberOfVideoStreamConnected', 0), a.get('MaximumVideoStreamAllowed', 2)
+        if n >= cap:
+            sys.exit(f"Camera full: {n} viewer(s) connected, limit {cap}. Close other viewers; "
+                     f"stale sessions only clear with a printer power-cycle.")
+        r = self.call(CMD_VIDEO, {"Enable": 1})
+        if r.get('Ack') != 0 or not r.get('VideoUrl'):
+            sys.exit(f"Camera refused: {r}")
+        return r['VideoUrl']
+
+    def timelapse(self, nth=1, out=None):
+        tasks = [t for t in self.history() if t.get('TimeLapseVideoUrl')]
+        if len(tasks) < nth:
+            sys.exit(f"Only {len(tasks)} print(s) with a timelapse.")
+        t = tasks[-nth]
+        name = Path(t.get('TaskName', 'print')).stem
+        out = Path(out or Path(__file__).parent / 'out' / 'timelapse' /
+                   f"{name}_{datetime.datetime.fromtimestamp(t['BeginTime']):%Y-%m-%d_%H%M}.mp4")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        import requests
+        with requests.get(f"http://{self.ip}:{PORT_WS}{t['TimeLapseVideoUrl']}", stream=True, timeout=60) as r:
+            r.raise_for_status()
+            with open(out, 'wb') as f:
+                for block in r.iter_content(1 << 20):
+                    f.write(block)
+        return out
+
     def start_print(self, filename, start_layer=0):
         if not filename.startswith('/'):
             filename = f'/local/{filename}'
@@ -196,6 +243,22 @@ def main(argv):
         print(p.start_print(args[0]))
     elif cmd == 'watch':
         asyncio.run(_watch(p))
+    elif cmd in ('camera', 'snapshot'):
+        import subprocess
+        url = p.video_url()
+        flags = ['-hide_banner', '-loglevel', 'error', '-use_wallclock_as_timestamps', '1',
+                 '-buffer_size', '4000000', '-timeout', '10000000']     # exits by itself if the stream stalls
+        if cmd == 'camera':
+            print(f"{url}  (quit with q or by closing the window, not Ctrl+C, so the session is released)")
+            subprocess.run(['ffplay', *flags, '-window_title', 'Saturn camera', url])
+        else:
+            out = Path(args[0]) if args else Path(__file__).parent / 'out' / 'timelapse' /                 f"snapshot_{time.strftime('%Y-%m-%d_%H%M%S')}.jpg"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(['ffmpeg', *flags, '-i', url, '-frames:v', '1', '-update', '1', '-y', str(out)])
+            print(out)
+    elif cmd == 'timelapse':
+        nth = int(args[0]) if args else 1
+        print(p.timelapse(nth, args[1] if len(args) > 1 else None))
     elif cmd in ('pause', 'resume', 'stop'):
         print(p.call({'pause': CMD_PAUSE, 'resume': CMD_RESUME, 'stop': CMD_STOP}[cmd]))
     else:

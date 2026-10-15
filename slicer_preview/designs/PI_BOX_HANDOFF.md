@@ -175,6 +175,8 @@ Pick gap and lattice settings once from these and reuse them.
   regenerated files without a restart.
 - Clash check: `python -m designs.pi_box_check pi_box_bat_core`. Overhangs: `python -m designs.pi_box_overhangs`.
 - Print file: `python to_goo.py pi_box_bat_core` (`--gpu` is faster) → `out/pi_box_bat_core.goo`.
+- Printer camera: `python sdcp.py camera` (live; quit with q) / `snapshot` / `timelapse [N]`. The camera allows 2
+  viewers, and killed sessions lock it until a power-cycle: see the notes at the top of `sdcp.py`.
 - Printer: `python sdcp.py status` / `watch` / `history`. The printer is at 192.168.0.4 (found by discovery).
   A start right after an upload can return `Ack 1`; just retry.
 - Meshes: `python -m designs.pi_box_export > log 2>&1`, then check the log for `Traceback`.
