@@ -110,6 +110,9 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   lattice interface leaves an acceptable face, print the plain panel on one. Otherwise keep the gyroid panel (or
   print it on edge).
 
+- **Monday site visit with the plastic cage:** the ¼" screw through the resin flange is the only load path. The
+  smaller tube is the backup. Also suggested: a tether from the cage to the pole below the coupler.
+
 ## Flood-fill gyroid support: coupon tests (2026-10-14, before the panels)
 Goal (user): supports as a brute-force flood fill that needs no judgement, unlike trees.
 - The pipeline: encase the part in gyroid, cull to the part's "shadow" (columns under downward-facing surfaces),
@@ -143,9 +146,6 @@ Pick gap and lattice settings once from these and reuse them.
 - Also try one cell with an enclosed pocket (a lattice-filled gap like between an arm and a torso). It shows
   whether fine lattice can be picked out of confined spaces.
 - Show the coupon layout to the user before modelling (hard rule).
-
-- **Monday site visit with the plastic cage:** the ¼" screw through the resin flange is the only load path. The
-  smaller tube is the backup. Also suggested: a tether from the cage to the pole below the coupler.
 
 ## Other context (Pi system, done on the laptop today; no action here)
 - Power: Anker 20K bank → PD trigger at 15 V → two WAGO 221-413 → lidar, and → buck → Pi. On 22 AWG solid the Pi
