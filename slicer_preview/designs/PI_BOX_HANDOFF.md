@@ -1,100 +1,140 @@
-# Pi box (lidar rig): handoff, 2026-10-13 (evening)
+# Pi box (lidar rig): handoff, 2026-10-14 (evening), for the core reprint
 
-Design notes / decisions history live in the Notes vault:
-`D:\Notes\Reference\lidar-photo-rig-cage-handoff.md` (Pi box section, renders in
-`Reference/assets/pi-box-renders/`). The vault is NOT updated with this session's changes yet
-(it was on the laptop); renders for it are in `slicer_preview/out/renders_2026-10-13/` (gitignored).
+The decision history lives in the Notes vault (`Reference/lidar-photo-rig-cage-handoff.md`), but **the desktop
+doesn't have the vault**. Everything needed for the reprint is repeated here.
 
-## Print in progress (started 2026-10-13 ~22:50)
-- `pi_box_bat_core.goo` (3600 layers, ~11-12 h, 2.6 s / 20 s bottom, 75/25 Fast gray / Tenacious) is running
-  on the Saturn 4 Ultra 16K from the printer's own storage (`/local/pi_box_bat_core.goo`); the desktop
-  can be off. Check it: `python sdcp.py status` (PrintInfo.Status: 13/3/4 printing, 9 complete,
-  6 paused, 8 stopped; ErrorNumber 0 = OK) or `python sdcp.py watch`; `history` lists finished jobs.
-  Printer 192.168.0.4, found by discovery. A start right after an upload can return `Ack 1`: retry.
-- After it: wash + post-cure fully before gluing inserts (liquid CA on the insert's knurl, waxed screw in it).
+## How the user wants you to work (hard rules)
+- **Show a design change visually before modelling it.** Use a dimensioned sketch, section or figure, then wait
+  for approval. If a fix has more than one plausible shape, approval covers only the direction, so sketch the
+  concrete geometry first.
+- **After modelling, show it in the viewer first** (`python generate.py pi_box_bat_core`, then open
+  http://localhost:5555/battery). Run the clash check, path checks, area scans or exports only after the user
+  has looked at it.
+- **No extra pieces unless asked.** For example, a separate camera cartridge or plug was rejected outright.
+- Commit and push as you go. Push with `git -c sendpack.sideband=false push`.
 
-## State
-- Chosen design: **battery-in-box** (`pi_box_bat_*`), now the **compact symmetric layout**:
-  `Y_MAX = -Y_MIN` (design rule: the box is symmetric about the aluminium plate, ±62).
-  Core 281 cm3 (~324 g), 124 × 105 × 180 in print.
-- Wall fill: gyroid 12 mm / 0.35; sheets thicken over 6 mm into the bottom band (`FILL_RAMP`), no flat start.
-- Bank (Yr 30.8..55.8) right past the tube. Cradle: per wall one **stepped flap** (stop rib + front rail
-  merged) and a second rail near +Y; 45° shoulders over the bank's top corners; floor traps it below.
-  Rails/flap run solid through the gyroid as ribs. They avoid the M4 bores' screw path (Yr 34.7..45.3).
-- Under the Pi: buck + 2 WAGOs against the -Y panel, **power switch on the -X wall** (Yr -45, 155 deep).
-- Bank built-in cord (~15 cm) -> USB-C female coupler in the +X bay -> PD trigger's own long cord ->
-  battery-side web clip -> low web slot -> switch -> WAGO.
-- Lidar cable: M12 plug sticks out +Yr; cable loops 180° outside the +Y end, lies up into a **U-notch in
-  the +Y rim** (flange plate stays solid), panel closes it; over the bank, slack coil in the -X bay,
-  stop-rib clip, -X low web slot (17 × 22, RJ45 + ferrite pass), Pi-side web clip, up into the jack.
-  Rims at both ends are 14 deep (`RIM_D`) so panels stay identical (165.8 tall; DXF regenerated).
-- UE300 Ethernet dongle flush on the +X web (Pi side) on the floor, capped by a seat ledge on the web.
-  The +X Pi-side dowel/foot was removed for it (3 dowels now).
-- Cameras (OV9281, 160°, lens 18 from board face) 8 mm deeper on solid blocks grown from the flange;
-  lens ~4 proud, 2 mm guard lip; both connectors face down, ribbons drop out of block pockets.
-- Push-in C clips (opening 0.85 Ø): 3 per camera-pad rib, lidar clips on the -X stop rib and -X web,
-  big clip on the +X stop rib, two small on the +X web's battery face.
+## Status
+- **First core printed 2026-10-13/14** (Physarum `1b3f47e`). It stays as the mock-up. Problems found:
+  1. The flange delaminated ~5 mm up.
+  2. The inset camera seats can't be assembled.
+  3. The Al spacers just barely don't fit.
+- **Reprint planned for tonight (2026-10-14)**, but there is a blocker (see "Uncommitted / open" below).
+- The floor and panels aren't printed yet. Panels come last, after everything else works.
 
-## Fasteners / fits
-- Plate: M4×18 truss + 6 mm Al spacer (stepped bores, unchanged).
-- Floor: M3×6 button heads into glued M3 inserts (Ø4 × 3, in hand).
-- Pi: M2.5×6 socket caps into glued M2.5 inserts (kit). Cameras: M2×5 socket caps into glued M2 inserts.
-- Glue inserts with **superglue, not threadlocker** (anaerobic Loctite cures poorly on resin and can craze it).
-- Horizontal holes (Pi, cameras, switch) print +0.35 wide, +0.55 tall (`HORIZ_HOLE_EXTRA` 0.2):
-  between the fit strip's too-tight round and too-loose ellipse. First core is the fit test.
+## Changes since the first print (committed, on main)
+- `32d5072` **Spacer bores Ø8.6:** `SPACER_FIT = 0.25` on top of `RESIN_HOLE_COMP` 0.35, for both plate and boss bores.
+- `fa95b66` **Cameras moved to the −Y corners**, over the corner M4s:
+  - `CAM_YR ≈ −40.1`, `CAM_D = 30`. The board's −Yr edge sits on the panel-slot solid band.
+  - `CAM_RIB_Y = CAM_YR + 14`. Ribs are unclipped; the +X rib stops above the UE300.
+  - Ø `HEAD_D` vertical bores run through the camera blocks over the M4s.
+  - `CLIP_RIB_DS = (55, 80, 104)`. Clips and the USB-C/ribbon routes were re-routed.
+  - Assembly order: box on, corner M4s up through the bores, then cameras, then the Pi. To take the box off,
+    the cameras come out first.
+- `d5e86cb` / `89bbec6` **Power switch** at y = `CAM_YR`, with a square solid pad (`SWITCH_PAD_R = 12.5`).
+- `3a24da0` **Open flange**, the fix for the delamination:
+  - The plate keeps only what the body hangs off: walls, rims, bosses, webs, tube and camera blocks, plus rings
+    round the M3 recesses, a 3 mm perimeter band, a ring round the well, panel-midpoint spokes to the tube, and a
+    diamond between the edge midpoints.
+  - Organic windows (`_flange_field`: gaussian blur + EDT at 0.1 mm), plus a 3 mm quarter-round fillet into the body.
+  - The plate went from ~9,700 to ~6,400 mm² per layer. The suction vents were dropped.
 
-## Amazon cart (2026-10-13, not yet ordered), for review
-In the cart:
-- USB-C female-female coupler, 2-pack (bank's built-in cord -> PD trigger)
-- M2×5 socket cap ×50 (cameras), M2.5×6 socket cap ×50 (Pi), M3×6 button head ×50 (floor)
-- FFVRVSS 300-pc brass insert kit M2..M5 (heat-set kit; used here GLUED, resin can't be heat-set)
-- Gebildet 16 mm latching push button, 12-24 V / 5 A, LED, 2-pack (power switch)
+## Uncommitted / open in this working tree (committed with this handoff, read carefully)
+1. **Tube bore Ø52 → Ø43 (`WELL_R` 26 → 21.5, `TUBE_T` 2 unchanged). APPROVED; the user inspected it in the viewer.**
+   - The tube is a safety grip over the monopod's hard ring (~Ø42, 10 mm below the top); the foam grip below it
+     gets padded.
+   - Webs, Pi standoffs, flange ring and spokes, and the floor collar all follow `WELL_R` automatically.
+   - The monopod stand-in in the rig overlay has its ring set to Ø42. It's a clash-check reference only.
+2. **Flat battery seat. BLOCKER, NOT RESOLVED. Don't print it as it is.**
+   - Problem: the bank sits 5–10 mm lower than designed. Its rounded corners slide past the 45° shoulders.
+   - The user decided on a flat seat (no 45° slope) reaching 10 mm further in. The current code does that:
+     - `BAT_SHOULDER_X = 23.5` (was 33.5)
+     - `_rail()` uses `Half(0, 0, 1, BAT['d0'])`, i.e. solid for all d ≤ d0 = 22
+   - **The clash check fails:** the PD trigger (d 14–18) and the lidar cable (d 11.7–19.6) run through the new
+     solid, and the bank touches the seat at d 22 as intended.
+   - The user said "not fixing it right now". Before printing, **sketch the options for the user**. For example:
+     - a thin flat ledge at d0 with a 45° taper back up to the wall, kept out of the cable/trigger paths
+     - a flat seat only on the rail band that's clear of the cables
+     - revert to the 45° shoulders and pad the bank instead
+   - Don't pick one yourself.
+   - Bank facts (user, 2026-10-14):
+     - The bank's **ports are on the bottom** (floor end).
+     - A single permanent built-in cable leaves the **top**. It can fold 180° in the worst case.
+     - The bank is 74 wide (|X| ≤ 37) and spans Yr 30.8–55.8.
+3. **The layer-area scan hasn't been run on the new geometry** (see the printing rules below).
 
-Gaps found against these notes (check what's already on hand):
-- **Pi 5 camera cables ×2: 22-pin (Pi 5) to 15-pin (OV9281), ~150 mm.** OV9281 boards ship with
-  15-15 cables, which don't fit the Pi 5. Not in the cart.
-- **Superglue (gel CA)** for the inserts, if none on hand.
-- PD trigger (corded male USB-C, 15 V), 15->5 V USB-C buck, 2× WAGO 221-413: from the earlier rig
-  (cage handoff power chain); confirm they're on hand.
-- Right-angle USB-C lead, buck -> Pi (the route assumes a right-angle plug at the Pi).
-- TP-Link UE300 (USB 3 gigabit) for the office link: confirm owned.
-- Already owned per the cage handoff: M4×18 truss + 6 mm Al spacers, 3×6 dowels, M3×10 lidar screws.
-- Optional: thin foam for the bank / dongle (+1 mm margins), heat-shrink for the switch leads,
-  1/8" polycarbonate for the final panels (DXF `out/pi_box_panel.dxf`, 95.2 × 165.8, qty 2).
+## Checks
+- Clash check: `python -m designs.pi_box_check pi_box_bat_core`. It was clean before the seat change.
+- Path check: a scratch script on the laptop checked the camera insertion path, the key path and the Ø9.8 head
+  path. It isn't in the repo. Re-derive it if needed, or ask the user.
 
-## [MEASURE] before trusting the fit
-Bank height (157 + 1 margin), UE300 height (71, +1 margin), lidar cable Ø (7: notch, clips),
-lens holder (Ø19 bore passes round or ≤ ~13 square), M2/M2.5 insert OD (3.2 / 3.5 placeholders),
-camera-board keep-out round the holes (Ø6 bearing), buck/WAGO/switch body sizes.
+## Resin printing rules (Saturn 4 Ultra 16K, Fast gray / Tenacious Lava black 75/25)
+- **Exposure:** 2.4–2.6 s, with 20 s bottom layers. The core printed at 2.6 s.
+- **Printable area:** the LCD image is 211.7 × 118.4 mm. `to_goo` refuses anything larger.
+- **Keep every layer under ~8,000 mm².** Two prints split near that size: the v2 base plate (~8,000) and the
+  first core (~9,700 solid flange, split ~5 mm up). Check the per-layer area before printing.
+- **No sharp jumps in layer area.** The core split where it dropped from 9,700 to 3,800 mm². Ramp changes over a
+  few mm with fillets, chamfers or tapers.
+- **Holes:** vertical holes get +0.35 on the diameter (`RESIN_HOLE_COMP`). Horizontal holes get an extra +0.2 in
+  height (`HORIZ_HOLE_EXTRA`).
+- **Holes near the build plate need ~+0.25 more** (elephant's foot from the burn-in layers):
+  - Spacer bores starting in the flange: Ø8.0 + 0.35 was just too tight, so they're now Ø8.6 (not yet test-fitted).
+  - M3 insert holes at the far end: Ø4.0 + 0.35 is slightly loose (~0.1–0.2), which is good for glued inserts.
+  - The allowance may scale with hole size; there's not enough data yet.
+  - A small chamfer at the hole mouth on the plate face is an alternative.
+- Glue inserts with CA (superglue), not threadlocker. Wash and fully post-cure before gluing.
 
-## Next steps
-1. Print the core (`out/pi_box_bat_core.goo`), fit-test inserts, horizontal holes, clips, cradle.
-2. Take the measurements above; adjust; print floor + panels (blanks or cut PC from the DXF).
-3. Copy `out/renders_2026-10-13/` into the vault and update the vault handoff.
+## Test-fit results on the first core (2026-10-14)
+- **Pi:** standoff alignment passes with the real board. The insert bores take an M3, so they're ≥ Ø3.0. The deeper
+  clearance section is about Ø3 (an M3 would thread it, as expected).
+- **Camera bosses:** M2 passes. Hole alignment is **not** checked, because removing the lens would lose its
+  focus. The user is gambling on it.
+- **Lidar:** the M3 head recesses line up. The printed base plate still uses the lidar's own M3 screws, whose
+  heads drop through the recess area. On the metal plate, M3 button heads will sit on top and use the recesses.
+- **M3 floor inserts (Ø4):** slightly loose in their holes. Good as it is.
+- **Arriving Friday:**
+  - power switch: test the hole and pad
+  - UE300: test the cradle and jack opening (a floor part)
+  - M2.5 / M2 inserts: caliper their OD, then set `PI_INSERT_D` / `CAM_INSERT_D`, which are still [MEASURE]
 
-## Modelling: SDF core (2026-10-13)
-- `pi_box_bat_core.py` is a signed-distance tree (`slicer_preview/sdf.py`: Box / Cyl / Half / Fn, union /
-  inter / sub, smooth_union / smooth_sub for fillets, offset, shell). Every node has a bounding box;
-  slices are evaluated in tiles (128 px CPU, 2048 px GPU) on only the nodes that reach each tile.
-- Verified against the previous mask core: identical at preview res (141 layers) and full res
-  (10 layers; 2 tie pixels on a vent edge). Full-res slice 0.2-0.3 s/core CPU (was ~2.5), ~35 ms GPU;
-  `to_goo --gpu` 2.1 min (was 3.6). Check 4 s (was ~1 min), overhangs 20 s, mesh export 10 s.
-- Anti-aliasing: `PI_BOX_AA=1` writes grayscale edges (~2 % of lit pixels). OFF by default: gray
-  pixels cure less than white, so edges/fits shift. Calibrate first (exposure_test with gray edges)
-  before using it on fit-critical parts.
-- Floor / panels are still mask functions (`implicit_piece`); port them the same way if needed.
+## Other to-dos (not for tonight's core)
+- **Reprint the cross top** with a **countersunk ¼" head** on one side, thickened for safety, so the GoPro can be
+  attached Monday. The GoPro mount isn't a fixed orientation; it gets calibrated as-is for that one day.
+  The cross is in `CAGE_HANDOFF.md`'s scope.
+- **Panels:** print them with a gyroid mesh to match the walls, with solid edges (slot and groove bands solid).
+- **Monday site visit with the plastic cage:** the ¼" screw through the resin flange is the only load path. The
+  smaller tube is the backup. Also suggested: a tether from the cage to the pole below the coupler.
+
+## Other context (Pi system, done on the laptop today; no action here)
+- Power: Anker 20K bank → PD trigger at 15 V → two WAGO 221-413 → lidar, and → buck → Pi. On 22 AWG solid the Pi
+  reads 5.20 V with throttled 0x0.
+- Pi host `lidarpi`, user `lidar`, key-only SSH.
+- Lidar: Mid-360 at 192.168.1.171, Pi eth0 at 192.168.1.50. **The lidar is mounted upside down**; the IMU reads
+  z ≈ −1 g, so its extrinsic needs a 180° roll about x.
+- Livox-SDK2 receives nothing yet (raw UDP works).
+- Both OV9281 cameras work (dtoverlay ov9281 cam0 and cam1) and are focused.
+
+## Modelling notes
+- `pi_box_bat_core.py` is an SDF tree (`slicer_preview/sdf.py`: Box / Cyl / Half / Fn, union / inter / sub,
+  smooth ops). `Half(nx, ny, nd, c)` is the half-space nx·X + ny·Y + nd·d ≤ c.
+- Rig constants are in `pi_box_bat_rig.py`. Lines marked BATTERY are overrides. The core imports them with `*`.
+- `PI_BOX_AA=1` turns on grayscale edges. It's off by default, because gray pixels cure less and shift fits.
+- Floor and panels are still mask functions (`implicit_piece`).
+- Preview resolution is 16× coarser than the print: 224×304 µm pixels and 160 µm layers, against 14×19 µm and 50 µm.
 
 ## Commands (run from `slicer_preview/`)
-- Export meshes: `python -m designs.pi_box_export > log 2>&1`, check the log for `Traceback`
-  (a failed export leaves stale meshes that render silently). Core only: `PI_BOX_EXPORT_ONLY=core`.
-- Checks: `python -m designs.pi_box_check` (overlay clashes), `python -m designs.pi_box_overhangs`.
-- Render: `"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -t 4 -P designs/pi_box_render.py -- <outdir> [views] --samples 96 --res 1600 1200`
-  (default = full set incl. side_px/mx/py/my and pi_bay).
-- Viewer: `python generate.py pi_box_bat_panel pi_box_bat_lids pi_box_bat_core`, `python server.py` -> /battery.
-- Panels DXF: `python -m designs.pi_box_panel_dxf`. Print file: `python to_goo.py pi_box_bat_core`.
-- Reference models: `models/README.md` (Pi 5 + Mid-360S STEP -> STL via `models/step2stl.py`).
+- Viewer: `python generate.py pi_box_bat_core` (also `pi_box_bat_lids`, `pi_box_bat_panel`), then
+  `python server.py` → http://localhost:5555/battery (core), /batteryFloor, /batteryPanel. The server picks up
+  regenerated files without a restart.
+- Clash check: `python -m designs.pi_box_check pi_box_bat_core`. Overhangs: `python -m designs.pi_box_overhangs`.
+- Print file: `python to_goo.py pi_box_bat_core` (`--gpu` is faster) → `out/pi_box_bat_core.goo`.
+- Printer: `python sdcp.py status` / `watch` / `history`. The printer is at 192.168.0.4 (found by discovery).
+  A start right after an upload can return `Ack 1`; just retry.
+- Meshes: `python -m designs.pi_box_export > log 2>&1`, then check the log for `Traceback`.
+  Use `PI_BOX_EXPORT_ONLY=core` for the core alone.
+- Render: `"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -t 4 -P designs/pi_box_render.py -- <outdir> [views] --samples 96 --res 1600 1200`.
 
 ## Gotchas
-- Never render the web viewer headless (CPU fallback maxes the machine).
-- Don't edit `pi_box_bat_rig.py` with PowerShell Get/Set-Content: it re-encodes the UTF-8 (Ø × °).
-- Print frame: print x=Yr, y=d, z=-X (`to_print` / `from_print`). Viewer "up" = rig depth (floor end).
+- Never render the web viewer headless: the CPU fallback maxes out the machine.
+- Don't edit `pi_box_bat_rig.py` with PowerShell Get/Set-Content. It re-encodes the UTF-8 (Ø × °).
+- Print frame: print x = Yr, y = d, z = −X (`to_print` / `from_print`). Viewer "up" is rig depth (the floor end).
+- The core prints upright, flange down. d = 0 is the plate face, and d = 180 is the floor end.

@@ -41,7 +41,7 @@ RIM_D = 14.0                  # panel-stop rims at both ends (deeper than the bo
 CHAMFER = 1.0                 # flange plate-face edge: elephant foot + scraper entry
 
 # ── Well (coupler + monopod platform pass through) ──
-WELL_R, TUBE_T = 26.0, 2.0
+WELL_R, TUBE_T = 21.5, 2.0    # Ø43 bore (was Ø52): snug over the stick's ~Ø42 hard ring, foam region padded
 
 # ── Box mount: M4×18 + 6 mm Al spacer (Ø8) per standoff, stepped bore ──
 POST = 40.0
@@ -97,7 +97,7 @@ BAT_RAIL_D0 = 40.0
 # M4 bores' screw path (head clearance Yr 34.7..45.3) and the built-in cord (Yr ~43).
 BAT_RAIL_X, BAT_RAIL_W = BAT['x'] + 0.5 + 0.2, 3.5
 BAT_RAIL_YS = (BAT['y0'] + 2.0, BAT['y1'] - 3.5)
-BAT_SHOULDER_X = 33.5                         # shoulder's innermost |X| (bank corners at 37)
+BAT_SHOULDER_X = 23.5                         # flat seat's innermost |X|: 13.5 inside the bank edge (37), clear of its rounded corners
 # Power: the bank stands PORTS DOWN, its front (display + button) facing the +Y panel. Its two
 # ports sit over a floor window, for charging the bank or other devices from under the rig (not
 # while the rig runs: with two outputs in use the built-in cord drops to 5/9 V). The built-in cord
@@ -512,7 +512,7 @@ def build_overlays():
     # Amazon Basics 67" monopod, handle end up (measured roughly 2026-10-13): Ø35 end cap at the stud,
     # Ø40 ring, then the foam grip (~135 mm long, narrower than the Ø40 ring). Strap lug cut off for v1.
     emit('monopod', np.concatenate([_cyl((0, 0, 0), 'z', 17.5, -28.3, -20.3),
-                                    _cyl((0, 0, 0), 'z', 20.0, -38.3, -28.3),
+                                    _cyl((0, 0, 0), 'z', 21.0, -38.3, -28.3),     # ring ~Ø42 (2026-10-14)
                                     _cyl((0, 0, 0), 'z', 19.0, -20.3 - 135, -38.3),
                                     _cyl((0, 0, 0), 'z', 15, -260, -20.3 - 135)]), '#34495e', 0.3,
          'monopod: cap Ø35, ring Ø40, grip < Ø40 to 135 mm')

@@ -147,12 +147,11 @@ bores = union(*[vhole(sx * POST, sy * POST, SPACER_D + SPACER_FIT, TOP - 1, SPAC
 # ── battery: stop ribs merged with the first cradle rail (stepped flap), second rail; 45° shoulders ──
 stop_ribs = union(*[inter(sbox(s, BAT_RIB[0], BAT_RIB[1], BAT_RIB[2], BAT_RIB[3], BAT_RAIL_D0, BOT),
                           taper(s, X_IN + BAT_RAIL_D0)) for s in (-1, 1)])
-_shoulder_c = BAT_RAIL_X - (BAT['d0'] + 0.5)      # |X| >= this + d above the bank's top corners
-
-
 def _rail(s, y0, y1):
+    """Rail beside the bank, plus a flat seat on its top face (d <= d0). Flat, not 45°: the bank's
+    rounded corners let it sink ~5-10 mm past a sloped shoulder (core print 2026-10-14)."""
     return inter(sbox(s, BAT_SHOULDER_X, X_IN + 0.5, y0, y1),
-                 union(Half(-s, 0, 0, -BAT_RAIL_X), Half(-s, 0, 1, -_shoulder_c)))
+                 union(Half(-s, 0, 0, -BAT_RAIL_X), Half(0, 0, 1, BAT['d0'])))
 
 
 rails = union(*[_rail(s, BAT_RIB[3] if i == 0 else ry - BAT_RAIL_W / 2, ry + BAT_RAIL_W / 2)
