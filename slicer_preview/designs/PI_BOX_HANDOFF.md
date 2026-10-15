@@ -104,7 +104,13 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - **Reprint the cross top** with a **countersunk ¼" head** on one side, thickened for safety, so the GoPro can be
   attached Monday. The GoPro mount isn't a fixed orientation; it gets calibrated as-is for that one day.
   The cross is in `CAGE_HANDOFF.md`'s scope.
-- **Panels:** print them with a gyroid mesh to match the walls, with solid edges (slot and groove bands solid).
+- **Panels:** don't print them yet. The print file (`pi_box_bat_panel.py`) currently makes a 12 mm gyroid panel
+  with a 6 mm solid frame (max layer 6,628 mm²). A plain panel printed flat would be ~16,000 mm² per layer, which
+  is too much, but the user prefers the plain look. **First run the backlogged coupon experiments:** flat coupons
+  printed on TPMS support cubes / thin gyroid rafts with different parameters (period, sheet thickness, raft
+  height, gap to the plate). They tell us how much the TPMS roughens the coupon's face. If a thin gyroid raft with
+  a flat plate on top gives an acceptable finish, print the plain panel that way. Otherwise keep the gyroid panel
+  (or print it on edge).
 - **Monday site visit with the plastic cage:** the ¼" screw through the resin flange is the only load path. The
   smaller tube is the backup. Also suggested: a tether from the cage to the pole below the coupler.
 
