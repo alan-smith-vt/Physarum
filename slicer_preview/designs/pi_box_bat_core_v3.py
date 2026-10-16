@@ -3,7 +3,9 @@
     (designs/pi_box_cam_cartridge.py): the core keeps only a pointed-top opening in each camera wall plus
     three M2 insert-nut pockets (from inside) for the cartridge's flange screws. No camera blocks, inserts or filed seats.
   - Pi shifted +X by PI_SHIFT: 24 mm from its edge to the -X wall for the right-angle USB-C plug + adapter.
-  - removed: camera ribs, all cable clips, the UE300 seat ledge, the M4 bores through the camera blocks.
+  - sliding floor: walls run FLOOR_EXT past the interior bottom with grooves for the floor's edge tongues;
+    M4 floor screws into inserts seated on a shoulder from the top (nuts).
+  - removed: dowel holes, camera ribs, all cable clips, the UE300 seat ledge, the M4 bores through the camera blocks.
 Not checked yet (clash, paths, layer areas): concept for review.
 
 BATTERY variant of pi_box_core.py (copy): taller, +Y pod with battery stop ribs, laid on
@@ -56,6 +58,16 @@ CART_SCREW_CLEAR = 2.2                             # M2 from outside through fla
 CART_NUT_L = 2.5                                   # ...into an M2 insert set in a pocket from the INNER face: it bottoms on
                                                    # the wall's outer 1.5 mm, so the screw pulls it into resin (a nut; CA only
                                                    # locates it). Flange 1.5 + wall 1.5 + insert 2.5 → M2×5 / M2×6 [MEASURE]
+# Sliding floor (2026-10-15): the camera walls run FLOOR_EXT past the interior bottom (DEPTH, unchanged); the floor
+# (designs/pi_box_bat_floor_v3.py) slides in from -Y between them, its edge tongues in grooves cut into the walls'
+# inner faces; the wall's FLOOR_LEDGE under each groove catches it if the M4s let go. Grooves stop short of +Y (stop).
+FLOOR_T3, FLOOR_TONGUE, FLOOR_LEDGE = 3.0, 1.5, 2.0
+FLOOR_EXT = FLOOR_T3 + FLOOR_LEDGE
+FLOOR_CLEAR = 0.2                                  # per face, + RESIN_HOLE_COMP / 2 (the groove prints undersize)
+FLOOR_STOP_Y = Y_MAX - PANEL_LIP - 1.0             # grooves end here
+# Floor M4s: through the floor up the boss into an M4 insert set from the top, bottomed on a shoulder (a nut).
+M4_CLEAR, M4_INSERT_D, M4_INSERT_L, M4_SCREW_L = 4.5, 5.6, 6.0, 16.0   # [MEASURE] insert OD / length
+M4_SHOULDER = DEPTH - (M4_SCREW_L - FLOOR_T3) + M4_INSERT_L             # insert spans up from here to the screw tip
 CAM_PAD = (CART_HW + CART_FL + 1.0, CART_D1 + CART_HW + CART_FL + 1.0 - CAM_D)   # solid round the opening + flange
 
 
@@ -248,7 +260,7 @@ pi_holes = union(*[hhole('y', px, pd, PI_INSERT_D, PCB_YR, PCB_YR + PI_INSERT_L)
 # ── cuts ──
 _lo0, _lo1 = Y_MIN + PANEL_LIP, Y_MIN + PANEL_LIP + GW
 _hi0, _hi1 = Y_MAX - PANEL_LIP - GW, Y_MAX - PANEL_LIP
-panel_cuts = union(*[sbox(s, X_IN, X_IN + GROOVE_D, y0, y1, RIM_D, BOT + 1)
+panel_cuts = union(*[sbox(s, X_IN, X_IN + GROOVE_D, y0, y1, RIM_D, BOT + FLOOR_EXT + 1)
                      for s in (-1, 1) for y0, y1 in ((_lo0, _lo1), (_hi0, _hi1))],
                    Box(-X_IN, X_IN, Y_MIN - 1, _lo1, RIM_D, BOT + 1),
                    Box(-X_IN, X_IN, _hi0, Y_MAX + 1, RIM_D, BOT + 1))
@@ -261,14 +273,18 @@ cuts = union(
       for s in (-1, 1) for cy, cd in CART_SCREWS],
     *[hhole('x', cy, cd, CAM_INSERT_D, *sorted((s * (X_IN - 0.01), s * (X_IN + CART_NUT_L))))
       for s in (-1, 1) for cy, cd in CART_SCREWS],
-    *[Cyl('d', (px, py), PIN_SLIP / 2, DEPTH - PIN_DEPTH, BOT + 1) for px, py in PINS],
-    *[vhole(bx, by, INSERT_D, DEPTH - INSERT_DEPTH, BOT + 1) for bx, by in BOSSES])
+    *[vhole(bx, by, M4_CLEAR, M4_SHOULDER - 1, BOT + 1) for bx, by in BOSSES],
+    *[vhole(bx, by, M4_INSERT_D, DEPTH - 16.0, M4_SHOULDER) for bx, by in BOSSES])   # insert pocket, out through the cone top
 # anti-rattle bumps on each slot's outer face (added back after the slot cut)
 bumps = union(*[sbox(s, X_IN + 0.5, X_IN + GROOVE_D - 0.5, y0, y1, db - 1.5, db + 1.5)
                 for s in (-1, 1) for db in (RIM_D + 25.0, DEPTH - 25.0)
                 for y0, y1 in ((_lo0, _lo0 + 0.3), (_hi1 - 0.3, _hi1))])
 
-below = union(sub(union(tube, walls, webs, rims, bosses, stop_ribs, rails, feet, cones, posts), cuts, panel_cuts),
+_g = FLOOR_CLEAR + RESIN_HOLE_COMP / 2
+skirt = sub(union(*[sbox(s, X_IN, X_OUT, Y_MIN, Y_MAX, BOT - 0.01, BOT + FLOOR_EXT) for s in (-1, 1)]),
+            *[sbox(s, X_IN - 0.01, X_IN + FLOOR_TONGUE + _g, Y_MIN - 1, FLOOR_STOP_Y, BOT - _g, BOT + FLOOR_T3 + _g)
+              for s in (-1, 1)], panel_cuts)
+below = union(skirt, sub(union(tube, walls, webs, rims, bosses, stop_ribs, rails, feet, cones, posts), cuts, panel_cuts),
               sub(bumps, cuts))
 
 
@@ -349,7 +365,7 @@ def core(x, d, z, xp=np):
     return solid(ROOT, X, Y, dd, xp)
 
 
-PIECES = [sdf_piece(SIZE_X, DEPTH, SIZE_Z, ROOT, to_model, x0=X0, y0=0.0, z0=Z0, aa=AA)]
+PIECES = [sdf_piece(SIZE_X, DEPTH + FLOOR_EXT, SIZE_Z, ROOT, to_model, x0=X0, y0=0.0, z0=Z0, aa=AA)]
 
 
 def _v3_overlays():

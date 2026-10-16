@@ -60,8 +60,11 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   self-tapping); board held by M2 screws from outside into an M2 insert used as a nut behind the board
   (M2×8 [MEASURE]). Pi +6 X → 24 mm for the right-angle USB-C + adapter. Clips, camera ribs, UE300 seat removed.
   Open: ribbons wrap the Pi's edge; counterbore-to-window wall in the cartridge is only ~0.4 mm.
-- **v3 floor (planned, user 2026-10-15): slides in horizontally.** The screws stay the primary load path; a lip
-  engaging the core walls is a safety net and spreads the load. Sketch it first (hard rule).
+- **v3 sliding floor modelled (not checked):** `pi_box_bat_floor_v3.py` (viewer /v3floor) + core v3 grooves.
+  Floor between the camera walls, slides in from −Y, 1.5 mm edge tongues in inner-face grooves (stop near +Y);
+  walls run 5 mm past the interior bottom (d 180 unchanged), the 2 mm ledge under each groove is the safety net.
+  M4s are primary: through the floor into M4 inserts seated on a shoulder from the top of each boss
+  (`M4_INSERT_D/L` [MEASURE], M4×16). No collar, rails, nubs or dowels. Panels go in first, stand on the floor.
 - Tool bugs: `to_goo.py`/`sdcp.py` need `PYTHONIOENCODING=utf-8` (→ in prints); `to_goo --gpu` fails on a
   constant `lambda: True` piece (`exposure_test`); use CPU for that one.
 
