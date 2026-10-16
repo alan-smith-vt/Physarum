@@ -33,6 +33,29 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - **Not modelled yet:** the Pi flip **post + arch adapter** (d 133.5, X ±24.5). Sketch it for the user first
   (hard rule), then viewer, then checks. Its M2.5 bores: caliper the inserts first (`PI_INSERT_D` is [MEASURE]).
 
+## 2026-10-15 night: new resin, panels + floor printed
+- **Exposure 2.3 s** for ELEGOO ABS-like clear blue + Siraya Tenacious clear 75/25. `exposure_test` (2.5 s, gray
+  100–50 %): row 1 (100/90/80 %) all pins, 70 % lost pins, 50 % printed only the base; 90 % best. **The vat ran
+  unheated (~22→25 °C, heater not on, not deliberate).** Keep the heater off or re-check exposure if it's turned on.
+  Set in `pi_box_bat_lids.py` and `pi_box_bat_panel.py`.
+- **Panels (2×) printed** at 2.3 s, 16 min each. **They bow ~3 mm (edges up)** after washing. Fix: tape flat over a
+  ~1–1.5 mm centre shim and cure each side 3 min. Post-cure for clear: 2 × 3 min (old blend was 2 × 4).
+- **Floor reworked and printed** (`pi_box_bat_lids.py`):
+  - Plate is a sheet gyroid (`FILL_T` 0.27, walls' 12 mm period) outside `_floor_keep()` (the flange recipe):
+    peak 10,057 → 6,840 mm². Still a sharp step at the plate top (6,497 → 397). If it delaminates, add a 1 mm fillet.
+  - **M4 through-holes** (`SCREW_CLEAR` 4.5) in place of the M3 counterbores. The plan: pull the loose M3 inserts,
+    drill the core bosses through, counterbore from the top inside the box and seat an M4 insert against the shoulder
+    (screw pulls it into resin, no glue in the load path). Use M4×16 (tip flush with the boss cone) or M4×18;
+    M4×10 would need ~12 mm of counterbore. **Need:** M4 insert OD and length.
+  - **Alignment nubs** Ø3 × 3, 0.6 chamfer, in place of the dowel holes (the dowels were loose in the core).
+  - **UE300 cradle off** (`ETH_CRADLE = False`, also the RJ45 opening). The full rail is restored there. Space in
+    the core is short; where the adapter goes is undecided.
+- **Camera M2 inserts pull out** (putting lens caps on pops all four). Monday fix (user): baking powder light coat +
+  CA, board pre-assembled on the screws as the jig, one press, soda collars afterwards. Tape the lens (CA fumes frost
+  optics). v3: cameras as separate panel inserts screwed from outside.
+- Tool bugs: `to_goo.py`/`sdcp.py` need `PYTHONIOENCODING=utf-8` (→ in prints); `to_goo --gpu` fails on a
+  constant `lambda: True` piece (`exposure_test`); use CPU for that one.
+
 ## Status
 - **Core v2 printed clean (2026-10-15).** See "Print results: core v2". It's in use. The camera seats were filed
   to fit.
