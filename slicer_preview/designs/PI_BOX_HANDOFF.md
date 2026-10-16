@@ -26,6 +26,10 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - **Lens shrouds must stand slightly proud of the lens front** (user, 2026-10-16): cam 0's lens (the one facing
   the desk in the first live view) got scratched on the bench. v3 / any reprint: guard ring past the lens tip,
   still outside the 160° view.
+- **cam0's lens sits skewed in its cartridge** (Kalibr, 2026-10-16: optical centre ~53 px below the image centre,
+  repeatable), and the **shroud blocks part of the right side of its view**. cam1 is centred and clear. v3: hold
+  the lens square in the cartridge, and check the shroud clears the full 160° cone from the real optical axis. The
+  user plans new cameras for v3.
 - **Camera orientation:** with the rig upright both images are landscape and need **no rotation** (raw frames).
 
 ## ⚠ BUG THE USER FIRST: caliper session before any more v3 work (user request, 2026-10-15)
