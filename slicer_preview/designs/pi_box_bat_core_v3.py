@@ -381,6 +381,46 @@ def _v3_overlays():
     R._write_stl(path, R.to_print(R._box(px - 18.0, px, PCB_YR - 11.0, PCB_YR - 2.0, -31.0, -20.0)))
     out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color='#e74c3c', opacity=0.8,
                     label='USB-C right-angle plug 10 + adapter 8 (envelope)'))
+    return out + _part_overlays()
+
+
+def _mc(vol, h, origin):
+    """Marching-cubes triangles (N, 3, 3) of a boolean volume on a grid of pitch h starting at origin."""
+    from skimage import measure
+    v = np.pad(vol, 1).astype(np.float32)
+    verts, faces, _, _ = measure.marching_cubes(v, 0.5, spacing=(h, h, h))
+    return (verts - h + np.asarray(origin))[faces]
+
+
+def _part_overlays(h=0.35):
+    """The v3 floor (in place) and both camera cartridges (seated) as meshes, so the assembly reads in the viewer."""
+    from sdf import solid
+    import designs.pi_box_cam_cartridge as K
+    import designs.pi_box_bat_floor_v3 as F
+    out = []
+    # cartridge: its tree frame is (rig d, rig Yr, height off the flange face)
+    ds, ys = np.arange(K.D0, K.D1, h), np.arange(K.Y0, K.Y1, h)
+    hs = np.arange(0.0, K.H_TOP + h, h)
+    vol = np.stack([solid(K.ROOT, ds[:, None], ys[None, :], float(z)) for z in hs])    # (h, d, Yr)
+    t = _mc(vol, h, (0.0, K.D0, K.Y0))
+    cams = []
+    for sx in (-1, 1):
+        X = sx * (X_OUT + CART_FL_T - t[..., 0])
+        cams.append(np.stack([X, t[..., 2], -t[..., 1]], -1))
+    # floor: its mask runs in print coords (x = Yr - Y_MIN, y up from the outside face, z = X + W/2)
+    xs, zs = np.arange(0.0, Y_MAX - Y_MIN, h), np.arange(0.0, F.W, h)
+    fy = np.arange(0.0, F.FLOOR_T3, h) + h / 2
+    vol = np.stack([np.broadcast_to(F.floor(xs[None, :], float(y), zs[:, None]), (len(zs), len(xs))) for y in fy])
+    t = _mc(vol, h, (fy[0], 0.0, 0.0))                                                      # (y, z, x)
+    flo = np.stack([t[..., 1] - F.TONGUE_X, t[..., 2] + Y_MIN, -(DEPTH + FLOOR_T3 - t[..., 0])], -1)
+    for name, tris, color, label in (('v3_cartridges', np.concatenate(cams), '#3498db', 'camera cartridges (v3)'),
+                                     ('v3_floor', flo, '#e67e22', 'sliding floor (v3)')):
+        tris = R._decimate(tris, 0.3)
+        print(f'  {name}: X {tris[..., 0].min():.1f}..{tris[..., 0].max():.1f}  Yr {tris[..., 1].min():.1f}..'
+              f'{tris[..., 1].max():.1f}  d {-tris[..., 2].max():.1f}..{-tris[..., 2].min():.1f}')
+        path = R.OVERLAY_DIR / f'{name}.stl'
+        R._write_stl(path, R.to_print(tris))
+        out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color=color, opacity=0.9, label=label))
     return out
 
 
