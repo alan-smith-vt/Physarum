@@ -45,7 +45,12 @@ def do_import():
     if not pcbnew.ImportSpecctraSES(board, str(SES)):
         raise SystemExit("SES import failed")
     board.Save(str(PCB))
-    board = pcbnew.LoadBoard(str(PCB))   # fresh load: the track list is unreliable right after an import
+    print("imported", SES)
+
+
+def clean():
+    """Separate process from the import: the board's track list is unreliable right after ImportSpecctraSES."""
+    board = pcbnew.LoadBoard(str(PCB))
     removed = drop_dangling(board)
     board.Save(str(PCB))
     print("removed dangling stubs:", removed)
@@ -55,22 +60,26 @@ def drop_dangling(board):
     """Remove track segments with a free end (left behind when the optimiser re-cut a locked track)."""
     removed = 0
     zones = [board.GetArea(i) for i in range(board.GetAreaCount())]
-    for _ in range(10):
+    for _ in range(1):   # one pass per process: Tracks() breaks after Remove(); build_all calls clean repeatedly
         tracks = [t for t in list(board.GetTracks()) if t.GetClass() == "PCB_TRACK"]
         vias = [t for t in list(board.GetTracks()) if t.GetClass() == "PCB_VIA"]
         pads = [p for fp in board.GetFootprints() for p in fp.Pads()]
         dead = []
+        tracks_all = tracks
+        tracks = [t for t in tracks_all if not t.IsLocked()]   # hand-routed copper is locked and never touched
         for t in tracks:   # fragments lying wholly on another track of the same net are redundant
             if any(o is not t and o.GetNetCode() == t.GetNetCode() and o.GetLayer() == t.GetLayer()
                    and o.GetLength() > t.GetLength() and o.HitTest(t.GetStart(), 0) and o.HitTest(t.GetEnd(), 0)
-                   for o in tracks):
+                   for o in tracks_all):
                 dead.append(t)
         for t in tracks:
             if t in dead:
                 continue
             for end in (t.GetStart(), t.GetEnd()):
+                mid_only_ok = t.GetLength() > 500000   # short stubs must end on an endpoint, not mid-track
                 hit = any(o is not t and o.GetNetCode() == t.GetNetCode() and o.GetLayer() == t.GetLayer()
-                          and (o.GetStart() == end or o.GetEnd() == end or o.HitTest(end, 0)) for o in tracks)
+                          and (o.GetStart() == end or o.GetEnd() == end or (mid_only_ok and o.HitTest(end, 0)))
+                          for o in tracks_all)
                 hit = hit or any(v.GetNetCode() == t.GetNetCode() and v.HitTest(end, 0) for v in vias)
                 hit = hit or any(p.GetNetCode() == t.GetNetCode() and p.IsOnLayer(t.GetLayer()) and p.HitTest(end, 0)
                                  for p in pads)
@@ -89,4 +98,4 @@ def drop_dangling(board):
 
 
 if __name__ == "__main__":
-    {"export": export, "import": do_import}[sys.argv[1]]()
+    {"export": export, "import": do_import, "clean": clean}[sys.argv[1]]()

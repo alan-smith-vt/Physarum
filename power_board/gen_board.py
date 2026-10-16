@@ -144,8 +144,9 @@ def main():
     ds.m_MinClearance = mm(0.15)            # 0.5 mm-pitch MSOP pads sit 0.15 apart (JLC min 0.1)
     ds.m_NetSettings.GetDefaultNetclass().SetClearance(mm(0.15))
     ds.m_HoleClearance = mm(0.15)           # GCT USB4105 pads sit 0.19 from its peg holes
-    ds.m_MinThroughDrill = mm(0.2)          # 0.45/0.2 vias escape the buck's 0.5 mm-pitch pins (JLC 4-layer min 0.15)
+    ds.m_MinThroughDrill = mm(0.3)          # 0.45/0.3 vias escape the buck's 0.5 mm-pitch pins (JLC standard 0.3/0.45 tier, no surcharge)
     ds.m_ViasMinSize = mm(0.45)
+    ds.m_ViasMinAnnularWidth = mm(0.075)    # JLC 0.3 mm hole / 0.45 mm via tier
 
     missing = []
     for ref, comp in sorted(comps.items()):

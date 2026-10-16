@@ -17,6 +17,7 @@ python gen_schematic.py
 if (Test-Path power_board.ses) { Remove-Item power_board.ses }
 & $java -jar $freerouting -de power_board.dsn -do power_board.ses -mp 40 -inc NOROUTE -mt 1 2>&1 | Select-String 'completed|Saving|ERROR'
 & "$kb\python.exe" autoroute.py import
+1..3 | ForEach-Object { & "$kb\python.exe" autoroute.py clean }
 & "$kb\kicad-cli.exe" pcb drc --schematic-parity --refill-zones --save-board -o drc.rpt power_board.kicad_pcb | Out-Null
 "ERC violations: " + (Get-Content erc.rpt | Select-String '^\[').Count
 Get-Content drc.rpt | Select-String '^\[' | ForEach-Object { ($_ -split ':')[0] } | Group-Object | Sort-Object Count -Descending | ForEach-Object { "$($_.Count) $($_.Name)" }

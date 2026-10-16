@@ -117,7 +117,7 @@ track("BUCK_FF", [(20.5, 23.93), (20.5, 25.63)], 0.2)          # R5 bottom to C6
 track("GND", [(17.2, 28.23), (17.2, 29.1)], 0.3)               # R4 bottom
 via("GND", 17.2, 29.1)
 track("GND", [(13.4, 24.65), (14.2, 24.65)], 0.2)              # AGND (pin 3) to its own via
-via("GND", 14.2, 24.65, d=0.45, drill=0.2)
+via("GND", 14.2, 24.65, d=0.45, drill=0.3)
 # V5 sense: from the output pour on In2 to the top of R3 and R5
 via("V5", 15.4, 14.0)
 track("V5", [(15.4, 14.0), (18.85, 14.0), (18.85, 21.3)], 0.25, pcbnew.In2_Cu)
@@ -137,7 +137,7 @@ track("V5", [(20.5, 21.3), (22.8, 21.3), (22.8, 26.67)], 0.25)
 
 # ── EN / PG escapes (EN and PG to J5 are finished with the rest of the board) ──
 track("BUCK_PG", [(13.4, 24.15), (13.9, 24.15), (14.3, 23.75)], 0.2)
-via("BUCK_PG", 14.3, 23.75, d=0.45, drill=0.2)
+via("BUCK_PG", 14.3, 23.75, d=0.45, drill=0.3)
 track("BUCK_PG", [(14.3, 23.75), (14.9, 23.75), (14.9, 29.9), (22.8, 29.9)], 0.2, pcbnew.In2_Cu)
 via("BUCK_PG", 22.8, 29.9)
 track("BUCK_PG", [(22.8, 29.9), (22.8, 28.33)], 0.2)
