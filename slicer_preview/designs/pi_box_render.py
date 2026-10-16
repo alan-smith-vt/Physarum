@@ -49,8 +49,8 @@ MATS = {
     'cam_ghost': dict(color=(0.55, 0.3, 0.75), rough=0.4, alpha=0.35),   # see-through camera, seat visible
     # v3 resins: 75 % Fast smoky black + 25 % Tenacious clear (translucent smoke); the clear blue blend prints a pale
     # turquoise, slightly frosted (panel photo 2026-10-15)
-    'smoke':     dict(color=(0.22, 0.22, 0.24), rough=0.08, transmission=0.75, ior=1.5, metal=0.35, spec=1.0,
-                      coat=(1.0, 0.03), absorb=((0.04, 0.04, 0.045), 1100.0)),   # black glass, metallic sheen    # tint in the volume: thin = see-through, thick = dark
+    'smoke':     dict(color=(0.006, 0.006, 0.007), rough=0.08, transmission=0.75, ior=1.5, spec=0.6,
+                      coat=(1.0, 0.03), absorb=((0.04, 0.04, 0.045), 1100.0)),   # glossy black glass    # tint in the volume: thin = see-through, thick = dark
     'turquoise': dict(color=(0.22, 0.58, 0.52), rough=0.16, transmission=1.0, ior=1.5),
 }
 PART_MAT = {
