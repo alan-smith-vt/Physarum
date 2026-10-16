@@ -7,7 +7,7 @@
   - Board: M2 screws from the OUTSIDE (heads in counterbores in the flange face) through the bosses and the
     board, into an M2 brass insert threaded on behind the board as a nut. Lens-cap pushes put the board on
     the bosses / the flange on the wall (compression); no glued inserts.
-  - Flange: 3 × M2 self-tapping screws into pilot holes in the core's solid wall pad.
+  - Flange: 3 × M2 from outside into M2 inserts set from the wall's inner face, bottomed on the wall (nuts).
 Modelled in its own frame (SDF slicing needs print-up as the tree's d axis):
   tree (X', Y', d') = (rig d, rig Yr, h)   with  h = X_OUT + CART_FL_T - |X|  (0 = flange face, on the plate).
 """

@@ -1,7 +1,7 @@
 """v3 CONCEPT (2026-10-15, copy of pi_box_bat_core.py). Changes from v2:
   - cameras back near the web (CAM_YR -16.5, behind the Pi's PCB plane) as CARTRIDGES inserted from outside
     (designs/pi_box_cam_cartridge.py): the core keeps only a pointed-top opening in each camera wall plus
-    three pilot holes for the cartridge's flange screws. No camera blocks, inserts or filed seats.
+    three M2 insert-nut pockets (from inside) for the cartridge's flange screws. No camera blocks, inserts or filed seats.
   - Pi shifted +X by PI_SHIFT: 24 mm from its edge to the -X wall for the right-angle USB-C plug + adapter.
   - removed: camera ribs, all cable clips, the UE300 seat ledge, the M4 bores through the camera blocks.
 Not checked yet (clash, paths, layer areas): concept for review.
@@ -52,7 +52,10 @@ CART_D0, CART_D1 = CAM_D - 13.5, CAM_D + 15.6 + 0.5   # flat near edge; far edge
 CART_CLEAR = 0.2                                   # per side, + RESIN_HOLE_COMP / 2 in the opening
 CART_FL, CART_FL_T = 4.0, 1.5                      # flange margin past the body, thickness (outside the wall)
 CART_SCREWS = [(CAM_YR - CART_HW - 2.0, CAM_D), (CAM_YR + CART_HW + 2.0, CAM_D), (CAM_YR, CART_D0 - 2.0)]
-CART_PILOT = 1.6                                   # M2 self-tapping into the solid wall pad
+CART_SCREW_CLEAR = 2.2                             # M2 from outside through flange + wall...
+CART_NUT_L = 2.5                                   # ...into an M2 insert set in a pocket from the INNER face: it bottoms on
+                                                   # the wall's outer 1.5 mm, so the screw pulls it into resin (a nut; CA only
+                                                   # locates it). Flange 1.5 + wall 1.5 + insert 2.5 → M2×5 / M2×6 [MEASURE]
 CAM_PAD = (CART_HW + CART_FL + 1.0, CART_D1 + CART_HW + CART_FL + 1.0 - CAM_D)   # solid round the opening + flange
 
 
@@ -254,7 +257,9 @@ cuts = union(
     hhole('x', _sw['y'], _sw['d'], _sw['hole'], *sorted((_sw['side'] * (X_IN - 0.01), _sw['side'] * X_OUT))),
     *[cart_profile(CART_HW + CART_CLEAR + RESIN_HOLE_COMP / 2, CART_D0 - CART_CLEAR - RESIN_HOLE_COMP / 2,
                    CART_D1 + CART_CLEAR, *sorted((s * (X_IN - 0.01), s * (X_OUT + 0.01)))) for s in (-1, 1)],   # cartridge openings
-    *[hhole('x', cy, cd, CART_PILOT, *sorted((s * (X_IN - 0.01), s * (X_OUT + 0.01))))
+    *[hhole('x', cy, cd, CART_SCREW_CLEAR, *sorted((s * (X_IN - 0.01), s * (X_OUT + 0.01))))
+      for s in (-1, 1) for cy, cd in CART_SCREWS],
+    *[hhole('x', cy, cd, CAM_INSERT_D, *sorted((s * (X_IN - 0.01), s * (X_IN + CART_NUT_L))))
       for s in (-1, 1) for cy, cd in CART_SCREWS],
     *[Cyl('d', (px, py), PIN_SLIP / 2, DEPTH - PIN_DEPTH, BOT + 1) for px, py in PINS],
     *[vhole(bx, by, INSERT_D, DEPTH - INSERT_DEPTH, BOT + 1) for bx, by in BOSSES])
