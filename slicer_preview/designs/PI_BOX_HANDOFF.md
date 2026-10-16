@@ -53,6 +53,8 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - **Camera M2 inserts pull out** (putting lens caps on pops all four). Monday fix (user): baking powder light coat +
   CA, board pre-assembled on the screws as the jig, one press, soda collars afterwards. Tape the lens (CA fumes frost
   optics). v3: cameras as separate panel inserts screwed from outside.
+- **v3: remove all the cable clips** (`CLIP_RIB_DS` clips, big and small). User, 2026-10-15: not helpful, and the
+  core is too short on space to work around them. Supersedes "tighten the small clips" under core v2 results.
 - Tool bugs: `to_goo.py`/`sdcp.py` need `PYTHONIOENCODING=utf-8` (→ in prints); `to_goo --gpu` fails on a
   constant `lambda: True` piece (`exposure_test`); use CPU for that one.
 
