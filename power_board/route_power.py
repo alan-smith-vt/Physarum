@@ -96,17 +96,24 @@ track("VBUS_RAW", [(38.4, 7.68), (38.4, 9.4), (37.4, 10.5)], 0.6)
 track("VBUS_RAW", [(33.6, 7.68), (33.6, 9.8), (34.4, 10.6)], 0.6)
 
 # ── F1 -> R1 (VIN15) with the TVS, Kelvin sense to U5 ──
-track("VIN15", [(36.0, 15.14), (37.2, 17.6)], 1.0)
-track("VIN15", [(41.5, 15.15), (39.4, 17.6)], 0.8)
-track("VIN15", [(37.0, 25.65), (37.0, 25.4), (36.0, 24.9), (35.6, 24.3), (35.6, 18.4), (36.4, 18.04)], 0.2)  # IN+
-track("V15", [(37.5, 25.9), (37.5, 24.4)], 0.2)                # IN- from R1's bottom pad
-track("V15", [(38.0, 25.9), (38.0, 24.4)], 0.2)                # VBUS sense
-track("V15", [(38.0, 22.7), (38.0, 23.6)], 1.0)                # load current: R1 bottom pad -> vias
-track("V15", [(36.9, 22.7), (39.1, 22.7)], 0.6)
+DY = 1.1   # R1 / U5 / C13 sit 1.1 mm lower than first placed (room for the 2920 fuse), see gen_board
+
+
+def sh(pts):
+    return [(x, y + DY) for x, y in pts]
+
+
+track("VIN15", [(36.0, 16.89), (37.2, 17.6 + DY)], 1.0)
+track("VIN15", [(41.5, 15.15), (39.4, 17.6 + DY)], 0.8)
+track("VIN15", sh([(37.0, 25.65), (37.0, 25.4), (36.0, 24.9), (35.6, 24.3), (35.6, 18.4), (36.4, 18.04)]), 0.2)  # IN+
+track("V15", sh([(37.5, 25.9), (37.5, 24.4)]), 0.2)            # IN- from R1's bottom pad
+track("V15", sh([(38.0, 25.9), (38.0, 24.4)]), 0.2)            # VBUS sense
+track("V15", sh([(38.0, 22.7), (38.0, 23.6)]), 1.0)            # load current: R1 bottom pad -> vias
+track("V15", sh([(36.9, 22.7), (39.1, 22.7)]), 0.6)
 for x in (36.9, 38.0, 39.1):
-    via("V15", x, 22.7)
-track("GND", [(38.5, 27.15), (37.5, 29.85)], 0.2)              # U5 pin 7 GND under the body to pin 2
-track("3V3_PI", [(39.0, 25.9), (39.6, 25.1), (40.6, 25.1), (40.9, 26.38)], 0.25)
+    via("V15", x, 22.7 + DY)
+track("GND", sh([(38.5, 27.15), (37.5, 29.85)]), 0.2)          # U5 pin 7 GND under the body to pin 2
+track("3V3_PI", sh([(39.0, 25.9), (39.6, 25.1), (40.6, 25.1), (40.9, 26.38)]), 0.25)
 
 # ── lidar eFuse (U4 turned 270: IN on top row, OUT on bottom row) ──
 track("V15", [(19.68, 37.4), (19.68, 36.9), (22.93, 36.9)], 0.3)
@@ -129,7 +136,7 @@ track("LEDL_A", [(42.6, 52.43), (42.6, 54.2)], 0.25)           # R15 -> D3 anode
 # U1 (CH224A) exposed pad and U5 GND pins
 via("GND", 29.0, 47.8)
 via("GND", 29.0, 49.4)
-track("GND", [(37.0, 31.1), (37.5, 31.1)], 0.25)
+track("GND", [(37.0, 32.2), (37.5, 32.2)], 0.25)
 
 
 # ── fan-out: remaining SMD GND / V15 pads get a stub + via ──

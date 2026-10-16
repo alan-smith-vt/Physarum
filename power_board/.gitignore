@@ -12,3 +12,4 @@ top.png
 *.ses
 pre_autoroute.kicad_pcb
 fab/gerbers/
+fab/

@@ -96,8 +96,8 @@ via("GND", 4.4, 26.1)
 via("GND", 4.4, 27.9)
 
 # ── SW node and boot cap (C5 between L1 and the chip: pad 2 = SW on the left, pad 1 = BOOT on the right) ──
-track("BUCK_SW", [(11.63, 23.6), (11.63, 22.4)], 0.4)          # pin 6 up into L1 pad 1
-track("BUCK_SW", [(7.82, 24.2), (7.82, 22.4), (9.6, 22.4)], 0.4)   # C5 SW side up into L1 pad 1
+track("BUCK_SW", [(11.63, 23.6), (11.63, 21.5)], 0.4)          # pin 6 up into L1 pad 1
+track("BUCK_SW", [(7.82, 24.2), (7.82, 21.2), (10.8, 21.2)], 0.4)   # C5 SW side up into L1 pad 1
 track("BUCK_BOOT", [(9.38, 24.2), (10.1, 23.5), (11.13, 23.5)], 0.25)  # C5 boot side to pin 7
 
 # ── VOUT (V5) ──

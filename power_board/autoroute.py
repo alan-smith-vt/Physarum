@@ -44,6 +44,8 @@ def do_import():
     board = pcbnew.LoadBoard(str(PCB))
     if not pcbnew.ImportSpecctraSES(board, str(SES)):
         raise SystemExit("SES import failed")
+    board.Save(str(PCB))
+    board = pcbnew.LoadBoard(str(PCB))   # fresh load: the track list is unreliable right after an import
     removed = drop_dangling(board)
     board.Save(str(PCB))
     print("removed dangling stubs:", removed)

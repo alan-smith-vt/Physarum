@@ -37,24 +37,24 @@ def uid():
 # Two-pin passives: (ref, kind, value, footprint, net pin1, net pin2, note); for D/LED pin 1 is the cathode
 PASSIVES = [
     # Input: USB-C, fuse, TVS, shunt
-    ("F1", "F", "3A hold PTC", "Fuse:Fuse_1812_4532Metric", "VBUS_RAW", "VIN15", "bank cuts out ~3 A anyway"),
+    ("F1", "F", "3A hold PTC 2920", "Fuse:Fuse_2920_7451Metric", "VBUS_RAW", "VIN15", "bank cuts out ~3 A anyway"),
     ("D1", "D", "SMBJ16A", "Diode_SMD:D_SMB", "VIN15", "GND", "TVS"),
     ("R1", "R", "10m 1% 1W", "Resistor_SMD:R_2512_6332Metric", "VIN15", "V15", "INA226 shunt"),
     ("C1", "C", "1u 25V", FP_C0805, "VBUS_RAW", "GND", "U1 VHV"),
     ("R2", "R", "56k 1%", FP_R, "PD_CFG1", "GND", "CH224Q CFG1: 15 V"),
     # Buck
-    ("C2", "C", "10u 35V", FP_C1210, "V15", "GND", "buck Cin"),
-    ("C3", "C", "10u 35V", FP_C1210, "V15", "GND", "buck Cin"),
+    ("C2", "C", "10u 50V", FP_C1210, "V15", "GND", "buck Cin"),
+    ("C3", "C", "10u 50V", FP_C1210, "V15", "GND", "buck Cin"),
     ("C4", "C", "100n 50V", FP_C, "V15", "GND", "buck Cin HF"),
     ("C5", "C", "100n 16V", FP_C, "BUCK_BOOT", "BUCK_SW", "bootstrap"),
-    ("L1", "L", "3.3u Isat>=10A", "Inductor_SMD:L_Vishay_IHLP-3232", "BUCK_SW", "V5", "IHLP-3232DZ-3R3 class"),
+    ("L1", "L", "3.3u MDA7050 9.5A", "Inductor_SMD:L_KOHERelec_MDA7030", "BUCK_SW", "V5", "KOHERelec MDA7050-3R3M (MDA7030 land pattern)"),
     ("R3", "R", "75k 1%", FP_R, "V5", "BUCK_FB", "FB top: 5.10 V"),
     ("R4", "R", "10k 1%", FP_R, "BUCK_FB", "GND", "FB bottom"),
     ("R5", "R", "20k", FP_R, "V5", "BUCK_FF", "feed-forward (optional)"),
     ("C6", "C", "100p", FP_C, "BUCK_FF", "BUCK_FB", "feed-forward (optional)"),
-    ("C7", "C", "22u 16V", FP_C1210, "V5", "GND", "buck Cout"),
-    ("C8", "C", "22u 16V", FP_C1210, "V5", "GND", "buck Cout"),
-    ("C9", "C", "22u 16V", FP_C1210, "V5", "GND", "buck Cout"),
+    ("C7", "C", "22u 25V", FP_C1210, "V5", "GND", "buck Cout"),
+    ("C8", "C", "22u 25V", FP_C1210, "V5", "GND", "buck Cout"),
+    ("C9", "C", "22u 25V", FP_C1210, "V5", "GND", "buck Cout"),
     ("R6", "R", "100k", FP_R, "V5", "BUCK_PG", "PG pull-up"),
     # Pi USB-C out: Rp 10k = 3 A advertisement at 5 V
     ("R7", "R", "10k", FP_R, "V5", "OUT_CC1", "Rp"),

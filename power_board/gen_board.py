@@ -38,8 +38,8 @@ PLACE = {
     "R6": (22.8, 27.5, 270),
     # input chain down the right side, in signal order: J1 -> F1 -> D1 (TVS) -> R1 shunt -> U5 monitor.
     # R1 has VIN15 on top, V15 below; U5 is turned so IN+/IN-/VBUS face R1 for Kelvin sense lines.
-    "F1": (36.0, 13.0, 270), "D1": (41.5, 13.0, 90), "R1": (38.0, 21.0, 270),
-    "U5": (38.0, 28.5, 90), "C13": (40.9, 27.6, 270),
+    "F1": (36.0, 13.5, 270), "D1": (41.5, 13.0, 90), "R1": (38.0, 22.1, 270),
+    "U5": (38.0, 29.6, 90), "C13": (40.9, 28.7, 270),
     # button connector on the left edge (switch side) + switch logic
     "J4": (3.0, 44.0, 90), "R17": (10.5, 34.0, 0), "R18": (10.5, 36.0, 0), "R19": (10.5, 38.0, 0),
     "R21": (10.5, 40.0, 0), "R16": (10.5, 42.0, 0), "D4": (10.0, 44.5, 0), "D5": (10.0, 47.0, 0),
