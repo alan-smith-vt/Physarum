@@ -28,7 +28,11 @@ COLLAR_R1 = COLLAR_R0 + 1.8
 RAIL_H, RAIL_W = 4.0, 1.5
 RAIL_X = (WELL_R + 3.0, FOOT_X0 - 0.5)
 NOTCH_X, NOTCH_Y = 29.0, PCB_YR - 0.5                        # open to the -Y edge
-SCREW_CLEAR, HEAD_CB, HEAD_CB_DEPTH = 3.3, 6.2, 1.5     # M3×6 button head (Ø5.7) into the core's M3 inserts
+SCREW_CLEAR = 4.5                      # M4 through the floor and up the core boss into an M4 insert set from the top
+NUB_D, NUB_H, NUB_TIP = 3.0, 3.0, 0.6  # alignment nubs in place of dowels; external faces print ~0.35 over → ~Ø3.35
+                                       # in the core's loose PIN_SLIP holes (file down if tight)
+ETH_CRADLE = False                     # UE300 cradle + RJ45 opening: off (2026-10-15, the adapter's home is undecided)
+FILL_T = 0.27                          # floor-plate gyroid sheet (walls use GYROID_T 0.35): sparser for area margin
 
 PANEL_W = 2 * (X_IN + GROOVE_D) - 0.8      # external faces print ~0.35 oversize
 PANEL_H = DEPTH - RIM_D - 0.2
@@ -39,7 +43,7 @@ GAP = 3.0
 
 
 
-def floor(x, y, z):
+def _floor_solid(x, y, z):
     Yr = x + Y_MIN                         # BATTERY: turned 90° on the plate (x = Yr, z = X)
     X = z - X_OUT
     aX = np.abs(X)
@@ -51,18 +55,18 @@ def floor(x, y, z):
         wx0, wx1, wy0, wy1 = PORT_WINDOW                         # BATTERY: the bank's ports, from below
         s &= ~((X >= wx0) & (X <= wx1) & (Yr >= wy0) & (Yr <= wy1))
         for bx, by in BOSSES:
-            s &= ~hole(bx, by, HEAD_CB if y < HEAD_CB_DEPTH else SCREW_CLEAR, X, Yr)
-        for px, py in PINS:
-            s &= ~((X - px) ** 2 + (Yr - py) ** 2 <= (PIN_PRESS / 2) ** 2)
-        a = ETH_ADAPTER                                        # BATTERY: UE300 RJ45 opening
-        s &= ~((np.abs(X - a['x']) <= (ADAPTER_JACK[0] + RESIN_HOLE_COMP) / 2) &
-               (np.abs(Yr - a['y']) <= (ADAPTER_JACK[1] + RESIN_HOLE_COMP) / 2))
+            s &= ~hole(bx, by, SCREW_CLEAR, X, Yr)
+        if ETH_CRADLE:                                         # BATTERY: UE300 RJ45 opening
+            a = ETH_ADAPTER
+            s &= ~((np.abs(X - a['x']) <= (ADAPTER_JACK[0] + RESIN_HOLE_COMP) / 2) &
+                   (np.abs(Yr - a['y']) <= (ADAPTER_JACK[1] + RESIN_HOLE_COMP) / 2))
         return s
     h = y - FLOOR_T
     s = (r2 >= COLLAR_R0 ** 2) & (r2 <= COLLAR_R1 ** 2) & (h <= COLLAR_H)
     gap = WEB_T / 2 + 0.15 + RESIN_HOLE_COMP / 2
     rails = (aX >= RAIL_X[0]) & (aX <= RAIL_X[1]) & (np.abs(Yr) >= gap) & (np.abs(Yr) <= gap + RAIL_W)
-    rails &= ~((X > 0) & (Yr < 0))                     # the UE300 stands there, flush on the web
+    if ETH_CRADLE:
+        rails &= ~((X > 0) & (Yr < 0))                 # the UE300 stands there, flush on the web
     s |= rails & (h <= RAIL_H)
     # Cradle for the UE300: walls on its two open sides only (the web and the +X wall bound the other
     # two); the core's seat over its top end holds it down on the floor.
@@ -72,8 +76,62 @@ def floor(x, y, z):
     wall = (dx <= ix + CRADLE_WALL) & (dy <= iy + CRADLE_WALL) & ~((dx <= ix) & (dy <= iy))
     wall &= (X < a['x']) | (Yr < a['y'])               # tube-side and far-Yr walls
     wall &= (Yr < -WEB_T / 2 - 0.5) & (X < X_IN - 0.5) & (r2 > (COLLAR_R1 + 0.3) ** 2)
-    s |= wall & (h <= CRADLE_H)
+    if ETH_CRADLE:
+        s |= wall & (h <= CRADLE_H)
+    for px, py in PINS:                                # alignment nubs, chamfered tip
+        r = NUB_D / 2 - max(h - (NUB_H - NUB_TIP), 0.0)
+        s |= ((X - px) ** 2 + (Yr - py) ** 2 <= r * r) & (h <= NUB_H)
     return s
+
+
+def _floor_keep(step=0.1):
+    """Solid-plate footprint the gyroid fill must not open (rig X × Yr, 0.1 mm), the core flange's recipe:
+    perimeter band, wall feet, M4 boss rings, collar, port and RJ45 frames, 1.5 mm under everything
+    standing on the plate, spokes + diamond; Gaussian-rounded."""
+    from scipy.ndimage import gaussian_filter, binary_dilation
+    xs = np.arange(-X_OUT, X_OUT + step, step)
+    ys = np.arange(Y_MIN, Y_MAX + step, step)
+    XX, YY = np.meshgrid(xs, ys, indexing='ij')
+    above = _floor_solid(YY - Y_MIN, FLOOR_T + 0.5, XX + X_OUT)
+    req = binary_dilation(above, iterations=int(round(1.5 / step)))
+    b = 5.0
+    req |= (np.abs(XX) >= X_OUT - b) | (YY <= Y_MIN + b) | (YY >= Y_MAX - b)
+    req |= (np.abs(XX) >= FOOT_X0) & (np.abs(YY) <= FOOT_Y)
+    for bx, by in BOSSES:
+        req |= np.hypot(XX - bx, YY - by) <= 5.6
+    req |= np.hypot(XX, YY) <= COLLAR_R1 + 2.0
+    wx0, wx1, wy0, wy1 = PORT_WINDOW
+    req |= (XX >= wx0 - 2) & (XX <= wx1 + 2) & (YY >= wy0 - 2) & (YY <= wy1 + 2)
+    a = ETH_ADAPTER
+    req |= ETH_CRADLE & (np.abs(XX - a['x']) <= ADAPTER_JACK[0] / 2 + 2.5) & (np.abs(YY - a['y']) <= ADAPTER_JACK[1] / 2 + 2.5)
+
+    def seg(ax, ay, bx, by, w=3.0):
+        vx, vy = bx - ax, by - ay
+        t = np.clip(((XX - ax) * vx + (YY - ay) * vy) / (vx * vx + vy * vy), 0, 1)
+        return np.hypot(XX - ax - t * vx, YY - ay - t * vy) <= w / 2
+    ye = Y_MAX - b
+    req |= seg(0, -ye, 0, -WELL_R) | seg(0, ye, 0, WELL_R)
+    mids = [(0, -ye), (X_OUT - b, 0), (0, ye), (-(X_OUT - b), 0)]
+    for i in range(4):
+        req |= seg(*mids[i], *mids[(i + 1) % 4])
+    return step, gaussian_filter(req.astype(float), 2.0 / step) > 0.3
+
+
+_KEEP_STEP, _KEEP = _floor_keep()
+
+
+def floor(x, y, z):
+    """Solid floor with its plate opened to a sheet gyroid (the walls' period, rig coordinates) outside _KEEP."""
+    s = _floor_solid(x, y, z)
+    if y >= FLOOR_T:
+        return s
+    keep = np.asarray(_KEEP)                           # np may be cupy under to_goo --gpu
+    i = np.clip((z / _KEEP_STEP).astype(int), 0, keep.shape[0] - 1)
+    j = np.clip((x / _KEEP_STEP).astype(int), 0, keep.shape[1] - 1)
+    X, Yr, d = z - X_OUT, x + Y_MIN, DEPTH + FLOOR_T - y
+    k = 2 * np.pi / GYROID_PERIOD
+    g = np.sin(k * X) * np.cos(k * Yr) + np.sin(k * Yr) * np.cos(k * d) + np.sin(k * d) * np.cos(k * X)
+    return s & (keep[i, j] | (np.abs(g) <= FILL_T))
 
 
 PANEL_BORDER = 6.0                         # solid frame round a gyroid panel (2 of it sits in the wall grooves)
@@ -109,5 +167,5 @@ def panel(x, y, z, grille=True, cable_notch=False, button=False, gyroid=None):
 
 
 PIECES = [
-    implicit_piece(Y_MAX - Y_MIN, FLOOR_T + max(COLLAR_H, CRADLE_H), 2 * X_OUT, floor, x0=-(Y_MAX - Y_MIN) / 2, z0=-X_OUT),
+    implicit_piece(Y_MAX - Y_MIN, FLOOR_T + max(COLLAR_H, RAIL_H, NUB_H, CRADLE_H if ETH_CRADLE else 0), 2 * X_OUT, floor, x0=-(Y_MAX - Y_MIN) / 2, z0=-X_OUT),
 ]
