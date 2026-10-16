@@ -46,6 +46,14 @@ Then turn the measured parts into overlay boxes and route every cable in the mod
 - **Not modelled yet:** the Pi flip **post + arch adapter** (d 133.5, X ±24.5). Sketch it for the user first
   (hard rule), then viewer, then checks. Its M2.5 bores: caliper the inserts first (`PI_INSERT_D` is [MEASURE]).
 
+## Next session (2026-10-16): assembly
+- Camera inserts: baking powder + CA experiment (see "Camera M2 inserts" below): dry run first, light powder, CA in
+  last, one press with the board as the jig, pull straight out if it binds, lens capped, soda collars after.
+- Cable routing by hand in v2 (and take notes / photos for the v3 routing). Then the caliper session (top).
+- v3 renders: `PI_BOX_V3=1 python -m designs.pi_box_export`, then Blender with `PI_BOX_V3=1` and an ABSOLUTE
+  output dir (relative paths silently go elsewhere). Smoky-black material is a placeholder: revisit once the
+  75 % Fast smoky black + 25 % Tenacious clear blend is actually printed. Turquoise matches the clear-blue print.
+
 ## 2026-10-15 night: new resin, panels + floor printed
 - **Exposure 2.3 s** for ELEGOO ABS-like clear blue + Siraya Tenacious clear 75/25. `exposure_test` (2.5 s, gray
   100–50 %): row 1 (100/90/80 %) all pins, 70 % lost pins, 50 % printed only the base; 90 % best. **The vat ran
