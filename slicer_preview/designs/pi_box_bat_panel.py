@@ -9,7 +9,7 @@ from designs.pi_box_bat_lids import PANEL_W, PANEL_H, PANEL_T, panel
 from designs.pi_box_bat_rig import Y_MIN, PANEL_LIP
 
 SUPPORTS = False
-EXPOSURE_S = 2.6
+EXPOSURE_S = 2.3   # ELEGOO ABS-like clear blue + Siraya Tenacious clear 75/25, exposure_test 2026-10-15 (90% cell, vat ~25 C)
 BOTTOM_EXPOSURE_S = 20.0
 
 # 170 mm tall: lies with its height along the printer's long axis (x)

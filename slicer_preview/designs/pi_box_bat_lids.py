@@ -18,7 +18,7 @@ from geometry import implicit_piece
 from designs.pi_box_bat_rig import *      # noqa: F401,F403
 
 SUPPORTS = False
-EXPOSURE_S = 2.6
+EXPOSURE_S = 2.3   # ELEGOO ABS-like clear blue + Siraya Tenacious clear 75/25, exposure_test 2026-10-15 (90% cell, vat ~25 C)
 BOTTOM_EXPOSURE_S = 20.0
 
 FLOOR_T = 3.0
