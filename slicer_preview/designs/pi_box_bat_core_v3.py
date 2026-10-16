@@ -376,6 +376,9 @@ def _v3_overlays():
     R.pi_pt = lambda bx, by: (_pi_pt(bx, by)[0] + PI_SHIFT, _pi_pt(bx, by)[1])
     stale = ('eth_adapter', 'cable_usbc', 'cable_ribbons')
     out = [o for o in R.build_overlays() if not any(k in o['file'] for k in stale)]
+    for o in out:                                  # the viewer depth-writes only opaque overlays: make the boards sort
+        if o['file'].endswith('/cameras.stl'):     # properly against the cartridges
+            o['opacity'] = 1.0
     px = -28.0 + PI_SHIFT                          # right-angle USB-C plug ~10 + adapter allowance 8, toward -X
     path = R.OVERLAY_DIR / 'usbc_plug_envelope.stl'
     R._write_stl(path, R.to_print(R._box(px - 18.0, px, PCB_YR - 11.0, PCB_YR - 2.0, -31.0, -20.0)))
@@ -420,7 +423,7 @@ def _part_overlays(h=0.35):
               f'{tris[..., 1].max():.1f}  d {-tris[..., 2].max():.1f}..{-tris[..., 2].min():.1f}')
         path = R.OVERLAY_DIR / f'{name}.stl'
         R._write_stl(path, R.to_print(tris))
-        out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color=color, opacity=0.9, label=label))
+        out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color=color, opacity=1.0, label=label))   # opaque: depth-written
     return out
 
 
