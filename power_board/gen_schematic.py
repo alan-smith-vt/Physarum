@@ -22,8 +22,15 @@ FP_C0805 = "Capacitor_SMD:C_0805_2012Metric"
 FP_LED = "LED_SMD:LED_0603_1608Metric"
 
 
+_UID_NS = uuid.UUID(ROOT_UUID)
+_uid_count = 0
+
+
 def uid():
-    return str(uuid.uuid4())
+    """Deterministic UUIDs so regenerating keeps the board's links to symbols (and quiet git diffs)."""
+    global _uid_count
+    _uid_count += 1
+    return str(uuid.uuid5(_UID_NS, str(_uid_count)))
 
 
 # ---------------------------------------------------------------- parts
@@ -40,7 +47,7 @@ PASSIVES = [
     ("C3", "C", "10u 35V", FP_C1210, "V15", "GND", "buck Cin"),
     ("C4", "C", "100n 50V", FP_C, "V15", "GND", "buck Cin HF"),
     ("C5", "C", "100n 16V", FP_C, "BUCK_BOOT", "BUCK_SW", "bootstrap"),
-    ("L1", "L", "3.3u Isat>=10A", "Inductor_SMD:L_Vishay_IHLP-2525", "BUCK_SW", "V5", "IHLP-3232DZ-3R3 class"),
+    ("L1", "L", "3.3u Isat>=10A", "Inductor_SMD:L_Vishay_IHLP-3232", "BUCK_SW", "V5", "IHLP-3232DZ-3R3 class"),
     ("R3", "R", "75k 1%", FP_R, "V5", "BUCK_FB", "FB top: 5.10 V"),
     ("R4", "R", "10k 1%", FP_R, "BUCK_FB", "GND", "FB bottom"),
     ("R5", "R", "20k", FP_R, "V5", "BUCK_FF", "feed-forward (optional)"),
@@ -63,54 +70,67 @@ PASSIVES = [
     ("C12", "C", "1u 25V", FP_C0805, "VLIDAR", "GND", "eFuse Cout"),
     # INA226
     ("C13", "C", "100n", FP_C, "3V3_PI", "GND", "INA226 VS"),
-    # Soft power placeholder support
-    ("C14", "C", "1u 25V", FP_C0805, "V15", "GND", "U2 VIN"),
+    # Soft power with the latching switch: buck EN = switch OR Pi keep-alive (diode-OR).
+    # Switch on: 15 V -> 100k/27k -> 3.19 V (safe for a Pi GPIO). Switch off: Pi sees SW_SENSE low,
+    # shuts down, and drops KEEP_ALIVE at halt (gpio-poweroff), which turns the buck off.
+    ("R17", "R", "1k", FP_R, "V15", "SW_FEED", "limits a short in the switch lead"),
+    ("R18", "R", "100k 1%", FP_R, "SW_ON", "SW_TAP", "switch divider top"),
+    ("R19", "R", "27k 1%", FP_R, "SW_TAP", "GND", "switch divider bottom: 3.19 V"),
+    ("D4", "D", "BAT54WS", "Diode_SMD:D_SOD-323", "BUCK_EN", "SW_TAP", "switch -> EN"),
+    ("D5", "D", "BAT54WS", "Diode_SMD:D_SOD-323", "BUCK_EN", "KEEP_ALIVE", "Pi keep-alive -> EN"),
+    ("R20", "R", "100k", FP_R, "BUCK_EN", "GND", "EN off when neither drives"),
+    ("R21", "R", "10k", FP_R, "SW_TAP", "SW_SENSE", "series into Pi GPIO"),
+    ("R22", "R", "100k", FP_R, "KEEP_ALIVE", "GND", "keep-alive low while Pi boots"),
     # Status LEDs
     ("R14", "R", "1k", FP_R, "V5", "LED5_A", ""),
     ("D2", "LED", "green", FP_LED, "GND", "LED5_A", "5 V on (K=1, A=2)"),
     ("R15", "R", "6.8k", FP_R, "VLIDAR", "LEDL_A", "~2 mA at 15 V"),
     ("D3", "LED", "blue", FP_LED, "GND", "LEDL_A", "lidar on (K=1, A=2)"),
-    ("R16", "R", "1k", FP_R, "V5", "BTN_LED_A", "button ring LED"),
+    ("R16", "R", "0R", FP_R, "V5", "BTN_LED_A", "button LED: 0R if the LED has its own resistor, else ~150R"),
 ]
+
+def usb_pins(vbus, cc1, cc2, dp, dm, side):
+    """All 17 pads of a 16P USB-C receptacle (GCT USB4105), so the board matches the symbol pad for pad."""
+    return ([(n, "VBUS", vbus, side) for n in ("A4", "A9", "B4", "B9")]
+            + [(n, "GND", "GND", side) for n in ("A1", "A12", "B1", "B12", "SH")]
+            + [("A5", "CC1", cc1, side), ("B5", "CC2", cc2, side)]
+            + [(n, "D+", dp, side) for n in ("A6", "B6")]
+            + [(n, "D-", dm, side) for n in ("A7", "B7")]
+            + [("A8", "SBU1", None, side), ("B8", "SBU2", None, side)])
+
 
 # ICs and connectors: (ref, symbol name, value, footprint, [(pin no, pin name, net or None for NC, side)])
 # side: "L" or "R"
 ICS = [
-    ("J1", "USB_C_SINK", "USB-C receptacle (input from bank)", "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal", [
-        ("A4", "VBUS", "VBUS_RAW", "R"), ("A1", "GND", "GND", "R"),
-        ("A5", "CC1", "IN_CC1", "R"), ("B5", "CC2", "IN_CC2", "R"),
-        ("A6", "D+", "IN_DP", "R"), ("A7", "D-", "IN_DM", "R"),
-        ("S1", "SHIELD", "GND", "R"),
-    ]),
-    ("U1", "CH224Q", "CH224Q", "", [
+    ("J1", "USB_C_SINK", "USB-C receptacle (input from bank)", "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+     usb_pins("VBUS_RAW", "IN_CC1", "IN_CC2", "IN_DP", "IN_DM", "R")),
+    # CH224A: same function as the CH224Q in ESSOP-10 (hand-reworkable). CFG2/CFG3 have internal
+    # 10k pull-ups to the chip's own rail, so they stay floating: tying them to the Pi's I2C would
+    # back-power the Pi's 3V3 while the Pi is off. The INA226 reads the bus voltage instead.
+    ("U1", "CH224A", "CH224A", "Package_SO:SSOP-10-1EP_3.9x4.9mm_P1mm_EP2.1x3.3mm", [
         ("1", "VHV", "VBUS_RAW", "L"), ("8", "VBUS", "VBUS_RAW", "L"),
         ("7", "CC1", "IN_CC1", "L"), ("6", "CC2", "IN_CC2", "L"),
         ("4", "DP", "IN_DP", "L"), ("5", "DM", "IN_DM", "L"),
-        ("9", "CFG1", "PD_CFG1", "R"), ("2", "CFG2/SCL", "SCL", "R"),
-        ("3", "CFG3/SDA", "SDA", "R"), ("10", "PG", "PD_PG_N", "R"),
-        ("0", "GND", "GND", "R"),
+        ("9", "CFG1", "PD_CFG1", "R"), ("2", "CFG2/SCL", None, "R"),
+        ("3", "CFG3/SDA", None, "R"), ("10", "PG", "PD_PG_N", "R"),
+        ("11", "GND", "GND", "R"),
     ]),
-    ("U5", "INA226", "INA226 (addr 0x40)", "Package_SO:VSSOP-10_3x3mm_P0.5mm", [
+    ("U5", "INA226", "INA226 (addr 0x40)", "Package_SO:MSOP-10_3x3mm_P0.5mm", [
         ("10", "IN+", "VIN15", "L"), ("9", "IN-", "V15", "L"), ("8", "VBUS", "V15", "L"),
         ("6", "VS", "3V3_PI", "L"), ("7", "GND", "GND", "L"),
         ("5", "SCL", "SCL", "R"), ("4", "SDA", "SDA", "R"),
         ("1", "A1", "GND", "R"), ("2", "A0", "GND", "R"), ("3", "ALERT", None, "R"),
     ]),
-    ("U2", "SOFT_POWER", "TBD: LTC2955 or MAX16150", "", [
-        ("1", "VIN", "V15", "L"), ("2", "GND", "GND", "L"), ("3", "PB", "BTN", "L"),
-        ("4", "EN_OUT", "BUCK_EN", "R"), ("5", "INT", "SHDN_REQ", "R"), ("6", "KILL", "KILL", "R"),
-    ]),
-    ("U3", "TPS56637", "TPS56637RPA", "", [
+    # Footprint is a placeholder: replace with TI's RPA0010A KiCad footprint (Ultra Librarian) before ordering.
+    ("U3", "TPS56637", "TPS56637RPA", "power_board:TI_RPA0010A_PLACEHOLDER", [
         ("8", "VIN", "V15", "L"), ("1", "EN", "BUCK_EN", "L"), ("10", "MODE", "GND", "L"),
         ("3", "AGND", "GND", "L"), ("9", "PGND", "GND", "L"),
         ("7", "BOOT", "BUCK_BOOT", "R"), ("6", "SW", "BUCK_SW", "R"), ("2", "FB", "BUCK_FB", "R"),
         ("4", "PG", "BUCK_PG", "R"), ("5", "NC", None, "R"),
     ]),
-    ("J2", "USB_C_SOURCE", "USB-C receptacle (5 V to Pi)", "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal", [
-        ("A4", "VBUS", "V5", "L"), ("A1", "GND", "GND", "L"),
-        ("A5", "CC1", "OUT_CC1", "L"), ("B5", "CC2", "OUT_CC2", "L"), ("S1", "SHIELD", "GND", "L"),
-    ]),
-    ("U4", "TPS26631", "TPS26631PWP", "Package_SO:HTSSOP-20-1EP_4.4x6.5mm_P0.65mm_EP3.4x6.5mm", [
+    ("J2", "USB_C_SOURCE", "USB-C receptacle (5 V to Pi)", "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+     usb_pins("V5", "OUT_CC1", "OUT_CC2", None, None, "L")),
+    ("U4", "TPS26631", "TPS26631PWP", "Package_SO:HTSSOP-20-1EP_4.4x6.5mm_P0.65mm_EP3.4x6.5mm_Mask2.96x2.96mm_ThermalVias", [
         ("1", "IN", "V15", "L"), ("2", "IN", "V15", "L"), ("3", "IN", "V15", "L"),
         ("6", "IN_SYS", "V15", "L"), ("7", "UVLO", "EF_UVLO", "L"), ("8", "OVP", "EF_OVP", "L"),
         ("13", "~{SHDN}", "LIDAR_EN", "L"), ("9", "GND", "GND", "L"), ("21", "EP", "GND", "L"),
@@ -120,18 +140,18 @@ ICS = [
         ("15", "~{FLT}", "LIDAR_FLT_N", "R"), ("14", "IMON", None, "R"),
         ("16", "PGTH", "GND", "R"), ("17", "PGOOD", None, "R"),
     ]),
-    ("J3", "LIDAR_OUT", "Lidar 15 V (pluggable 3.5 mm)", "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MPT-0,5-2-2.54_1x02_P2.54mm_Horizontal", [
+    ("J3", "LIDAR_OUT", "Lidar 15 V (pluggable 3.5 mm)", "Connector_Phoenix_MC:PhoenixContact_MC_1,5_2-G-3.5_1x02_P3.50mm_Horizontal", [
         ("1", "+15V", "VLIDAR", "L"), ("2", "GND", "GND", "L"),
     ]),
-    ("J4", "BUTTON", "Momentary LED button (JST-XH 4)", "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical", [
-        ("1", "SW_A", "BTN", "L"), ("2", "SW_B", "GND", "L"),
+    ("J4", "BUTTON", "Latching 16 mm LED button (JST-XH 4)", "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical", [
+        ("1", "SW_COM", "SW_FEED", "L"), ("2", "SW_NO", "SW_ON", "L"),
         ("3", "LED+", "BTN_LED_A", "L"), ("4", "LED-", "GND", "L"),
     ]),
     ("J5", "PI_HEADER", "To Pi GPIO (JST-PH 10)", "Connector_JST:JST_PH_B10B-PH-K_1x10_P2.00mm_Vertical", [
         ("1", "3V3", "3V3_PI", "L"), ("2", "GND", "GND", "L"),
         ("3", "SDA", "SDA", "L"), ("4", "SCL", "SCL", "L"),
-        ("5", "LIDAR_EN", "LIDAR_EN", "L"), ("6", "SHDN_REQ", "SHDN_REQ", "L"),
-        ("7", "KILL", "KILL", "L"), ("8", "~{LIDAR_FLT}", "LIDAR_FLT_N", "L"),
+        ("5", "LIDAR_EN", "LIDAR_EN", "L"), ("6", "SW_SENSE", "SW_SENSE", "L"),
+        ("7", "KEEP_ALIVE", "KEEP_ALIVE", "L"), ("8", "~{LIDAR_FLT}", "LIDAR_FLT_N", "L"),
         ("9", "~{PD_PG}", "PD_PG_N", "L"), ("10", "BUCK_PG", "BUCK_PG", "L"),
     ]),
 ]
@@ -225,7 +245,7 @@ def instance(lib_id, ref, value, fp, x, y, note=""):
             f'(uuid "{uid()}") '
             f'{prop("Reference", ref, x + 3.81, y - 1.27)} {prop("Value", value, x + 3.81, y + 1.27)} '
             f'{prop("Footprint", fp, x, y, True)} {prop("Datasheet", "", x, y, True)} '
-            f'{prop("Note", note, x, y, True)} '
+            f'{prop("Description", note, x, y, True)} '
             f'(instances (project "{NAME}" (path "/{ROOT_UUID}" (reference "{ref}") (unit 1)))))')
 
 

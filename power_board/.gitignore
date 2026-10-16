@@ -3,3 +3,5 @@ erc.rpt
 *.kicad_prl
 *-backups/
 fp-info-cache
+drc.rpt
+*.pdf
