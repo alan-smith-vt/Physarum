@@ -50,6 +50,7 @@ def track(netname, pts, width, layer=pcbnew.F_Cu):
         t.SetWidth(mm(width))
         t.SetLayer(layer)
         t.SetNet(net(netname))
+        t.SetLocked(True)
         board.Add(t)
         group.AddItem(t)
 
@@ -60,6 +61,7 @@ def via(netname, x, y, d=0.6, drill=0.3):
     v.SetWidth(mm(d))
     v.SetDrill(mm(drill))
     v.SetNet(net(netname))
+    v.SetLocked(True)
     board.Add(v)
     group.AddItem(v)
 
@@ -82,6 +84,8 @@ def pour(netname, pts, layer=pcbnew.F_Cu, clearance=0.2, priority=10):
 
 # ── VIN (V15) loop ──
 pour("V15", [(7.85, 24.05), (11.3, 24.05), (11.3, 32.0), (7.85, 32.0)])
+for x, y in [(9.65, 26.6), (9.65, 27.6), (8.5, 29.5), (8.5, 30.7)]:   # VIN pour down to the In2 V15 plane
+    via("V15", x, y)
 pour("GND", [(11.85, 24.6), (12.62, 24.6), (12.62, 25.95), (13.3, 25.95), (13.3, 26.8), (14.8, 26.8),
              (14.8, 32.2), (11.55, 32.2), (11.55, 26.75), (11.85, 26.75)], clearance=0.15)
 for y in (27.5, 28.6, 29.7, 30.8, 31.7):
@@ -126,14 +130,12 @@ track("GND", [(6.8, 7.68), (5.68, 7.11)], 0.3)
 track("OUT_CC1", [(11.25, 7.68), (11.25, 5.6), (16.6, 5.6), (16.6, 6.17), (17.5, 6.17)], 0.2)
 track("OUT_CC2", [(8.25, 7.68), (8.25, 4.8), (16.3, 4.8), (16.3, 2.17), (17.5, 2.17)], 0.2)
 track("V5", [(17.5, 3.83), (18.5, 3.83), (18.5, 7.83), (17.5, 7.83)], 0.3)   # Rp tops together
-track("V5", [(17.5, 7.83), (17.0, 8.45)], 0.3)                                 # into the V5 pour
+track("V5", [(17.5, 7.83), (16.6, 8.0), (15.3, 8.9)], 0.3)                    # into the V5 pour
 
 # ── PG pull-up R6 (V5 top, PG bottom) ──
 track("V5", [(20.5, 21.3), (22.8, 21.3), (22.8, 26.67)], 0.25)
 
 # ── EN / PG escapes (EN and PG to J5 are finished with the rest of the board) ──
-track("BUCK_EN", [(13.4, 25.65), (13.7, 25.65), (14.2, 26.15)], 0.2)
-via("BUCK_EN", 14.2, 26.15, d=0.45, drill=0.2)
 track("BUCK_PG", [(13.4, 24.15), (13.9, 24.15), (14.3, 23.75)], 0.2)
 via("BUCK_PG", 14.3, 23.75, d=0.45, drill=0.2)
 track("BUCK_PG", [(14.3, 23.75), (14.9, 23.75), (14.9, 29.9), (22.8, 29.9)], 0.2, pcbnew.In2_Cu)

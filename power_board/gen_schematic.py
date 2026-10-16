@@ -103,14 +103,14 @@ def usb_pins(vbus, cc1, cc2, dp, dm, side):
 # side: "L" or "R"
 ICS = [
     ("J1", "USB_C_SINK", "USB-C receptacle (input from bank)", "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
-     usb_pins("VBUS_RAW", "IN_CC1", "IN_CC2", "IN_DP", "IN_DM", "R")),
+     usb_pins("VBUS_RAW", "IN_CC1", "IN_CC2", None, None, "R")),
     # CH224A: same function as the CH224Q in ESSOP-10 (hand-reworkable). CFG2/CFG3 have internal
     # 10k pull-ups to the chip's own rail, so they stay floating: tying them to the Pi's I2C would
     # back-power the Pi's 3V3 while the Pi is off. The INA226 reads the bus voltage instead.
     ("U1", "CH224A", "CH224A", "Package_SO:SSOP-10-1EP_3.9x4.9mm_P1mm_EP2.1x3.3mm", [
         ("1", "VHV", "VBUS_RAW", "L"), ("8", "VBUS", "VBUS_RAW", "L"),
         ("7", "CC1", "IN_CC1", "L"), ("6", "CC2", "IN_CC2", "L"),
-        ("4", "DP", "IN_DP", "L"), ("5", "DM", "IN_DM", "L"),
+        ("4", "DP", None, "L"), ("5", "DM", None, "L"),   # BC1.2/QC only; PD runs on CC
         ("9", "CFG1", "PD_CFG1", "R"), ("2", "CFG2/SCL", None, "R"),
         ("3", "CFG3/SDA", None, "R"), ("10", "PG", "PD_PG_N", "R"),
         ("11", "GND", "GND", "R"),

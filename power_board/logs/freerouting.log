@@ -1,0 +1,246 @@
+2026-10-16 18:12:53.090 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:12:54.238 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:12:54.783 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:12:59.135 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:12:59.318 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:12:59.397 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:12:59.402 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:12:59.408 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:12:59.413 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:12:59.435 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:12:59.447 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:12:59.462 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:12:59.466 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:00.822 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:00.916 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:00.986 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.050 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.080 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.175 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.208 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.329 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.358 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.536 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.567 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.776 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.857 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:13:01.863 [Thread-29] INFO  Auto-routing was completed in 2.73 seconds.
+2026-10-16 18:13:01.978 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:13:04.109 [Thread-29] INFO  Route optimization was completed in 2.13 seconds.
+2026-10-16 18:13:04.119 [Thread-29] INFO  Saving 'power_board.ses'...
+2026-10-16 18:14:38.888 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:14:38.977 [main] INFO  Settings were loaded from freerouting.json
+2026-10-16 18:14:40.019 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:14:40.501 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:14:44.034 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:14:44.266 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:44.339 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:44.360 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:44.364 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:44.369 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:44.378 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:44.382 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:44.395 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:44.408 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:46.128 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:46.278 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:46.364 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:46.451 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:46.486 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:46.603 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:46.645 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:46.827 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:46.856 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:47.068 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:47.106 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:47.361 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:47.406 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:14:47.414 [Thread-29] INFO  Auto-routing was completed in 3.38 seconds.
+2026-10-16 18:14:47.531 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:14:50.050 [Thread-29] INFO  Route optimization was completed in 2.52 seconds.
+2026-10-16 18:14:50.063 [Thread-29] INFO  Saving 'power_board.ses'...
+2026-10-16 18:15:16.164 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:15:16.302 [main] INFO  Settings were loaded from freerouting.json
+2026-10-16 18:15:17.349 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:15:17.618 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:15:21.517 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:15:21.793 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:21.824 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:21.841 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:21.855 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:21.876 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:21.879 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:21.884 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:21.889 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:21.894 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:23.772 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:23.902 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:15:23.915 [Thread-29] INFO  Auto-routing was completed in 2.40 seconds.
+2026-10-16 18:15:24.024 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:15:26.277 [Thread-29] INFO  Route optimization was completed in 2.25 seconds.
+2026-10-16 18:15:26.288 [Thread-29] INFO  Saving 'power_board.ses'...
+2026-10-16 18:15:57.545 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:15:57.648 [main] INFO  Settings were loaded from freerouting.json
+2026-10-16 18:15:58.721 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:15:59.266 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:16:04.489 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:16:04.748 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:04.907 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:04.927 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:04.941 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:04.950 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:04.967 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:04.982 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:04.992 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:05.014 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:08.159 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:08.923 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:09.222 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:09.282 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:09.300 [Thread-29] INFO  Auto-routing was completed in 4.81 seconds.
+2026-10-16 18:16:09.407 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:16:13.021 [Thread-29] INFO  Route optimization was completed in 3.61 seconds.
+2026-10-16 18:16:13.039 [Thread-29] INFO  Saving 'power_board.ses'...
+2026-10-16 18:16:43.400 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:16:43.496 [main] INFO  Settings were loaded from freerouting.json
+2026-10-16 18:16:44.541 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:16:44.956 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:16:48.524 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:16:48.696 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:48.801 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:48.809 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:48.824 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:48.829 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:48.836 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:48.840 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:48.862 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:48.867 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:50.820 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:51.082 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:16:51.096 [Thread-29] INFO  Auto-routing was completed in 2.57 seconds.
+2026-10-16 18:16:51.207 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:16:53.912 [Thread-29] INFO  Route optimization was completed in 2.70 seconds.
+2026-10-16 18:16:53.925 [Thread-29] INFO  Saving 'power_board.ses'...
+2026-10-16 18:17:28.786 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:17:28.864 [main] INFO  Settings were loaded from freerouting.json
+2026-10-16 18:17:29.905 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:17:30.475 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:17:32.614 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:17:32.820 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:32.858 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:32.861 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:32.868 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:32.873 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:32.905 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:32.912 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:32.918 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:32.921 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:34.127 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:34.591 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:34.926 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:17:34.934 [Thread-29] INFO  Auto-routing was completed in 2.32 seconds.
+2026-10-16 18:17:35.047 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:17:37.161 [Thread-29] INFO  Route optimization was completed in 2.11 seconds.
+2026-10-16 18:17:37.171 [Thread-29] INFO  Saving 'power_board.ses'...
+2026-10-16 18:18:34.348 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:18:34.431 [main] INFO  Settings were loaded from freerouting.json
+2026-10-16 18:18:35.480 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:18:35.977 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:18:38.286 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:18:38.543 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:38.564 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:38.571 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:38.591 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:38.602 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:38.609 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:38.614 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:38.620 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:38.627 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:40.390 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:40.857 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:41.217 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:41.619 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:18:41.861 [Thread-29] INFO  Auto-routing was completed in 3.57 seconds.
+2026-10-16 18:18:41.968 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:18:44.033 [Thread-29] INFO  Route optimization was completed in 2.06 seconds.
+2026-10-16 18:18:44.045 [Thread-29] INFO  Saving 'power_board.ses'...
+2026-10-16 18:19:18.186 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:19:18.266 [main] INFO  Settings were loaded from freerouting.json
+2026-10-16 18:19:19.302 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:19:19.905 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:19:23.370 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:19:23.574 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:23.608 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:23.619 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:23.626 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:23.642 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:23.646 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:23.650 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:23.657 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:23.663 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:25.125 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:25.731 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:25.900 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.025 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.059 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.204 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.238 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.416 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.448 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.666 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.698 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.932 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:26.970 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:27.215 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:27.251 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:19:27.258 [Thread-29] INFO  Auto-routing was completed in 3.89 seconds.
+2026-10-16 18:19:27.365 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:19:29.379 [Thread-29] INFO  Route optimization was completed in 2.01 seconds.
+2026-10-16 18:19:29.390 [Thread-29] INFO  Saving 'power_board.ses'...
+2026-10-16 18:19:58.097 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:19:58.184 [main] INFO  Settings were loaded from freerouting.json
+2026-10-16 18:19:59.226 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:19:59.737 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:20:02.053 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:20:02.206 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:02.307 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:02.315 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:02.320 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:02.330 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:02.338 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:02.348 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:02.375 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:02.380 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:04.484 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:04.957 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:05.316 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:05.329 [Thread-29] INFO  Auto-routing was completed in 3.27 seconds.
+2026-10-16 18:20:05.442 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:20:08.754 [Thread-29] INFO  Route optimization was completed in 3.31 seconds.
+2026-10-16 18:20:08.771 [Thread-29] INFO  Saving 'power_board.ses'...
+2026-10-16 18:20:33.161 [main] INFO  Freerouting v1.9.0 (build-date: 2023-10-30)
+2026-10-16 18:20:33.239 [main] INFO  Settings were loaded from freerouting.json
+2026-10-16 18:20:34.287 [main] INFO  Opening 'power_board.dsn'...
+2026-10-16 18:20:34.649 [ForkJoinPool.commonPool-worker-1] INFO  New version available: v2.5.0
+2026-10-16 18:20:37.150 [Thread-29] INFO  Starting auto-routing...
+2026-10-16 18:20:37.384 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:37.426 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:37.429 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:37.440 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:37.448 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:37.460 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:37.464 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:37.469 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:37.480 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:38.752 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:39.128 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:39.421 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:39.572 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:39.699 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:39.774 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:39.829 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:39.892 [Thread-29] WARN  FloatLine: Parameter is null
+2026-10-16 18:20:39.899 [Thread-29] INFO  Auto-routing was completed in 2.75 seconds.
+2026-10-16 18:20:40.014 [Thread-29] INFO  Starting route optimization on 1 thread...
+2026-10-16 18:20:42.336 [Thread-29] INFO  Route optimization was completed in 2.32 seconds.
+2026-10-16 18:20:42.346 [Thread-29] INFO  Saving 'power_board.ses'...

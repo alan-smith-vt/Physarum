@@ -8,3 +8,7 @@ drc.rpt
 review_*.png
 top.png
 *.svg
+*.dsn
+*.ses
+pre_autoroute.kicad_pcb
+fab/gerbers/

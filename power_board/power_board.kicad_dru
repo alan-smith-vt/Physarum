@@ -1,0 +1,5 @@
+(version 1)
+
+# Through-hole connector pins on the GND planes: one thermal spoke is enough where tracks crowd the rest.
+(rule "single spoke ok"
+  (constraint min_resolved_spokes 1))

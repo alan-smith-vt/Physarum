@@ -25,7 +25,7 @@ LAYERS = 4                 # TI asks for 4 layers on the buck; inner layers are 
 PLACE = {
     # top edge (toward the Pi): both USB-C sockets mouth up (5 V out left, bank in right), Rp, status LEDs
     "J2": (10.0, 4.0, 180), "R8": (17.5, 3.0, 90), "R7": (17.5, 7.0, 90), "J1": (36.0, 4.0, 180),
-    "R14": (24.0, 3.0, 0), "D2": (24.0, 5.5, 0), "R15": (24.0, 8.0, 0), "D3": (24.0, 10.5, 0),
+    "R14": (24.0, 3.0, 0), "D2": (24.0, 5.5, 0), 
     # buck, upper left, per TPS56637 datasheet 10.1: U3 turned 180 so SW (pin 6) faces up into the
     # inductor and the 5 V caps sit just under J2; Cin hugs VIN/PGND on the left; the FB divider sits
     # on the right, the quiet side away from SW; boot cap between pin 7 and the SW node.
@@ -36,21 +36,26 @@ PLACE = {
     "C7": (5.0, 10.55, 0), "C8": (10.0, 10.55, 180), "C9": (15.0, 10.55, 0),
     "R3": (17.2, 23.1, 270), "R4": (17.2, 27.4, 270), "R5": (20.5, 23.1, 270), "C6": (20.5, 26.4, 270),
     "R6": (22.8, 27.5, 270),
-    # input chain down the right side, in signal order: J1 -> F1 -> D1 (TVS) -> R1 shunt -> U5 monitor
-    "F1": (36.0, 13.0, 90), "D1": (41.5, 13.0, 90), "R1": (38.0, 21.0, 90),
-    "U5": (38.0, 28.5, 0), "C13": (43.0, 28.5, 90),
+    # input chain down the right side, in signal order: J1 -> F1 -> D1 (TVS) -> R1 shunt -> U5 monitor.
+    # R1 has VIN15 on top, V15 below; U5 is turned so IN+/IN-/VBUS face R1 for Kelvin sense lines.
+    "F1": (36.0, 13.0, 270), "D1": (41.5, 13.0, 90), "R1": (38.0, 21.0, 270),
+    "U5": (38.0, 28.5, 90), "C13": (40.9, 27.6, 270),
     # button connector on the left edge (switch side) + switch logic
-    "J4": (2.5, 44.0, 90), "R17": (10.5, 34.0, 0), "R18": (10.5, 36.0, 0), "R19": (10.5, 38.0, 0),
+    "J4": (3.0, 44.0, 90), "R17": (10.5, 34.0, 0), "R18": (10.5, 36.0, 0), "R19": (10.5, 38.0, 0),
     "R21": (10.5, 40.0, 0), "R16": (10.5, 42.0, 0), "D4": (10.0, 44.5, 0), "D5": (10.0, 47.0, 0),
     "R20": (6.5, 49.0, 0), "R22": (6.5, 51.0, 0),
-    # lidar eFuse, middle
-    "U4": (20.0, 41.0, 90), "C10": (15.0, 34.0, 0), "R9": (15.0, 37.0, 0), "R10": (15.0, 39.0, 0),
-    "R11": (15.0, 41.0, 0), "R13": (15.0, 44.0, 0), "R12": (27.0, 38.0, 0), "C11": (27.0, 40.0, 0),
-    "C12": (27.0, 44.0, 0),
+    # lidar eFuse, middle: turned 270 so IN (pins 1-3, 6) faces up toward V15 and OUT (18-20) faces J3
+    "U4": (20.0, 41.0, 270), "C10": (23.6, 35.2, 0), "R9": (15.0, 37.0, 0), "R10": (15.0, 39.0, 0),
+    "R11": (15.0, 41.0, 0), "R13": (15.0, 44.0, 0), "R12": (17.3, 46.4, 270), "C11": (17.3, 35.6, 90),
+    "C12": (23.0, 46.6, 0),
     # bottom (floor side): top-entry Pi header and lidar terminal (plugs go in from the board face), PD sink
-    "J5": (8.5, 56.0, 0), "C1": (20.0, 48.0, 0), "U1": (26.0, 49.0, 0), "R2": (31.0, 46.0, 90),
-    "J3": (34.0, 55.0, 0),
+    "J5": (8.5, 56.0, 0), "C1": (23.5, 50.0, 90), "U1": (29.0, 48.6, 0), "R2": (34.2, 47.2, 90),
+    "J3": (35.0, 56.2, 0), "R15": (42.6, 51.6, 270), "D3": (42.6, 55.0, 90),   # lidar LED by its terminal
 }
+
+
+LABELS = [("BANK IN", 28.5, 7.0), ("5V PI", 20.5, 10.5), ("BTN", 6.5, 53.0), ("PI GPIO", 16.0, 52.2),
+          ("LIDAR", 38.5, 49.0), ("LIDAR RIG PWR v1", 30.0, 33.5)]
 
 
 def mm(v):
@@ -106,6 +111,7 @@ def add_outline(board):
         hole.SetPosition(pt(x, y))
         hole.SetReference(f"H{1 if x < 10 else 2}")
         hole.SetBoardOnly(True)
+        hole.Reference().SetLayer(pcbnew.F_Fab)
         board.Add(hole)
 
 
@@ -158,6 +164,19 @@ def main():
             name = pin_nets.get((ref, pad.GetNumber()))
             if name in netinfo:
                 pad.SetNet(netinfo[name])
+
+    # Silkscreen: part references go to the fab layer (JLC assembles from the CPL file; the board is too
+    # dense for readable refs), keeping plain-language connector labels instead.
+    for fp in board.GetFootprints():
+        fp.Reference().SetLayer(pcbnew.F_Fab)
+    for text, x, y in LABELS:
+        t = pcbnew.PCB_TEXT(board)
+        t.SetText(text)
+        t.SetPosition(pt(x, y))
+        t.SetLayer(pcbnew.F_SilkS)
+        t.SetTextSize(pcbnew.VECTOR2I(mm(0.9), mm(0.9)))
+        t.SetTextThickness(mm(0.15))
+        board.Add(t)
 
     add_outline(board)
     gnd = netinfo["/GND"]
