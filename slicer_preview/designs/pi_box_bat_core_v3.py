@@ -397,7 +397,11 @@ def _mc(vol, h, origin):
 
 def _part_overlays(h=0.35):
     """The v3 floor (in place) and both camera cartridges (seated) as meshes, so the assembly reads in the viewer."""
+    import sys
     from sdf import solid
+    for m in ('designs.pi_box_cam_cartridge', 'designs.pi_box_bat_floor_v3'):
+        if m in sys.modules and not hasattr(sys.modules[m], 'ROOT' if 'cam' in m else 'floor'):
+            return []                              # imported from that module (circular): it doesn't need them
     import designs.pi_box_cam_cartridge as K
     import designs.pi_box_bat_floor_v3 as F
     out = []
