@@ -14,32 +14,37 @@ HERE = Path(__file__).parent
 KICAD_FP = Path(os.environ["LOCALAPPDATA"]) / "Programs/KiCad/10.0/share/kicad/footprints"
 LIBS = {"power_board": HERE / "power_board.pretty"}
 
-W, H = 60.0, 46.0          # board outline, mm (buck bay size still [MEASURE])
+# Board stands upright against the -Y panel in the old buck/WAGO bay (pi_box_bat_rig: BUCK, WAGOS):
+# X -2..44 (clear of the power switch body, which reaches X -6 at depth 147-163), depth ~116..176
+# (below the Pi's ports, above the floor). Board x = box X + 2, board y = depth - 116.
+# Top edge (y=0) faces the Pi, bottom edge faces the floor, left edge faces the switch.
+W, H = 46.0, 60.0
 LAYERS = 4                 # TI asks for 4 layers on the buck; inner layers are GND
 
 # ref: (x, y, rotation deg), mm from the top-left corner
 PLACE = {
-    # input: USB-C on the left edge, PD sink, fuse, TVS, shunt, monitor
-    "J1": (4.0, 14.0, 270), "F1": (12.0, 5.0, 0), "D1": (13.0, 11.0, 90), "C1": (9.0, 24.0, 0),
-    "U1": (13.0, 30.0, 90), "R2": (8.0, 34.0, 90),
-    "R1": (22.0, 5.0, 0), "U5": (29.0, 9.0, 0), "C13": (29.0, 4.5, 0),
-    # buck
-    "C2": (21.0, 15.0, 90), "C3": (21.0, 20.0, 90), "C4": (24.5, 17.5, 90), "U3": (28.0, 19.0, 0),
-    "C5": (29.0, 15.0, 0), "L1": (35.5, 19.0, 0), "C7": (43.0, 14.0, 90), "C8": (43.0, 19.0, 90),
-    "C9": (43.0, 24.0, 90), "R3": (26.0, 24.0, 0), "R4": (26.0, 26.0, 0), "R5": (29.5, 24.0, 0),
-    "C6": (29.5, 26.0, 0), "R6": (35.0, 25.0, 0),
-    # 5 V USB-C out on the right edge, Rp
-    "J2": (56.0, 19.0, 90), "R7": (49.0, 14.0, 90), "R8": (49.0, 24.0, 90),
-    # lidar eFuse, bottom
-    "U4": (30.0, 37.0, 90), "C10": (23.0, 31.0, 0), "R9": (23.0, 34.0, 0), "R10": (23.0, 36.0, 0),
-    "R11": (23.0, 38.0, 0), "R12": (37.0, 34.0, 0), "C11": (37.0, 36.0, 0), "R13": (23.0, 40.5, 0),
-    "C12": (37.0, 40.0, 0), "J3": (44.0, 40.0, 0),
-    # LEDs
-    "R14": (51.0, 30.0, 0), "D2": (55.0, 30.0, 0), "R15": (51.0, 33.0, 0), "D3": (55.0, 33.0, 0),
-    # Pi header (top edge) and button connector + switch logic (bottom left)
-    "J5": (37.0, 4.0, 0), "J4": (5.0, 41.0, 0), "R16": (19.0, 44.0, 0),
-    "R17": (19.0, 36.0, 0), "R18": (19.0, 38.0, 0), "R19": (19.0, 40.0, 0), "D4": (19.0, 30.0, 90),
-    "D5": (17.0, 30.0, 90), "R20": (19.0, 26.5, 90), "R21": (19.0, 42.0, 0), "R22": (17.0, 26.5, 90),
+    # top edge (toward the Pi): both USB-C sockets mouth up (5 V out left, bank in right), Rp, status LEDs
+    "J2": (10.0, 4.0, 180), "R7": (17.5, 3.0, 90), "R8": (17.5, 7.0, 90), "J1": (36.0, 4.0, 180),
+    "R14": (24.0, 3.0, 0), "D2": (24.0, 5.5, 0), "R15": (24.0, 8.0, 0), "D3": (24.0, 10.5, 0),
+    # buck, upper left
+    "C2": (4.0, 16.0, 90), "C3": (4.0, 21.0, 90), "C4": (7.5, 18.5, 90), "U3": (11.0, 20.0, 0),
+    "C5": (12.0, 16.0, 0), "L1": (18.5, 20.0, 0), "C7": (26.0, 16.0, 90), "C8": (26.0, 21.0, 90),
+    "C9": (26.0, 26.0, 90), "R3": (9.0, 25.0, 0), "R4": (9.0, 27.0, 0), "R5": (12.5, 25.0, 0),
+    "C6": (12.5, 27.0, 0), "R6": (18.0, 26.5, 0),
+    # input protection and monitor, right
+    "R1": (38.0, 17.0, 90), "U5": (38.0, 25.0, 0), "C13": (43.0, 25.0, 90),
+    "F1": (36.0, 33.0, 90), "D1": (41.5, 33.0, 90),
+    # button connector on the left edge (switch side) + switch logic
+    "J4": (2.5, 44.0, 90), "R17": (10.5, 33.0, 0), "R18": (10.5, 35.0, 0), "R19": (10.5, 37.0, 0),
+    "R21": (10.5, 39.0, 0), "R16": (10.5, 41.0, 0), "D4": (10.0, 44.0, 0), "D5": (10.0, 46.5, 0),
+    "R20": (6.5, 49.0, 0), "R22": (6.5, 51.0, 0),
+    # lidar eFuse, middle
+    "U4": (20.0, 40.0, 90), "C10": (15.0, 33.0, 0), "R9": (15.0, 36.0, 0), "R10": (15.0, 38.0, 0),
+    "R11": (15.0, 40.0, 0), "R13": (15.0, 43.0, 0), "R12": (27.0, 37.0, 0), "C11": (27.0, 39.0, 0),
+    "C12": (27.0, 43.0, 0),
+    # bottom (floor side): top-entry Pi header and lidar terminal (plugs go in from the board face), PD sink
+    "J5": (8.5, 56.0, 0), "C1": (20.0, 48.0, 0), "U1": (26.0, 49.0, 0), "R2": (31.0, 46.0, 90),
+    "J3": (34.0, 55.0, 0),
 }
 
 
@@ -91,7 +96,7 @@ def add_outline(board):
         seg.SetLayer(pcbnew.Edge_Cuts)
         seg.SetWidth(mm(0.1))
         board.Add(seg)
-    for x, y in [(3, 3), (W - 3, H - 3)]:  # M2.5 mounting holes, two corners [MEASURE against the bay]
+    for x, y in [(3, H - 3), (W - 3, 47)]:  # M2.5 holes; the core needs matching bosses
         hole = load_fp("MountingHole:MountingHole_2.7mm_M2.5")
         hole.SetPosition(pt(x, y))
         hole.SetReference(f"H{1 if x < 10 else 2}")

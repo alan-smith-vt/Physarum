@@ -73,7 +73,7 @@ PASSIVES = [
     # Soft power with the latching switch: buck EN = switch OR Pi keep-alive (diode-OR).
     # Switch on: 15 V -> 100k/27k -> 3.19 V (safe for a Pi GPIO). Switch off: Pi sees SW_SENSE low,
     # shuts down, and drops KEEP_ALIVE at halt (gpio-poweroff), which turns the buck off.
-    ("R17", "R", "1k", FP_R, "V15", "SW_FEED", "limits a short in the switch lead"),
+    ("R17", "R", "100R 1206", "Resistor_SMD:R_1206_3216Metric", "V15", "SW_FEED", "limits a short in the switch lead; button LED (~10 mA) drops ~1 V"),
     ("R18", "R", "100k 1%", FP_R, "SW_ON", "SW_TAP", "switch divider top"),
     ("R19", "R", "27k 1%", FP_R, "SW_TAP", "GND", "switch divider bottom: 3.19 V"),
     ("D4", "D", "BAT54WS", "Diode_SMD:D_SOD-323", "BUCK_EN", "SW_TAP", "switch -> EN"),
@@ -86,7 +86,7 @@ PASSIVES = [
     ("D2", "LED", "green", FP_LED, "GND", "LED5_A", "5 V on (K=1, A=2)"),
     ("R15", "R", "6.8k", FP_R, "VLIDAR", "LEDL_A", "~2 mA at 15 V"),
     ("D3", "LED", "blue", FP_LED, "GND", "LEDL_A", "lidar on (K=1, A=2)"),
-    ("R16", "R", "0R", FP_R, "V5", "BTN_LED_A", "button LED: 0R if the LED has its own resistor, else ~150R"),
+    ("R16", "R", "0R", FP_R, "SW_ON", "BTN_LED_A", "Gebildet 12-24 V LED has its own resistor: lit while the switch is on"),
 ]
 
 def usb_pins(vbus, cc1, cc2, dp, dm, side):
@@ -121,8 +121,7 @@ ICS = [
         ("5", "SCL", "SCL", "R"), ("4", "SDA", "SDA", "R"),
         ("1", "A1", "GND", "R"), ("2", "A0", "GND", "R"), ("3", "ALERT", None, "R"),
     ]),
-    # Footprint is a placeholder: replace with TI's RPA0010A KiCad footprint (Ultra Librarian) before ordering.
-    ("U3", "TPS56637", "TPS56637RPA", "power_board:TI_RPA0010A_PLACEHOLDER", [
+    ("U3", "TPS56637", "TPS56637RPA", "power_board:TI_RPA0010A", [
         ("8", "VIN", "V15", "L"), ("1", "EN", "BUCK_EN", "L"), ("10", "MODE", "GND", "L"),
         ("3", "AGND", "GND", "L"), ("9", "PGND", "GND", "L"),
         ("7", "BOOT", "BUCK_BOOT", "R"), ("6", "SW", "BUCK_SW", "R"), ("2", "FB", "BUCK_FB", "R"),
@@ -140,7 +139,7 @@ ICS = [
         ("15", "~{FLT}", "LIDAR_FLT_N", "R"), ("14", "IMON", None, "R"),
         ("16", "PGTH", "GND", "R"), ("17", "PGOOD", None, "R"),
     ]),
-    ("J3", "LIDAR_OUT", "Lidar 15 V (pluggable 3.5 mm)", "Connector_Phoenix_MC:PhoenixContact_MC_1,5_2-G-3.5_1x02_P3.50mm_Horizontal", [
+    ("J3", "LIDAR_OUT", "Lidar 15 V (pluggable 3.5 mm)", "Connector_Phoenix_MC:PhoenixContact_MCV_1,5_2-G-3.5_1x02_P3.50mm_Vertical", [
         ("1", "+15V", "VLIDAR", "L"), ("2", "GND", "GND", "L"),
     ]),
     ("J4", "BUTTON", "Latching 16 mm LED button (JST-XH 4)", "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical", [
