@@ -17,12 +17,17 @@ from skimage import measure
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from stl_slicer import load_stl                                  # noqa: E402
-from designs import pi_box_bat_core as C                         # noqa: E402
+import os                                                        # noqa: E402
+V3 = os.environ.get('PI_BOX_V3') == '1'                          # v3 concept: core_v3 + sliding floor + cartridges
+if V3:
+    from designs import pi_box_bat_core_v3 as C                  # noqa: E402
+else:
+    from designs import pi_box_bat_core as C                     # noqa: E402
 from designs import pi_box_bat_lids as L                         # noqa: E402
 from designs import pi_box_bat_rig as R                          # noqa: E402
 from designs import cage_v2 as CG                                # noqa: E402
 
-OUT = R.ROOT / 'slicer_preview' / 'out' / 'render'
+OUT = R.ROOT / 'slicer_preview' / 'out' / ('render_v3' if V3 else 'render')
 VOX = 0.35                                                       # mm, marching-cubes grid
 
 
@@ -69,7 +74,34 @@ def write_stl(path, tris):
         f.write(b'\0' * 80 + np.uint32(len(tris)).tobytes() + rec.tobytes())
 
 
+def printed_parts_v3():
+    """Core v3 (with the floor skirt), the sliding floor, both camera cartridges, the two panels."""
+    from sdf import solid
+    from designs import pi_box_bat_floor_v3 as F
+    from designs import pi_box_cam_cartridge as K
+    h = VOX
+    core = _march(C.core, int(C.SIZE_X / h), int((C.DEPTH + C.FLOOR_EXT) / h), int(C.SIZE_Z / h), h,
+                  lambda p: R.from_print(np.stack([p[:, 0] + C.X0, p[:, 1], p[:, 2] + C.Z0], 1)))
+    # floor: local (x = Yr - Y_MIN, y up from the outside face, z = X + TONGUE_X)
+    floor = _march(F.floor, int((R.Y_MAX - R.Y_MIN) / h), int(F.FLOOR_T3 / h), int(F.W / h), h,
+                   lambda p: np.stack([p[:, 2] - F.TONGUE_X, p[:, 0] + R.Y_MIN, p[:, 1] - (R.DEPTH + F.FLOOR_T3)], 1))
+    # cartridge: tree frame (rig d, rig Yr, height off the flange face); local x -> d, z -> Yr, y -> height
+    def cart(sx):
+        fn = lambda x, y, z: solid(K.ROOT, x + K.D0, z + K.Y0, y)
+        return _march(fn, int((K.D1 - K.D0) / h), int(K.H_TOP / h) + 1, int((K.Y1 - K.Y0) / h), h,
+                      lambda p: np.stack([sx * (R.X_OUT + C.CART_FL_T - p[:, 1]), p[:, 2] + K.Y0, -(p[:, 0] + K.D0)], 1))
+    def panel_to_rig(face_y, sign):
+        return lambda p: np.stack([p[:, 0] - L.PANEL_W / 2, face_y + sign * p[:, 1], -(p[:, 2] + R.RIM_D + 0.1)], 1)
+    def gyro_panel(face_y, sign):
+        return _march(lambda x, y, z: L.panel(x, y, z, grille=False, gyroid=(face_y, sign)), int(L.PANEL_W / h),
+                      int(L.PANEL_T / h) + 1, int(L.PANEL_H / h), h, panel_to_rig(face_y, sign))
+    return dict(core=core, floor=floor, cart_near=cart(-1), cart_far=cart(1),
+                panel_pi=gyro_panel(R.Y_MIN + R.PANEL_LIP, +1), panel_pod=gyro_panel(R.Y_MAX - R.PANEL_LIP, -1))
+
+
 def printed_parts(only=None):
+    if V3:
+        return printed_parts_v3()
     h = VOX
     if only == 'core':
         return {'core': _march(C.core, int(C.SIZE_X / h), int(C.DEPTH / h), int(C.SIZE_Z / h), h,
@@ -156,7 +188,7 @@ def main():
         print(f'{name:12s} {len(tris):9,d} tris', flush=True)
     for ov in C.OVERLAYS:                                        # back from the print frame
         name = Path(ov['file']).stem
-        if name in ('base_plate', 'standoffs_none'):
+        if name in ('base_plate', 'standoffs_none', 'v3_cartridges', 'v3_floor', 'usbc_plug_envelope'):
             continue
         t = load_stl(R.ROOT / ov['file']).astype(np.float64)
         rig = R.from_print(t.reshape(-1, 3)).reshape(-1, 3, 3)

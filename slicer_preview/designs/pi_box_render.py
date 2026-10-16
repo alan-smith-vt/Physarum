@@ -15,7 +15,9 @@ import bpy
 from mathutils import Vector
 
 HERE = Path(__file__).resolve().parent
-MESHES = HERE.parent / 'out' / 'render'
+import os
+V3 = os.environ.get('PI_BOX_V3') == '1'          # v3 concept meshes (pi_box_export with PI_BOX_V3=1)
+MESHES = HERE.parent / 'out' / ('render_v3' if V3 else 'render')
 ARGV = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT_DIR = Path(ARGV[0]) if ARGV else MESHES / 'png'
 VIEWS = [a for a in ARGV[1:] if not a.startswith('--') and not a.isdigit()] or \
@@ -45,6 +47,10 @@ MATS = {
     'cam':       dict(color=(0.03, 0.03, 0.035), rough=0.3),
     'steel':     dict(color=(0.8, 0.8, 0.82), rough=0.2, metal=1.0),
     'cam_ghost': dict(color=(0.55, 0.3, 0.75), rough=0.4, alpha=0.35),   # see-through camera, seat visible
+    # v3 resins: 75 % Fast smoky black + 25 % Tenacious clear (translucent smoke); the clear blue blend prints a pale
+    # turquoise, slightly frosted (panel photo 2026-10-15)
+    'smoke':     dict(color=(0.07, 0.07, 0.08), rough=0.22, transmission=0.75, ior=1.5),
+    'turquoise': dict(color=(0.6, 0.88, 0.82), rough=0.16, transmission=1.0, ior=1.5),
 }
 PART_MAT = {
     'core': 'resin', 'core_cut_near': 'resin', 'core_cut_far': 'resin', 'floor': 'clear_blue', 'panel_pi': 'clear_blue', 'panel_pod': 'clear_blue',
@@ -55,7 +61,10 @@ PART_MAT = {
     'cable_battery': 'red', 'cable_buck_in': 'red', 'cable_usbc': 'black',
     'gopro_adapter': 'navy', 'gopro_cage': 'black', 'gopro_body': 'black', 'gopro_lenses': 'gloss',
 }
-BOX = ['core', 'floor', 'panel_pi', 'panel_pod', 'power_switch']
+BOX = ['core', 'floor', 'panel_pi', 'panel_pod', 'power_switch', 'cart_near', 'cart_far']
+if V3:
+    PART_MAT.update(core='smoke', cart_near='smoke', cart_far='smoke', floor='turquoise',
+                    panel_pi='turquoise', panel_pod='turquoise')
 INSIDE = ['pi5', 'cooler', 'cameras', 'battery', 'buck_wago', 'eth_adapter', 'pd_trigger', 'box_spacers',
           'cable_ribbons', 'cable_lidar_power', 'cable_battery', 'cable_buck_in', 'cable_usbc']
 TOP = ['base_plate', 'standoffs', 'cross', 'mid360s', 'coupler', 'm12_plug']
@@ -238,7 +247,8 @@ def main():
         elif view == 'exploded':
             off = {n: (0, 0, 70) for n in TOP}
             off.update({n: (0, 0, 115) for n in GOPRO})
-            off.update(floor=(0, 0, -75), panel_pi=(0, -60, -35), panel_pod=(0, 60, -35),
+            off.update(floor=(0, -150, 0) if V3 else (0, 0, -75), panel_pi=(0, -60, -35), panel_pod=(0, 60, -35),
+                       cart_near=(-45, 0, 0), cart_far=(45, 0, 0),
                        monopod=(0, 0, -150), coupler=(0, 0, 70))
             show(objs, BOX + INSIDE + TOP + GOPRO + POLE, off)
             camera('cam', (0, 0.0, 0.0), iso, 1.3)
