@@ -23,6 +23,11 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   all WAGOs below the PD trigger; most cable slack bundled on the far side of the battery chamber. **v3 is free
   to differ.** Still to do: move the overlays to these positions (confirm with the user) and route the cables.
 
+- **Lens shrouds must stand slightly proud of the lens front** (user, 2026-10-16): cam 0's lens (the one facing
+  the desk in the first live view) got scratched on the bench. v3 / any reprint: guard ring past the lens tip,
+  still outside the 160° view.
+- **Camera orientation:** with the rig upright both images are landscape and need **no rotation** (raw frames).
+
 ## ⚠ BUG THE USER FIRST: caliper session before any more v3 work (user request, 2026-10-15)
 Ask them to grab calipers and measure the misc components, so v3's cable routing is designed ahead of time
 instead of cable-management Tetris at assembly. Every `[MEASURE]` in `pi_box_bat_rig.py` / `pi_box_bat_core_v3.py`
