@@ -1,0 +1,5 @@
+out.net
+erc.rpt
+*.kicad_prl
+*-backups/
+fp-info-cache
