@@ -49,7 +49,7 @@ MATS = {
     'cam_ghost': dict(color=(0.55, 0.3, 0.75), rough=0.4, alpha=0.35),   # see-through camera, seat visible
     # v3 resins: 75 % Fast smoky black + 25 % Tenacious clear (translucent smoke); the clear blue blend prints a pale
     # turquoise, slightly frosted (panel photo 2026-10-15)
-    'smoke':     dict(color=(0.07, 0.07, 0.08), rough=0.22, transmission=0.75, ior=1.5),
+    'smoke':     dict(color=(0.018, 0.018, 0.02), rough=0.2, transmission=0.45, ior=1.5),
     'turquoise': dict(color=(0.6, 0.88, 0.82), rough=0.16, transmission=1.0, ior=1.5),
 }
 PART_MAT = {
@@ -63,7 +63,7 @@ PART_MAT = {
 }
 BOX = ['core', 'floor', 'panel_pi', 'panel_pod', 'power_switch', 'cart_near', 'cart_far']
 if V3:
-    PART_MAT.update(core='smoke', cart_near='smoke', cart_far='smoke', floor='turquoise',
+    PART_MAT.update(core='smoke', cart_near='turquoise', cart_far='turquoise', floor='turquoise',
                     panel_pi='turquoise', panel_pod='turquoise')
 INSIDE = ['pi5', 'cooler', 'cameras', 'battery', 'buck_wago', 'eth_adapter', 'pd_trigger', 'box_spacers',
           'cable_ribbons', 'cable_lidar_power', 'cable_battery', 'cable_buck_in', 'cable_usbc']
