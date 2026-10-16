@@ -18,6 +18,8 @@ ALIASES = {
     'battery': 'pi_box_bat_core',          # battery in the box
     'batteryFloor': 'pi_box_bat_lids',
     'batteryPanel': 'pi_box_bat_panel',
+    'v3': 'pi_box_bat_core_v3',             # v3 concept: cameras as cartridges, Pi +6 X
+    'v3cam': 'pi_box_cam_cartridge',
 }
 
 app = Flask(__name__)

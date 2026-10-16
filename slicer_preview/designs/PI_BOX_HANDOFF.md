@@ -55,6 +55,13 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   optics). v3: cameras as separate panel inserts screwed from outside.
 - **v3: remove all the cable clips** (`CLIP_RIB_DS` clips, big and small). User, 2026-10-15: not helpful, and the
   core is too short on space to work around them. Supersedes "tighten the small clips" under core v2 results.
+- **v3 concept modelled (not checked):** `pi_box_bat_core_v3.py` + `pi_box_cam_cartridge.py` (viewer /v3, /v3cam).
+  Cameras back at Yr −16.5 as cartridges inserted from outside (pointed-top wall opening, flange with 3 × M2
+  self-tapping); board held by M2 screws from outside into an M2 insert used as a nut behind the board
+  (M2×8 [MEASURE]). Pi +6 X → 24 mm for the right-angle USB-C + adapter. Clips, camera ribs, UE300 seat removed.
+  Open: ribbons wrap the Pi's edge; counterbore-to-window wall in the cartridge is only ~0.4 mm.
+- **v3 floor (planned, user 2026-10-15): slides in horizontally.** The screws stay the primary load path; a lip
+  engaging the core walls is a safety net and spreads the load. Sketch it first (hard rule).
 - Tool bugs: `to_goo.py`/`sdcp.py` need `PYTHONIOENCODING=utf-8` (→ in prints); `to_goo --gpu` fails on a
   constant `lambda: True` piece (`exposure_test`); use CPU for that one.
 
