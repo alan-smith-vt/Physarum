@@ -121,7 +121,7 @@ ICS = [
         ("5", "SCL", "SCL", "R"), ("4", "SDA", "SDA", "R"),
         ("1", "A1", "GND", "R"), ("2", "A0", "GND", "R"), ("3", "ALERT", None, "R"),
     ]),
-    ("U3", "TPS56637", "TPS56637RPA", "power_board:TI_RPA0010A", [
+    ("U3", "TPS56637", "TPS56637RPA", "power_board:RPA0010A", [
         ("8", "VIN", "V15", "L"), ("1", "EN", "BUCK_EN", "L"), ("10", "MODE", "GND", "L"),
         ("3", "AGND", "GND", "L"), ("9", "PGND", "GND", "L"),
         ("7", "BOOT", "BUCK_BOOT", "R"), ("6", "SW", "BUCK_SW", "R"), ("2", "FB", "BUCK_FB", "R"),
