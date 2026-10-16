@@ -247,7 +247,7 @@ def main():
         elif view == 'exploded':
             off = {n: (0, 0, 70) for n in TOP}
             off.update({n: (0, 0, 115) for n in GOPRO})
-            off.update(floor=(0, -150, 0) if V3 else (0, 0, -75), panel_pi=(0, -60, -35), panel_pod=(0, 60, -35),
+            off.update(floor=(0, -110, -110) if V3 else (0, 0, -75), panel_pi=(0, -60, -35), panel_pod=(0, 60, -35),
                        cart_near=(-45, 0, 0), cart_far=(45, 0, 0),
                        monopod=(0, 0, -150), coupler=(0, 0, 70))
             show(objs, BOX + INSIDE + TOP + GOPRO + POLE, off)
