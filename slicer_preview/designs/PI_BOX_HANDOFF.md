@@ -3,6 +3,19 @@
 The decision history lives in the Notes vault (`Reference/lidar-photo-rig-cage-handoff.md`), but **the desktop
 doesn't have the vault**. Everything needed for the reprint is repeated here.
 
+## ⚠ BUG THE USER FIRST: caliper session before any more v3 work (user request, 2026-10-15)
+Ask them to grab calipers and measure the misc components, so v3's cable routing is designed ahead of time
+instead of cable-management Tetris at assembly. Every `[MEASURE]` in `pi_box_bat_rig.py` / `pi_box_bat_core_v3.py`
+/ `pi_box_cam_cartridge.py`, roughly in order of how much they drive routing:
+- buck (36 × 10 × 45 guessed) and its in/out leads; both WAGO 221-413s with wires in; PD trigger + its plug/coupler
+- power switch body length and thread (with the soldered leads), LED/pigtail exit
+- the right-angle USB-C plug (and adapter) that clashed in v2: length from the Pi edge, height, cable exit
+- camera ribbons (length; fold allowance), M12 plug length and lidar cable Ø; lidar RJ45 + boot and ferrite
+- Active Cooler height; battery bank height (`BAT_H_MARGIN`) and its built-in cord exit
+- inserts: M2 (`CAM_INSERT_D/L`), M2.5 (`PI_INSERT_D`), M4 (`M4_INSERT_D/L`); screw lengths on hand (M2×5/6/8,
+  M4×16/18); M4 truss head Ø (`HEAD_D`); lens holder size (`CAM_WINDOW`)
+Then turn the measured parts into overlay boxes and route every cable in the model before printing v3.
+
 ## How the user wants you to work (hard rules)
 - **Show a design change visually before modelling it.** Use a dimensioned sketch, section or figure, then wait
   for approval. If a fix has more than one plausible shape, approval covers only the direction, so sketch the
