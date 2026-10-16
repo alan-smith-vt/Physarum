@@ -76,9 +76,8 @@ def drop_dangling(board):
             if t in dead:
                 continue
             for end in (t.GetStart(), t.GetEnd()):
-                mid_only_ok = t.GetLength() > 500000   # short stubs must end on an endpoint, not mid-track
                 hit = any(o is not t and o.GetNetCode() == t.GetNetCode() and o.GetLayer() == t.GetLayer()
-                          and (o.GetStart() == end or o.GetEnd() == end or (mid_only_ok and o.HitTest(end, 0)))
+                          and (o.GetStart() == end or o.GetEnd() == end or o.HitTest(end, 0))
                           for o in tracks_all)
                 hit = hit or any(v.GetNetCode() == t.GetNetCode() and v.HitTest(end, 0) for v in vias)
                 hit = hit or any(p.GetNetCode() == t.GetNetCode() and p.IsOnLayer(t.GetLayer()) and p.HitTest(end, 0)

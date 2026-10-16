@@ -83,14 +83,14 @@ PASSIVES = [
     ("R22", "R", "100k", FP_R, "KEEP_ALIVE", "GND", "keep-alive low while Pi boots"),
     # Status LEDs
     ("R14", "R", "1k", FP_R, "V5", "LED5_A", ""),
-    ("D2", "LED", "green", FP_LED, "GND", "LED5_A", "5 V on (K=1, A=2)"),
+    ("D2", "LED", "red", FP_LED, "GND", "LED5_A", "5 V on (K=1, A=2)"),
     ("R15", "R", "6.8k", FP_R, "VLIDAR", "LEDL_A", "~2 mA at 15 V"),
-    ("D3", "LED", "blue", FP_LED, "GND", "LEDL_A", "lidar on (K=1, A=2)"),
+    ("D3", "LED", "white", FP_LED, "GND", "LEDL_A", "lidar on (K=1, A=2)"),
     ("R16", "R", "0R", FP_R, "SW_ON", "BTN_LED_A", "Gebildet 12-24 V LED has its own resistor: lit while the switch is on"),
 ]
 
 def usb_pins(vbus, cc1, cc2, dp, dm, side):
-    """All 17 pads of a 16P USB-C receptacle (GCT USB4105), so the board matches the symbol pad for pad."""
+    """All 17 pads of a 16P USB-C receptacle (HRO TYPE-C-31-M-12), so the board matches the symbol pad for pad."""
     return ([(n, "VBUS", vbus, side) for n in ("A4", "A9", "B4", "B9")]
             + [(n, "GND", "GND", side) for n in ("A1", "A12", "B1", "B12", "SH")]
             + [("A5", "CC1", cc1, side), ("B5", "CC2", cc2, side)]
@@ -102,7 +102,7 @@ def usb_pins(vbus, cc1, cc2, dp, dm, side):
 # ICs and connectors: (ref, symbol name, value, footprint, [(pin no, pin name, net or None for NC, side)])
 # side: "L" or "R"
 ICS = [
-    ("J1", "USB_C_SINK", "USB-C receptacle (input from bank)", "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+    ("J1", "USB_C_SINK", "USB-C receptacle (input from bank)", "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12",
      usb_pins("VBUS_RAW", "IN_CC1", "IN_CC2", None, None, "R")),
     # CH224A: same function as the CH224Q in ESSOP-10 (hand-reworkable). CFG2/CFG3 have internal
     # 10k pull-ups to the chip's own rail, so they stay floating: tying them to the Pi's I2C would
@@ -127,7 +127,7 @@ ICS = [
         ("7", "BOOT", "BUCK_BOOT", "R"), ("6", "SW", "BUCK_SW", "R"), ("2", "FB", "BUCK_FB", "R"),
         ("4", "PG", "BUCK_PG", "R"), ("5", "NC", None, "R"),
     ]),
-    ("J2", "USB_C_SOURCE", "USB-C receptacle (5 V to Pi)", "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+    ("J2", "USB_C_SOURCE", "USB-C receptacle (5 V to Pi)", "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12",
      usb_pins("V5", "OUT_CC1", "OUT_CC2", None, None, "L")),
     ("U4", "TPS26631", "TPS26631PWP", "Package_SO:HTSSOP-20-1EP_4.4x6.5mm_P0.65mm_EP3.4x6.5mm_Mask2.96x2.96mm_ThermalVias", [
         ("1", "IN", "V15", "L"), ("2", "IN", "V15", "L"), ("3", "IN", "V15", "L"),

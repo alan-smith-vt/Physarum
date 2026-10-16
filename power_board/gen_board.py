@@ -24,7 +24,7 @@ LAYERS = 4                 # TI asks for 4 layers on the buck; inner layers are 
 # ref: (x, y, rotation deg), mm from the top-left corner
 PLACE = {
     # top edge (toward the Pi): both USB-C sockets mouth up (5 V out left, bank in right), Rp, status LEDs
-    "J2": (10.0, 4.0, 180), "R8": (17.5, 3.0, 90), "R7": (17.5, 7.0, 90), "J1": (36.0, 4.0, 180),
+    "J2": (10.0, 3.5, 180), "R8": (17.5, 3.0, 90), "R7": (17.5, 7.0, 90), "J1": (36.0, 3.5, 180),
     "R14": (24.0, 3.0, 0), "D2": (24.0, 5.5, 0), 
     # buck, upper left, per TPS56637 datasheet 10.1: U3 turned 180 so SW (pin 6) faces up into the
     # inductor and the 5 V caps sit just under J2; Cin hugs VIN/PGND on the left; the FB divider sits

@@ -90,10 +90,10 @@ plane("V15", pcbnew.In2_Cu, 0)
 plane("GND", pcbnew.F_Cu, 0)
 
 # ── J1 input: GND pins to the shell, VBUS pairs down into F1 ──
-track("GND", [(39.2, 7.68), (40.32, 7.11)], 0.3)
-track("GND", [(32.8, 7.68), (31.68, 7.11)], 0.3)
-track("VBUS_RAW", [(38.4, 7.68), (38.4, 9.4), (37.4, 10.5)], 0.6)
-track("VBUS_RAW", [(33.6, 7.68), (33.6, 9.8), (34.4, 10.6)], 0.6)
+track("GND", [(39.25, 7.2), (40.32, 6.63)], 0.3)
+track("GND", [(32.75, 7.2), (31.68, 6.63)], 0.3)
+track("VBUS_RAW", [(38.45, 7.54), (38.45, 9.4), (37.4, 10.5)], 0.6)
+track("VBUS_RAW", [(33.55, 7.54), (33.55, 9.8), (34.4, 10.6)], 0.6)
 
 # ── F1 -> R1 (VIN15) with the TVS, Kelvin sense to U5 ──
 DY = 1.1   # R1 / U5 / C13 sit 1.1 mm lower than first placed (room for the 2920 fuse), see gen_board
