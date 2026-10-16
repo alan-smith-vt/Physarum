@@ -105,7 +105,10 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - Path check: a scratch script on the laptop checked the camera insertion path, the key path and the Ø9.8 head
   path. It isn't in the repo. Re-derive it if needed, or ask the user.
 
-## Resin printing rules (Saturn 4 Ultra 16K, Fast gray / Tenacious Lava black 75/25)
+## Resin printing rules (Saturn 4 Ultra 16K)
+- **Current blend (from 2026-10-15):** 75% ELEGOO ABS-like clear blue + 25% Siraya Tech Tenacious clear.
+  Being calibrated now (`exposure_test`), so the numbers below are for the **previous** blend
+  (Siraya Tech Fast gray + Tenacious Lava black, 75/25) until re-measured.
 - **Exposure:** 2.4–2.6 s, with 20 s bottom layers. The core printed at 2.6 s.
 - **Printable area:** the LCD image is 211.7 × 118.4 mm. `to_goo` refuses anything larger.
 - **Keep every layer under ~8,000 mm².** Two prints split near that size: the v2 base plate (~8,000) and the
@@ -119,8 +122,7 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   - M3 insert holes at the far end: Ø4.0 + 0.35 is slightly loose (~0.1–0.2), which is good for glued inserts.
   - The allowance may scale with hole size; there's not enough data yet.
   - A small chamfer at the hole mouth on the plate face is an alternative.
-- **Resin change (planned, no rush):** the black Fast/Tenacious blend runs out after the Monday prints. The
-  restock is Fast (any colour) + **clear** Tenacious. Clear cures deeper and bleeds more than black, so redo the
+- **Resin change (done 2026-10-15):** now ELEGOO ABS-like clear blue + Siraya Tech Tenacious clear (see top). Clear cures deeper and bleeds more than black, so redo the
   exposure test and one hole-fit print (spacer bore, insert hole) first. Expect a shorter exposure and different
   hole allowances. Print the coupons in the new blend too.
 - Glue inserts with CA (superglue), not threadlocker. Wash and fully post-cure before gluing.
