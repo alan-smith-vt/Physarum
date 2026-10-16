@@ -3,6 +3,26 @@
 The decision history lives in the Notes vault (`Reference/lidar-photo-rig-cage-handoff.md`), but **the desktop
 doesn't have the vault**. Everything needed for the reprint is repeated here.
 
+## 2026-10-16: fit problems, part-vs-part check, calipers, v2 as built
+- **Printed v2 floor clashed with core v2:** the collar ring (r 23.8–25.6) runs through both webs at X ±24
+  (10.8 mm² at nominal). The user filed it to fit; no floor change. **Cause:** `pi_box_check` only tested bought-part
+  overlays against the core; no printed part was ever tested against another. **Fixed:** `part_check()` in
+  `pi_box_check.py` now tests the floor (lids or v3) and both panels against the core at nominal size and with both
+  sides grown 0.175 / 0.35 per side. Add every new printed part to `_parts()`.
+- **Panels didn't slide** (the user sanded bevels on): grooves were sized for 1/8" sheet, the bumps reach 0.3 into
+  the slot, there was no lead-in, and the panels bow. Modelled (awaiting the user's look in the viewer):
+  `PANEL_BEVEL` 0.8 on the long edges, `PANEL_LEAD` 1.2 on the top edge and corners (`pi_box_bat_lids.panel`);
+  v3 floor `TONGUE_BEVEL` 0.5, `TONGUE_LEAD` 2.0, `FRONT_LEAD` 0.8; core v3 `GROOVE_FLARE` 1.5 at the floor
+  grooves' -Y mouth.
+- **Calipers (user):** recorded in `MEASURED` in `pi_box_bat_rig.py`: PD trigger 55 × 30 (thickness not yet),
+  20 mm rigid cord each end; buck 46 × 32 × 18 + 260 mm USB-C lead; 2 × WAGO 221-415 (5-way) 29.8 × 18.3 × 8.5,
+  1 × inline 35 × 8 × 8; switch 40 deep incl. plug (Ø16 hole perfect); UE300 71 × 26 × 16, 35 flex cord,
+  32 rigid USB-A head. Overlays resized round their OLD centres only; they don't show the as-built layout yet.
+- **v2 as built (PD trigger and buck glued in, user 2026-10-16):** buck roughly where the UE300 was planned
+  (+X, Pi side of the web, on the floor); PD trigger on the other side, behind the battery near the top of the core;
+  all WAGOs below the PD trigger; most cable slack bundled on the far side of the battery chamber. **v3 is free
+  to differ.** Still to do: move the overlays to these positions (confirm with the user) and route the cables.
+
 ## ⚠ BUG THE USER FIRST: caliper session before any more v3 work (user request, 2026-10-15)
 Ask them to grab calipers and measure the misc components, so v3's cable routing is designed ahead of time
 instead of cable-management Tetris at assembly. Every `[MEASURE]` in `pi_box_bat_rig.py` / `pi_box_bat_core_v3.py`

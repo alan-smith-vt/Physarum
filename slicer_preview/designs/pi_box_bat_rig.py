@@ -118,7 +118,7 @@ BUTTON = dict(x=-22.0, d=DEPTH - 22.0, hole=10.0)   # bank's display button, thr
 # The lidar stays on the Pi's own Ethernet jack.
 # Now flush against the web (Pi side), between the floor collar and the +X wall; a ledge on the web
 # (ETH_SEAT) caps its top end so it can't slide off the floor with the rig upside down.
-ETH_ADAPTER = dict(x=38.15, y=-14.6, wx=15.2, wy=25.4, h=71.0)  # centre X, Yr; footprint along X / Yr
+ETH_ADAPTER = dict(x=38.15, y=-14.6, wx=16.0, wy=26.0, h=71.0)  # centre X, Yr; footprint along X / Yr (measured 71 × 26 × 16, 2026-10-16)
 ETH_SEAT = dict(clear=1.4, reach=5.0)         # gap over the adapter's top (0.4 + 1 unmeasured margin), ledge reach off the web (Yr) [MEASURE] height
 ADAPTER_JACK = (13.5, 16.0)                   # RJ45 opening in its end face, along X / Yr [MEASURE]
 USB3_PORT = (12.0, -41.0, -102.5)             # blue port mouth: Pi top 14 + 88.5 (+X stack assumed) [MEASURE]
@@ -160,10 +160,36 @@ def clip_centre(axis, base, along, D, out=None):
 #    the nut still seats. [MEASURE] body, thread.
 # Part: Gebildet 16 mm stainless latching push button, 12-24 V / 5 A, power-symbol LED. Solder the
 # leads to the switch tabs (heat-shrink them) instead of its clip-on socket plug, which adds ~20 mm.
-POWER_SWITCH = dict(side=-1, y=CAM_YR, d=155.0, hole=16.0, body_r=8.0, body_len=30.0)
-# Buck (36 × 10 × 45) stands against the -Y panel under the Pi; two WAGO 221-413 beside the switch. [MEASURE]
-BUCK = (-10.0, 26.0, -56.0, -46.0, 128.0, 173.0)   # X, Yr, depth ranges
-WAGOS = [(-14.0, -9.0, -45.0, -36.0, 166.0, 178.0), (-7.5, -2.5, -45.0, -36.0, 166.0, 178.0)]
+POWER_SWITCH = dict(side=-1, y=CAM_YR, d=155.0, hole=16.0, body_r=8.0, body_len=40.0)   # measured 2026-10-16: 40 deep incl. the plug on the back; Ø16 hole fit perfectly
+# ── Caliper session 2026-10-16 (user). Overlays below are resized round their OLD centres and orientations:
+#    placement is still the routing to-do, and several of them now collide (see the clash check). ──
+MEASURED = dict(
+    pd_trigger=(55.0, 30.0, 15.0),   # long × wide × thick [thick not measured yet]; rounded edges
+    pd_trigger_stub=20.0,            # rigid cord (strain relief) out of each end
+    buck=(46.0, 32.0, 18.0),         # body; USB-C lead 260 from the body to the end of the male plug
+    buck_usbc_lead=260.0,
+    wago_5=(29.8, 18.3, 8.5),        # 2 × WAGO 221-415 (5-way), datasheet; calipers 30 × 18 × 8
+    wago_inline=(35.0, 8.0, 8.0),    # 1 × inline 1-way splice (calipers)
+    eth_adapter=(71.0, 26.0, 16.0),  # UE300 body; then 35 flex cord + a 32 rigid USB-A head
+    eth_cord=35.0, eth_usb_head=32.0,
+)
+
+
+def _resize(box, size):
+    """Box ranges resized round their centre; size per axis (X, Yr, depth)."""
+    c = [(box[i] + box[i + 1]) / 2 for i in (0, 2, 4)]
+    return tuple(v for ci, si in zip(c, size) for v in (ci - si / 2, ci + si / 2))
+
+
+_P = MEASURED['pd_trigger']
+PD_TRIGGER = _resize(PD_TRIGGER, (_P[2], _P[1], _P[0] + 2 * MEASURED['pd_trigger_stub']))   # body + stubs along depth
+# Buck stands against the -Y panel under the Pi (thin side to the panel); WAGOs beside the switch.
+_B = MEASURED['buck']
+BUCK = (-8.0, 24.0, -56.0, -56.0 + _B[2], 127.5, 127.5 + _B[0])   # X, Yr, depth ranges; -Y face kept on the panel
+_W, _I = MEASURED['wago_5'], MEASURED['wago_inline']
+WAGOS = [_resize((-14.0, -9.0, -45.0, -36.0, 166.0, 178.0), (_W[2], _W[1], _W[0])),
+         _resize((-7.5, -2.5, -45.0, -36.0, 166.0, 178.0), (_W[2], _W[1], _W[0])),
+         _resize((-1.0, 4.0, -45.0, -36.0, 166.0, 178.0), (_I[1], _I[2], _I[0]))]
 
 # ── Wall vents (instead of panel vents): vertical slots through both camera walls. Low on the Pi
 #    side to feed the cooler now that its panel is solid; beside the buck bay on the battery side,

@@ -135,6 +135,8 @@ def floor(x, y, z):
 
 
 PANEL_BORDER = 6.0                         # solid frame round a gyroid panel (2 of it sits in the wall grooves)
+PANEL_BEVEL = 0.8                          # 45° bevel on both faces of the long (sliding) edges
+PANEL_LEAD = 1.2                           # 45° lead-in on the top edge (both faces) and its two corners
 
 
 def panel(x, y, z, grille=True, cable_notch=False, button=False, gyroid=None):
@@ -149,8 +151,12 @@ def panel(x, y, z, grille=True, cable_notch=False, button=False, gyroid=None):
         g = np.sin(k * X) * np.cos(k * Y) + np.sin(k * Y) * np.cos(k * d) + np.sin(k * d) * np.cos(k * X)
         inner = (np.abs(X) <= PANEL_W / 2 - PANEL_BORDER) & (z >= PANEL_BORDER) & (z <= PANEL_H - PANEL_BORDER)
         s &= ~inner | (np.abs(g) <= GYROID_T)
-    inset = max(CHAMFER * 0.5 - y, 0.0)
-    s &= (np.abs(X) <= PANEL_W / 2 - inset)
+    # sliding edges (2026-10-16: the first panels had to be sanded to go in): 45° bevel on both faces of the
+    # long edges, plus a lead-in on both faces and the corners of the top edge, which enters the grooves first
+    yy = min(y, PANEL_T - y)
+    s &= np.abs(X) <= PANEL_W / 2 - max(PANEL_BEVEL - yy, 0.0)
+    s &= z >= PANEL_LEAD - yy
+    s &= np.abs(X) <= PANEL_W / 2 - np.maximum(PANEL_LEAD - z, 0.0)
     if grille:
         for x0, x1 in GRILLE:
             s &= ~((X >= x0) & (X <= x1) & (d >= GRILLE_D[0]) & (d <= GRILLE_D[1]))

@@ -63,7 +63,8 @@ CART_NUT_L = 2.5                                   # ...into an M2 insert set in
 # inner faces; the wall's FLOOR_LEDGE under each groove catches it if the M4s let go. Grooves stop short of +Y (stop).
 FLOOR_T3, FLOOR_TONGUE, FLOOR_LEDGE = 3.0, 1.5, 2.0
 FLOOR_EXT = FLOOR_T3 + FLOOR_LEDGE
-FLOOR_CLEAR = 0.2                                  # per face, + RESIN_HOLE_COMP / 2 (the groove prints undersize)
+GROOVE_FLARE = 1.5                                 # 45° flare at the floor grooves' -Y mouth (lead-in)
+FLOOR_CLEAR = 0.2                                 # per face, + RESIN_HOLE_COMP / 2 (the groove prints undersize)
 FLOOR_STOP_Y = Y_MAX - PANEL_LIP - 1.0             # grooves end here
 # Floor M4s: through the floor up the boss into an M4 insert set from the top, bottomed on a shoulder (a nut).
 M4_CLEAR, M4_INSERT_D, M4_INSERT_L, M4_SCREW_L = 4.5, 5.6, 6.0, 16.0   # [MEASURE] insert OD / length
@@ -283,6 +284,12 @@ bumps = union(*[sbox(s, X_IN + 0.5, X_IN + GROOVE_D - 0.5, y0, y1, db - 1.5, db 
 _g = FLOOR_CLEAR + RESIN_HOLE_COMP / 2
 skirt = sub(union(*[sbox(s, X_IN, X_OUT, Y_MIN, Y_MAX, BOT - 0.01, BOT + FLOOR_EXT) for s in (-1, 1)]),
             *[sbox(s, X_IN - 0.01, X_IN + FLOOR_TONGUE + _g, Y_MIN - 1, FLOOR_STOP_Y, BOT - _g, BOT + FLOOR_T3 + _g)
+              for s in (-1, 1)],
+            *[inter(sbox(s, X_IN - 0.01, X_IN + FLOOR_TONGUE + _g + GROOVE_FLARE, Y_MIN - 1, Y_MIN + GROOVE_FLARE,
+                         BOT - _g - GROOVE_FLARE, BOT + FLOOR_T3 + _g + GROOVE_FLARE),        # 45° flared groove mouth
+                    Half(s, 1, 0, X_IN + FLOOR_TONGUE + _g + GROOVE_FLARE + Y_MIN),
+                    Half(0, 1, -1, Y_MIN - (BOT - _g - GROOVE_FLARE)),
+                    Half(0, 1, 1, Y_MIN + BOT + FLOOR_T3 + _g + GROOVE_FLARE))
               for s in (-1, 1)], panel_cuts)
 below = union(skirt, sub(union(tube, walls, webs, rims, bosses, stop_ribs, rails, feet, cones, posts), cuts, panel_cuts),
               sub(bumps, cuts))

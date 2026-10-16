@@ -23,7 +23,9 @@ BODY_X = X_IN - FLOOR_CLEAR - OVERSIZE   # |X| of the plate between the walls
 TONGUE_X = X_IN + FLOOR_TONGUE - FLOOR_CLEAR - OVERSIZE
 TONGUE_Y1 = FLOOR_STOP_Y - FLOOR_CLEAR - OVERSIZE
 TONGUE_T0, TONGUE_T1 = FLOOR_CLEAR, FLOOR_T3 - FLOOR_CLEAR    # tongue thickness band (print y): slack top and bottom
-FOOT_CHAMFER = 0.5                       # elephant foot off the tongue's plate-side edge
+TONGUE_BEVEL = 0.5                       # 45° on both faces of the tongue's outer edge (also takes the elephant foot)
+TONGUE_LEAD = 2.0                        # tongue tip (+Y) tapers in by this over its last 2 mm, and thins at its faces
+FRONT_LEAD = 0.8                         # 45° on both faces of the plate's leading (+Y) edge
 W = 2 * TONGUE_X
 
 
@@ -59,9 +61,12 @@ def floor(x, y, z):
     X, Yr, d = z - TONGUE_X, x + Y_MIN, DEPTH + FLOOR_T3 - y
     aX = np.abs(X)
     s = (aX <= BODY_X) & (Yr <= Y_MAX)
-    ch = max(FOOT_CHAMFER - y, 0.0) if y < FOOT_CHAMFER else 0.0
+    s &= Yr <= Y_MAX - max(FRONT_LEAD - min(y, FLOOR_T3 - y), 0.0)     # leading (+Y) edge of the plate
     if TONGUE_T0 <= y <= TONGUE_T1:
-        s |= (aX <= TONGUE_X - ch) & (Yr <= TONGUE_Y1)
+        ty = min(y - TONGUE_T0, TONGUE_T1 - y)                   # depth into the tongue from its nearer face
+        ch = max(TONGUE_BEVEL - ty, 0.0)
+        lead = np.maximum(TONGUE_LEAD - (TONGUE_Y1 - Yr), 0.0)  # tip tapers in over its last TONGUE_LEAD
+        s |= (aX <= TONGUE_X - ch - lead) & (Yr <= TONGUE_Y1 - max(TONGUE_LEAD - ty, 0.0) * 0.5)
     s &= ~hole(0, 0, 2 * WELL_R, X, Yr)
     wx0, wx1, wy0, wy1 = PORT_WINDOW
     s &= ~((X >= wx0) & (X <= wx1) & (Yr >= wy0) & (Yr <= wy1))

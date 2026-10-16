@@ -35,6 +35,72 @@ def inside(pts):
     return out
 
 
+# ── Part vs part (2026-10-16): the printed floor and panels against the core, at nominal size and with both
+#    sides grown by the print oversize. The overlay check above only ever saw bought parts, so the v2 floor's
+#    collar went through the webs unnoticed. Each part: (name, rig-frame solid fn(X (nX,1), Yr (1,nY), d) -> bool,
+#    X range, Yr range, d range). ──
+GROW = (0.0, C.RESIN_HOLE_COMP / 2, C.RESIN_HOLE_COMP)    # per side: nominal, expected oversize, 2× margin
+
+
+def _parts():
+    name = C.__name__.split('.')[-1]
+    L = importlib.import_module('designs.pi_box_bat_lids')
+    out = []
+    if name == 'pi_box_bat_core':
+        out.append(('floor (lids)', lambda X, Y, d: L._floor_solid(Y - C.Y_MIN, C.DEPTH + L.FLOOR_T - d, X + C.X_OUT),
+                    (-C.X_OUT, C.X_OUT), (C.Y_MIN, C.Y_MAX), (C.DEPTH - 5.0, C.DEPTH - 0.05)))
+    elif name == 'pi_box_bat_core_v3':
+        F = importlib.import_module('designs.pi_box_bat_floor_v3')
+        out.append(('floor (v3 sliding)', lambda X, Y, d: F.floor(Y - C.Y_MIN, C.DEPTH + F.FLOOR_T3 - d, X + F.TONGUE_X),
+                    (-F.TONGUE_X - 1, F.TONGUE_X + 1), (C.Y_MIN, C.Y_MAX), (C.DEPTH + 0.05, C.DEPTH + F.FLOOR_T3 - 0.05)))
+    if hasattr(C, '_lo0'):
+        for tag, y0, y1 in (('-Y', C._lo0, C._lo1), ('+Y', C._hi0, C._hi1)):
+            yp = (y0 + y1) / 2 - L.PANEL_T / 2                    # panel centred in its slot
+            out.append((f'panel {tag}', lambda X, Y, d, yp=yp: _panel(L, X, Y, d, yp),
+                        (-L.PANEL_W / 2 - 1, L.PANEL_W / 2 + 1), (y0 - 1, y1 + 1),
+                        (C.RIM_D + 0.15, C.RIM_D + L.PANEL_H)))
+    return out
+
+
+def _panel(L, X, Y, d, yp):
+    s = np.zeros(np.broadcast_shapes(X.shape, Y.shape), bool)
+    for j in range(Y.shape[1]):
+        y = float(Y[0, j]) - yp
+        if 0.0 <= y <= L.PANEL_T:
+            s[:, j] = np.broadcast_to(L.panel(X[:, 0] + L.PANEL_W / 2, y, np.asarray([d - C.RIM_D - 0.1]), grille=False), X.shape[:1])
+    return s
+
+
+def part_check(step=0.1, dd=0.5):
+    from scipy.ndimage import binary_dilation
+    parts = _parts()
+    if not parts:
+        return
+    print(f"\npart vs part (mm² of overlap, worst layer; grown per side by {', '.join(f'{g:.3f}' for g in GROW)})")
+    for name, fn, xr, yr, dr in parts:
+        X = np.arange(*xr, step)[:, None]
+        Y = np.arange(*yr, step)[None, :]
+        worst = [(0.0, None)] * len(GROW)
+        for d in np.arange(dr[0], dr[1], dd):
+            p = np.broadcast_to(fn(X, Y, float(d)), (X.shape[0], Y.shape[1]))
+            if not p.any():
+                continue
+            c = np.broadcast_to(np.asarray(C.core(Y - C.X0, float(d), -X - C.Z0), bool), p.shape)
+            for i, g in enumerate(GROW):
+                k = int(round(g / step))
+                a = binary_dilation(p, iterations=k) if k else p
+                b = binary_dilation(c, iterations=k) if k else c
+                o = a & b
+                area = o.sum() * step * step
+                if area > worst[i][0]:
+                    xs, ys = np.broadcast_to(X, o.shape)[o], np.broadcast_to(Y, o.shape)[o]
+                    worst[i] = (area, f"d {d:.1f}, X {xs.min():.1f}..{xs.max():.1f}, Yr {ys.min():.1f}..{ys.max():.1f}")
+        cells = '  '.join(f'{a:7.1f}' for a, _ in worst)
+        flag = '  <-- CLASH' if worst[0][0] > 0 else ('  <-- tight' if worst[1][0] > 0 else '')
+        where = next((w for a, w in worst if w), '')
+        print(f"{name:20s} {cells}{flag}  {where}")
+
+
 def main():
     print(f"{'overlay':14s} {'samples':>8s} {'in resin':>9s}  depth range of hits")
     for ov in C.OVERLAYS:
@@ -66,6 +132,8 @@ def main():
         rng = f"{pts[hit, 1].min():.1f}..{pts[hit, 1].max():.1f}" if hit.any() else "-"
         flag = "" if not hit.any() or name in EXPECTED else "  <-- CLASH"
         print(f"{name:14s} {len(pts):8d} {hit.sum():9d}  {rng}{flag}")
+
+    part_check()
 
     try:
         from PIL import Image
