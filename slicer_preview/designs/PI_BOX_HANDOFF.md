@@ -59,7 +59,11 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   Cameras back at Yr −16.5 as cartridges inserted from outside (pointed-top wall opening, flange with 3 × M2
   self-tapping); board held by M2 screws from outside into an M2 insert used as a nut behind the board
   (M2×8 [MEASURE]). Pi +6 X → 24 mm for the right-angle USB-C + adapter. Clips, camera ribs, UE300 seat removed.
-  Open: ribbons wrap the Pi's edge; counterbore-to-window wall in the cartridge is only ~0.4 mm.
+  Open: counterbore-to-window wall in the cartridge is only ~0.4 mm.
+  **Ribbons (decided, user 2026-10-15): both camera connectors stay DOWN** (identical cartridges). The ribbons
+  run flat, parallel to the panels, with flat folds: the far (+X) camera needs one 45° fold to run behind the
+  Pi; the near (−X) camera takes three folds, which leave slack free. A sideways exit would save a fold but
+  need an exact length or bulge against the panel. Fold each crease once, ≥5 mm from the stiffened ends, tape it.
 - **v3 sliding floor modelled (not checked):** `pi_box_bat_floor_v3.py` (viewer /v3floor) + core v3 grooves.
   Floor between the camera walls, slides in from −Y, 1.5 mm edge tongues in inner-face grooves (stop near +Y);
   walls run 5 mm past the interior bottom (d 180 unchanged), the 2 mm ledge under each groove is the safety net.
