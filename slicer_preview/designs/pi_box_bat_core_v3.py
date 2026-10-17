@@ -39,6 +39,8 @@ import numpy as np
 from sdf import Box, Cyl, Half, Fn, union, inter, sub, sdf_piece, solid, INF, TIE
 from designs.pi_box_bat_rig import *      # noqa: F401,F403  (constants + helpers)
 from designs import pi_box_bat_rig as R
+from designs import pi_box_bat_panel_v3 as PV
+from designs import pi_box_bat_lids as _L2
 
 SUPPORTS = False
 EXPOSURE_S = 2.3
@@ -86,8 +88,10 @@ UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)   # as v2 ETH
 # Sliding floor (2026-10-15): the camera walls run FLOOR_EXT past the interior bottom (DEPTH, unchanged); the floor
 # (designs/pi_box_bat_floor_v3.py) slides in from -Y between them, its edge tongues in grooves cut into the walls'
 # inner faces; the wall's FLOOR_LEDGE under each groove catches it if the M4s let go. Grooves stop short of +Y (stop).
+SLIDING_FLOOR = False                              # 2026-10-17 (user): back to the v2 floor (pi_box_bat_lids) for its
+#                                                  alignment features: walls end at DEPTH, glued M3 inserts in the boss cones
 FLOOR_T3, FLOOR_TONGUE, FLOOR_LEDGE = 3.0, 1.5, 2.0
-FLOOR_EXT = FLOOR_T3 + FLOOR_LEDGE
+FLOOR_EXT = FLOOR_T3 + FLOOR_LEDGE if SLIDING_FLOOR else 0.0
 GROOVE_FLARE = 1.5                                 # 45° flare at the floor grooves' -Y mouth (lead-in)
 FLOOR_CLEAR = 0.2                                 # per face, + RESIN_HOLE_COMP / 2 (the groove prints undersize)
 FLOOR_STOP_Y = Y_MAX - PANEL_LIP - 1.0             # grooves end here
@@ -299,8 +303,26 @@ pi_holes = union(*[hhole('y', px, pd, PI_INSERT_D, PCB_YR, PCB_YR + PI_INSERT_L)
 # ── cuts ──
 _lo0, _lo1 = Y_MIN + PANEL_LIP, Y_MIN + PANEL_LIP + GW
 _hi0, _hi1 = Y_MAX - PANEL_LIP - GW, Y_MAX - PANEL_LIP
-panel_cuts = union(*[sbox(s, X_IN, X_IN + GROOVE_D, y0, y1, RIM_D, BOT + FLOOR_EXT + 1)
-                     for s in (-1, 1) for y0, y1 in ((_lo0, _lo1), (_hi0, _hi1))],
+# L-hook channels (2026-10-17, designs/pi_box_bat_panel_v3.py): the slot (old groove width GW, NECK deep) opens
+# into a channel that holds the panel's hook, which turns toward the interior; open at the floor end with a 45° flare.
+_ch_x0, _ch_x1 = X_IN + PV.NECK - PV.CL, X_IN + PV.NECK + PV.HOOK_T + PV.CL
+_MOUTH, _FLARE = BOT + FLOOR_EXT, 1.0
+HOOK_RIB = 1.0                                     # rib inside each corner: the strip holding the hook is 0.6 -> 1.6
+
+
+def _channel(s, y0, y1):
+    """Slot + hook channel on wall side s for a panel slot y0..y1 (hook toward the interior), with the mouth flare."""
+    hy0, hy1 = (y0, y1 + PV.HOOK) if y0 < 0 else (y0 - PV.HOOK, y1)
+    ch = union(sbox(s, X_IN - HOOK_RIB - 0.01, _ch_x0 + 0.01, y0, y1, RIM_D, _MOUTH + 1), sbox(s, _ch_x0, _ch_x1, hy0, hy1, RIM_D, _MOUTH + 1))
+    lo, hi = min(s * (X_IN - HOOK_RIB - 0.01), s * (_ch_x1 + _FLARE)), max(s * (X_IN - HOOK_RIB - 0.01), s * (_ch_x1 + _FLARE))
+    flare = Fn(lambda X, Y, d, xp: ch(X, Y, xp.minimum(d, _MOUTH - _FLARE), xp) - max(0.0, d - (_MOUTH - _FLARE)),
+               (lo, hi, hy0 - _FLARE, hy1 + _FLARE, _MOUTH - _FLARE, _MOUTH + 1))
+    return union(ch, flare)
+
+
+hook_ribs = union(*[sbox(s, X_IN - HOOK_RIB, X_IN + 0.01, *sorted((y1, y1 + PV.HOOK + 1.5) if y0 < 0 else (y0, y0 - PV.HOOK - 1.5)),
+                         RIM_D, BOT) for s in (-1, 1) for y0, y1 in ((_lo0, _lo1), (_hi0, _hi1))])
+panel_cuts = union(*[_channel(s, y0, y1) for s in (-1, 1) for y0, y1 in ((_lo0, _lo1), (_hi0, _hi1))],
                    Box(-X_IN, X_IN, Y_MIN - 1, _lo1, RIM_D, BOT + 1),
                    Box(-X_IN, X_IN, _hi0, Y_MAX + 1, RIM_D, BOT + 1))
 cuts = union(
@@ -312,8 +334,13 @@ cuts = union(
          for s in (-1, 1) for cy, cd in CART_SCREWS],
        *[hhole('x', cy, cd, CAM_INSERT_D, *sorted((s * (X_IN - 0.01), s * (X_IN + CART_NUT_L))))
          for s in (-1, 1) for cy, cd in CART_SCREWS]] if CAMERAS else []),
-    *[vhole(bx, by, M4_CLEAR, M4_SHOULDER - 1, BOT + 1) for bx, by in BOSSES],
-    *[vhole(bx, by, M4_INSERT_D, DEPTH - 16.0, M4_SHOULDER) for bx, by in BOSSES])   # insert pocket, out through the cone top
+    *([vhole(bx, by, M4_CLEAR, M4_SHOULDER - 1, BOT + 1) for bx, by in BOSSES]
+      + [vhole(bx, by, M4_INSERT_D, DEPTH - 16.0, M4_SHOULDER) for bx, by in BOSSES] if SLIDING_FLOOR
+      else [vhole(bx, by, INSERT_D, DEPTH - INSERT_DEPTH, BOT + 1) for bx, by in BOSSES]      # v2: glued M3 inserts
+      + [Cyl('d', (px, py), PIN_SLIP / 2, DEPTH - PIN_DEPTH, BOT + 1) for px, py in PINS]      # v2 floor's nubs
+      + [inter(sub(Cyl('d', (0.0, 0.0), _L2.COLLAR_R1 + 0.3, DEPTH - _L2.COLLAR_H - 0.3, BOT + 1),
+                   Cyl('d', (0.0, 0.0), _L2.COLLAR_R0 - 0.3)),
+               Box(-X_IN, X_IN, -WEB_T / 2 - 0.5, WEB_T / 2 + 0.5))]))   # webs notched for the floor collar (v2 filed by hand)   # insert pocket, out through the cone top
 # anti-rattle bumps on each slot's outer face (added back after the slot cut)
 bumps = union(*[sbox(s, X_IN + 0.5, X_IN + GROOVE_D - 0.5, y0, y1, db - 1.5, db + 1.5)
                 for s in (-1, 1) for db in (RIM_D + 25.0, DEPTH - 25.0)
@@ -329,7 +356,7 @@ skirt = sub(union(*[sbox(s, X_IN, X_OUT, Y_MIN, Y_MAX, BOT - 0.01, BOT + FLOOR_E
                     Half(0, 1, -1, Y_MIN - (BOT - _g - GROOVE_FLARE)),
                     Half(0, 1, 1, Y_MIN + BOT + FLOOR_T3 + _g + GROOVE_FLARE))
               for s in (-1, 1)], panel_cuts)
-below = union(skirt, sub(union(tube, walls, webs, rims, bosses, stop_ribs, rails, feet, cones, posts), cuts, panel_cuts),
+below = union(*([skirt] if SLIDING_FLOOR else []), sub(union(tube, walls, hook_ribs, webs, rims, bosses, stop_ribs, rails, feet, cones, posts), cuts, panel_cuts),
               sub(bumps, cuts))
 
 
@@ -492,7 +519,7 @@ def _mc(vol, h, origin):
 
 
 def _part_overlays(h=0.35):
-    """The v3 floor (in place) and both camera cartridges (seated) as meshes, so the assembly reads in the viewer."""
+    """The floor (in place) and both camera cartridges (seated) as meshes, so the assembly reads in the viewer."""
     import sys
     from sdf import solid
     for m in ('designs.pi_box_cam_cartridge', 'designs.pi_box_bat_floor_v3'):
@@ -511,12 +538,19 @@ def _part_overlays(h=0.35):
         X = sx * (X_OUT + CART_FL_T - t[..., 0])
         cams.append(np.stack([X, t[..., 2], -t[..., 1]], -1))
     # floor: its mask runs in print coords (x = Yr - Y_MIN, y up from the outside face, z = X + W/2)
-    xs, zs = np.arange(0.0, Y_MAX - Y_MIN, h), np.arange(0.0, F.W, h)
-    fy = np.arange(0.0, F.FLOOR_T3, h) + h / 2
-    vol = np.stack([np.broadcast_to(F.floor(xs[None, :], float(y), zs[:, None]), (len(zs), len(xs))) for y in fy])
+    xs = np.arange(0.0, Y_MAX - Y_MIN, h)
+    if SLIDING_FLOOR:
+        zs, fy, fn, ox, ft = np.arange(0.0, F.W, h), np.arange(0.0, F.FLOOR_T3, h) + h / 2, F.floor, F.TONGUE_X, F.FLOOR_T3
+        fl = ('v3_floor', '#e67e22', 'sliding floor (v3)')
+    else:
+        import designs.pi_box_bat_lids as L
+        top = L.FLOOR_T + max(L.COLLAR_H, L.RAIL_H, L.NUB_H, L.CRADLE_H if L.ETH_CRADLE else 0)
+        zs, fy, fn, ox, ft = np.arange(0.0, 2 * X_OUT, h), np.arange(0.0, top, h) + h / 2, L.floor, X_OUT, L.FLOOR_T
+        fl = ('v2_floor', '#e67e22', 'v2 floor (pi_box_bat_lids), reused on v3')
+    vol = np.stack([np.broadcast_to(fn(xs[None, :], float(y), zs[:, None]), (len(zs), len(xs))) for y in fy])
     t = _mc(vol, h, (fy[0], 0.0, 0.0))                                                      # (y, z, x)
-    flo = np.stack([t[..., 1] - F.TONGUE_X, t[..., 2] + Y_MIN, -(DEPTH + FLOOR_T3 - t[..., 0])], -1)
-    parts = ([('v3_cartridges', np.concatenate(cams), '#3498db', 'camera cartridges (v3)')] if CAMERAS else [])         + [('v3_floor', flo, '#e67e22', 'sliding floor (v3)')]
+    flo = np.stack([t[..., 1] - ox, t[..., 2] + Y_MIN, -(DEPTH + ft - t[..., 0])], -1)
+    parts = ([('v3_cartridges', np.concatenate(cams), '#3498db', 'camera cartridges (v3)')] if CAMERAS else [])         + [(fl[0], flo, fl[1], fl[2])]
     for name, tris, color, label in parts:
         tris = R._decimate(tris, 0.3)
         print(f'  {name}: X {tris[..., 0].min():.1f}..{tris[..., 0].max():.1f}  Yr {tris[..., 1].min():.1f}..'

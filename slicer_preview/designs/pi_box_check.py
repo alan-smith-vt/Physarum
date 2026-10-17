@@ -46,20 +46,35 @@ def _parts():
     name = C.__name__.split('.')[-1]
     L = importlib.import_module('designs.pi_box_bat_lids')
     out = []
-    if name == 'pi_box_bat_core':
+    if name == 'pi_box_bat_core' or (name == 'pi_box_bat_core_v3' and not C.SLIDING_FLOOR):
         out.append(('floor (lids)', lambda X, Y, d: L._floor_solid(Y - C.Y_MIN, C.DEPTH + L.FLOOR_T - d, X + C.X_OUT),
                     (-C.X_OUT, C.X_OUT), (C.Y_MIN, C.Y_MAX), (C.DEPTH - 5.0, C.DEPTH - 0.05)))
     elif name == 'pi_box_bat_core_v3':
         F = importlib.import_module('designs.pi_box_bat_floor_v3')
         out.append(('floor (v3 sliding)', lambda X, Y, d: F.floor(Y - C.Y_MIN, C.DEPTH + F.FLOOR_T3 - d, X + F.TONGUE_X),
                     (-F.TONGUE_X - 1, F.TONGUE_X + 1), (C.Y_MIN, C.Y_MAX), (C.DEPTH + 0.05, C.DEPTH + F.FLOOR_T3 - 0.05)))
-    if hasattr(C, '_lo0'):
+    if hasattr(C, 'PV'):                                           # v3: L-hook panels
+        PV = C.PV
+        for tag, face, sg in (('-Y', C._lo0 + PV.CL, 1), ('+Y', C._hi1 - PV.CL, -1)):
+            out.append((f'panel {tag} (L-hook)', lambda X, Y, d, face=face, sg=sg: _panel_v3(PV, X, Y, d, face, sg),
+                        (-PV.HALF_W - 1, PV.HALF_W + 1), tuple(sorted((face - sg, face + sg * (L.PANEL_T + PV.HOOK + 1)))),
+                        (PV.D0 + 0.05, PV.D1 - 0.05)))
+    elif hasattr(C, '_lo0'):
         for tag, y0, y1 in (('-Y', C._lo0, C._lo1), ('+Y', C._hi0, C._hi1)):
             yp = (y0 + y1) / 2 - L.PANEL_T / 2                    # panel centred in its slot
             out.append((f'panel {tag}', lambda X, Y, d, yp=yp: _panel(L, X, Y, d, yp),
                         (-L.PANEL_W / 2 - 1, L.PANEL_W / 2 + 1), (y0 - 1, y1 + 1),
                         (C.RIM_D + 0.15, C.RIM_D + L.PANEL_H)))
     return out
+
+
+def _panel_v3(PV, X, Y, d, face, sg):
+    s = np.zeros(np.broadcast_shapes(X.shape, Y.shape), bool)
+    for j in range(Y.shape[1]):
+        y = sg * (float(Y[0, j]) - face)
+        if 0.0 <= y <= PV.PANEL_T + PV.HOOK:
+            s[:, j] = np.broadcast_to(PV.panel_mask(X[:, 0], y, d), X.shape[:1])
+    return s
 
 
 def _panel(L, X, Y, d, yp):

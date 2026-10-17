@@ -43,14 +43,21 @@ Approved sketches: `sketches/pi_box_v3_layout_sketch.py`, `_back_panel_sketch.py
   contact; sampled gaps: parts↔Pi 13, ↔Pi plugs 7, ↔switch 20, ↔trunk 15, J3 plug clears the tube.
 - **Panel edge: L-hook approved** (`sketches/pi_box_v3_panel_edge_sketch.py`): neck 1.0, hook 1.6 × 2.0 turned
   inward (only 1.5 mm of wall outside the panel), 0.375/side clearance incl. comp, channel open at the floor end
-  with a 45° flare, ~1.0 mm skin left outside the channel. Not modelled yet.
+  with a 45° flare, ~1.0 mm skin left outside the channel. **Modelled:** core channels (`_channel`) plus a 1 mm
+  `HOOK_RIB` inside each corner (the strip holding the hook was only 0.6 mm), and `pi_box_bat_panel_v3.py` (front
+  panel, gyroid fill; `panel_mask()` for the back panel later). Part check: 0 at nominal; only the anti-rattle bumps
+  (d ~38) touch when grown.
+- **Sliding floor reverted (user, 2026-10-17):** keep the v2 floor (`pi_box_bat_lids`) for its alignment features.
+  `SLIDING_FLOOR = False`: walls end at DEPTH, glued M3 inserts in the boss cones, the three nub sockets (PINS) back,
+  and the webs now notched for the floor collar (v2's 10.8 mm² clash that was filed by hand). Floor part check 0 at
+  nominal (v2: 10.8). Quick-release still wanted: latches go on this floor instead of the 4 screws (sketch next).
 - **Decided, not modelled yet:** warm swap (switch off → swap); bank USB-C via a panel-mount socket at the chamber's
   floor end (position [MEASURE]: the bank cord leaves at its top end, length unknown); M12 trunk (~95 cm, Ø10,
   25 mm U tested OK) as full-height ellipses in the side bays, 2 turns +X, 1 turn -X; breakout leads + slack on the
   -Y board side; backup = channels through the core between bays for bigger loops, maybe floor holes for outside
   routing. Back (+Y) panel: open frame like the v3 floor, Ø56 MagSafe ring recess centred, phone portrait (covers the
   window, comes off to read the battery), braces framing a display + button window (display position [MEASURE]).
-- **Next:** model the L-hook channels + panel edges; sketch + model floor quick-release latches, back panel; resolve the
+- **Next:** sketch + model floor quick-release latches (on the v2 floor), back panel; resolve the
   battery-seat clash; floor RJ45 cutout for the UE300; trunk vs battery stop ribs (touching).
 - **[MEASURE] at the office:** M12 split point + splitter size, bank cord length/exit, bank display position, phone
   model, plus the caliper list below.
