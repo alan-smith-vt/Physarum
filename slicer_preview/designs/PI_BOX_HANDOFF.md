@@ -3,6 +3,15 @@
 The decision history lives in the Notes vault (`Reference/lidar-photo-rig-cage-handoff.md`), but **the desktop
 doesn't have the vault**. Everything needed for the reprint is repeated here.
 
+## Stick collar: ready to finish and print (2026-10-17)
+`designs/stick_collar.py` (+ `stick_collar_check.py`, viewer route, concept sketch `sketches/stick_collar_v2_sketch.png`,
+approved 2026-10-16). It's a split cone collar clamped on the Ø29.3 monopod stick that seats in the Ø43 floor hole, so side loads go into the core instead of bending the 1/4-20 screw. It uses M4 × 18 truss screws into M4 inserts used as nuts.
+- **Open decision: ask the user before exporting.** The insert half's 3 mm shoulder (between the split face and the insert pocket) has a hole that's currently Ø4.5, clearance for the M4. The choice is **Ø4.0 or Ø4.5**:
+  - Ø4.0: tighter, the screw threads lightly into the resin and centres.
+  - Ø4.5: free clearance, with all the load on the insert.
+  The user never chose. Change `M4_CLEAR` for the shoulder only (the head half stays Ø4.5 clearance).
+- Then run the check, show the viewer preview, and export the print file. Resin settings are in the file (exposure 2.3 s, 75/25 ABS-like blue + Tenacious).
+
 ## 2026-10-16: fit problems, part-vs-part check, calipers, v2 as built
 - **Printed v2 floor clashed with core v2:** the collar ring (r 23.8–25.6) runs through both webs at X ±24
   (10.8 mm² at nominal). The user filed it to fit; no floor change. **Cause:** `pi_box_check` only tested bought-part
