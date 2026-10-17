@@ -63,9 +63,24 @@ CART_NUT_L = 2.5                                   # ...into an M2 insert set in
 #    body (ends at X -6) clears it. H1 on a post from the tube, H2 on a bracket from the +X wall (the UE300 is behind
 #    it, so no post from the tube there). The M12 trunk slack coils in the side bays (overlay only, no features).
 CAMERAS = False
-BRD = dict(x0=-1.0, top=112.0, w=46.0, h=60.0, t=1.6, back=-33.0)    # back face (no parts) toward the tube
-BRD_HOLES = [(BRD['x0'] + 3.0, BRD['top'] + 57.0), (BRD['x0'] + 43.0, BRD['top'] + 47.0)]   # H1 (tube post), H2 (bracket)
-BRD_BRACKET_T = 4.4                                # along Yr: back -33 -> -28.6, ~1 mm in front of the UE300 (-27.6)
+# Power board on the -X wall (2026-10-17, after the Pi's rigid plugs (d 102..~132) ruled out the spot under the Pi):
+# standing in the Yr-d plane on two short standoffs, parts facing +X, USB-Cs on its top edge (cables leave upward,
+# J2 -> the Pi's right-angle USB-C on the same side). Board coords (bx along the 46 edge, by down from the USB-C
+# edge): Yr = y0 + bx, d = top + by (component side seen from +X: no mirror). The switch moves down out of the way.
+BRD = dict(back=-X_IN + 2.5, t=1.6, y0=-55.5, top=80.0, w=46.0, h=60.0)
+BRD_HOLES = [(3.0, 57.0), (43.0, 47.0)]            # H1, H2 in board coords (power_board/gen_board.py)
+BRD_STANDOFF_R = PI_POST_R
+POWER_SWITCH = dict(POWER_SWITCH, y=-38.0, d=168.0)   # was Yr -40.1, d 155: clear of the board's bottom-edge plugs
+R.POWER_SWITCH = POWER_SWITCH
+
+
+def brd_pt(bx, by, h=0.0):
+    """Board coords (+ height h off the component face) -> rig (X, Yr, d)."""
+    return BRD['back'] + BRD['t'] + h, BRD['y0'] + bx, BRD['top'] + by
+
+
+PI_PORT_D = 102.0                                  # port mouths (Pi 5 STEP); stacks X 0..14 and 18..32, RJ45 X -20..-4
+PI_PLUGS = [(-20.0, -4.0, -45.8, -32.2, 30.0), (0.0, 14.0, -48.5, -33.0, 25.0), (18.0, 32.0, -48.5, -33.0, 25.0)]
 UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)   # as v2 ETH_ADAPTER: on the floor, RJ45 down
 
 # Sliding floor (2026-10-15): the camera walls run FLOOR_EXT past the interior bottom (DEPTH, unchanged); the floor
@@ -170,7 +185,8 @@ solid_zone = union(
     Box(-X_OUT, X_OUT, Y_MIN, Y_MIN + PANEL_LIP + GW + 4.0),
     Box(-X_OUT, X_OUT, Y_MAX - PANEL_LIP - GW - 4.0, Y_MAX),
     *([Box(-X_OUT, X_OUT, CAM_YR - CAM_PAD[0], CAM_YR + CAM_PAD[0], TOP, CAM_D + CAM_PAD[1])] if CAMERAS else []),
-    Box(X_IN - 1, X_OUT, BRD['back'] - 3, BRD['back'] + BRD_BRACKET_T + 3, BRD_HOLES[1][1] - 14, BRD_HOLES[1][1] + 8),
+    *[Box(-X_OUT, -X_IN + 1, brd_pt(hx, hy)[1] - 7, brd_pt(hx, hy)[1] + 7, brd_pt(hx, hy)[2] - 11, brd_pt(hx, hy)[2] + 7)
+      for hx, hy in BRD_HOLES],                    # solid wall round the board standoffs
     Box(*((-INF, 0.0) if _sw['side'] < 0 else (0.0, INF)), _sw['y'] - SWITCH_PAD_R, _sw['y'] + SWITCH_PAD_R,
         _sw['d'] - SWITCH_PAD_R, _sw['d'] + SWITCH_PAD_R),
     Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),
@@ -264,22 +280,20 @@ for _px, _pd in PI_HOLES:
     posts += [sub(Cyl('y', (_px, _pd), PI_POST_R, PCB_YR, 0.0), _well),
               sub(inter(Box(_px - PI_POST_R, _px + PI_POST_R, PCB_YR, _yt + 1, max(_pd - _L, TOP), _pd),
                         Half(0, -1, -1, -(PCB_YR + _pd - PI_POST_R))), _well)]
-# power board: H1 on a post from the tube (as the Pi's), H2 on a bracket off the +X wall with a 45° underside
-for _px, _pd in BRD_HOLES[:1]:
-    _yt = -np.sqrt(max(WELL_R ** 2 - _px ** 2, 0.0))
-    _L = PI_POST_R + (_yt - BRD['back'])
-    posts += [sub(Cyl('y', (_px, _pd), PI_POST_R, BRD['back'], 0.0), _well),
-              sub(inter(Box(_px - PI_POST_R, _px + PI_POST_R, BRD['back'], _yt + 1, _pd - _L, _pd),
-                        Half(0, -1, -1, -(BRD['back'] + _pd - PI_POST_R))), _well)]
-_bx, _bd = BRD_HOLES[1]
-_b0 = _bx - PI_POST_R                              # bracket's inner end (|X|)
-posts.append(inter(Box(_b0, X_IN + 0.5, BRD['back'], BRD['back'] + BRD_BRACKET_T, _bd - PI_POST_R - (X_IN - _b0), _bd + PI_POST_R),
-                   taper(1, X_IN + _bd - PI_POST_R - (X_IN - _b0))))
+# power board standoffs off the -X wall (along X), 45° undersides
+for _hx, _hy in BRD_HOLES:
+    _, _py, _pd = brd_pt(_hx, _hy)
+    _L = BRD['back'] + X_IN                        # standoff length
+    posts.append(inter(Box(-X_IN - 0.5, BRD['back'], _py - BRD_STANDOFF_R, _py + BRD_STANDOFF_R,
+                           _pd - BRD_STANDOFF_R - _L, _pd + BRD_STANDOFF_R),
+                       taper(-1, X_IN + _pd - BRD_STANDOFF_R - _L)))
 posts = union(*posts)
 pi_holes = union(*[hhole('y', px, pd, PI_INSERT_D, PCB_YR, PCB_YR + PI_INSERT_L) for px, pd in PI_HOLES],
                  *[hhole('y', px, pd, PI_SCREW_CLEAR, PCB_YR, PCB_YR + PI_HOLE_DEPTH) for px, pd in PI_HOLES],
-                 *[hhole('y', px, pd, PI_INSERT_D, BRD['back'], BRD['back'] + PI_INSERT_L) for px, pd in BRD_HOLES],
-                 *[hhole('y', px, pd, PI_SCREW_CLEAR, BRD['back'], BRD['back'] + PI_HOLE_DEPTH) for px, pd in BRD_HOLES])
+                 *[hhole('x', brd_pt(hx, hy)[1], brd_pt(hx, hy)[2], PI_INSERT_D, BRD['back'] - PI_INSERT_L, BRD['back'] + 0.01)
+                   for hx, hy in BRD_HOLES],
+                 *[hhole('x', brd_pt(hx, hy)[1], brd_pt(hx, hy)[2], PI_SCREW_CLEAR, BRD['back'] - PI_HOLE_DEPTH, BRD['back'] + 0.01)
+                   for hx, hy in BRD_HOLES])
 
 
 # ── cuts ──
@@ -434,17 +448,22 @@ def _layout_overlays():
         path = R.OVERLAY_DIR / f'{name}.stl'
         R._write_stl(path, R.to_print(tris))
         out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color=color, opacity=opacity, label=label))
-    b = BRD
-    x0, x1, d0, d1 = b['x0'], b['x0'] + b['w'], b['top'], b['top'] + b['h']
-    add('power_board', R._box(x0, x1, b['back'] - b['t'] - 0.05, b['back'] - 0.05, -d1, -d0), '#1e8449', 1.0, 'power board 46 x 60')
+    def bbox(bx0, bx1, by0, by1, h0, h1):
+        X0, Y0, D0 = brd_pt(bx0, by0, h0)
+        X1, Y1, D1 = brd_pt(bx1, by1, h1)
+        return R._box(min(X0, X1), max(X0, X1), Y0, Y1, -D1, -D0)
+    add('power_board', bbox(0, BRD['w'], 0, BRD['h'], -BRD['t'] + 0.05, -0.05), '#1e8449', 1.0, 'power board 46 x 60 (-X wall)')
     add('power_board_parts', np.concatenate([
-        R._box(x0 + 5.5, x0 + 14.5, b['back'] - b['t'] - 3.3, b['back'] - b['t'], -(d0 + 7.5), -d0),      # J2 USB-C
-        R._box(x0 + 31.5, x0 + 40.5, b['back'] - b['t'] - 3.3, b['back'] - b['t'], -(d0 + 7.5), -d0),     # J1 USB-C
-        R._box(x0 + 30.0, x0 + 40.0, b['back'] - b['t'] - 22.0, b['back'] - b['t'], -d1, -(d1 - 9.0)),   # J3 + plug + wires
-        R._box(x0 + 7.0, x0 + 29.0, b['back'] - b['t'] - 14.0, b['back'] - b['t'], -d1, -(d1 - 6.0)),    # J5 + PH plug
-        R._box(x0 + 0.5, x0 + 7.0, b['back'] - b['t'] - 14.0, b['back'] - b['t'], -(d0 + 23.0), -(d0 + 12.0)),   # J4 + XH plug
-        R._box(x0 + 6.0, x0 + 40.0, b['back'] - b['t'] - 6.0, b['back'] - b['t'], -(d1 - 12.0), -(d0 + 10.0))]),  # parts (L1 ~5 tall)
+        bbox(5.5, 14.5, 0, 7.5, 0, 3.3), bbox(31.5, 40.5, 0, 7.5, 0, 3.3),         # J2, J1 sockets
+        bbox(4.0, 16.0, -22.0, 0.0, -1.0, 6.0), bbox(30.0, 42.0, -22.0, 0.0, -1.0, 6.0),   # their plugs, leaving upward
+        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 22.0),                                    # J3 + plug + wires
+        bbox(7.0, 29.0, 52.0, 60.0, 0.0, 14.0),                                     # J5 + PH plug
+        bbox(0.5, 6.0, 34.0, 47.0, 0.0, 14.0),                                      # J4 + XH plug
+        bbox(2.0, 44.0, 8.0, 50.0, 0.0, 6.0)]),                                     # parts (L1 ~5 tall)
         '#f1c40f', 0.6, 'power board parts + mating plugs (envelope)')
+    pm = PI_PORT_D                                  # Pi port mouths (Pi 5 STEP), rigid plug envelopes [MEASURE] lengths
+    add('pi_plugs', np.concatenate([R._box(x0 - 1, x1 + 1, y0 - 1, y1 + 1, -(pm + L), -pm) for x0, x1, y0, y1, L in PI_PLUGS]),
+        '#e67e22', 0.7, 'rigid plugs in the Pi ports: RJ45 + boot 30, USB-A 25 (both stacks) [MEASURE]')
     u = UE300
     add('ue300', R._box(u['x0'], u['x1'], u['y0'], u['y1'], -DEPTH, -u['d0']), '#ecf0f1', 0.8, 'TP-Link UE300 (as v2)')
     t = TRUNK
