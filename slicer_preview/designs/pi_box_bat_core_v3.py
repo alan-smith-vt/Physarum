@@ -67,7 +67,7 @@ GROOVE_FLARE = 1.5                                 # 45° flare at the floor gro
 FLOOR_CLEAR = 0.2                                 # per face, + RESIN_HOLE_COMP / 2 (the groove prints undersize)
 FLOOR_STOP_Y = Y_MAX - PANEL_LIP - 1.0             # grooves end here
 # Floor M4s: through the floor up the boss into an M4 insert set from the top, bottomed on a shoulder (a nut).
-M4_CLEAR, M4_INSERT_D, M4_INSERT_L, M4_SCREW_L = 4.5, 5.6, 6.0, 16.0   # [MEASURE] insert OD / length
+M4_CLEAR, M4_INSERT_D, M4_INSERT_L, M4_SCREW_L = 4.5, 5.5, 6.0, 16.0   # insert measured 2026-10-16: Ø5.5 ribs (5.0 base), 6 long
 M4_SHOULDER = DEPTH - (M4_SCREW_L - FLOOR_T3) + M4_INSERT_L             # insert spans up from here to the screw tip
 CAM_PAD = (CART_HW + CART_FL + 1.0, CART_D1 + CART_HW + CART_FL + 1.0 - CAM_D)   # solid round the opening + flange
 
