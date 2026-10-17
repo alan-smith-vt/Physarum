@@ -45,6 +45,14 @@ approved 2026-10-16). It's a split cone collar clamped on the Ø29.3 monopod sti
 - **Panels: T-shaped edge in a matching T-channel in the core,** replacing the planned chamfer-into-slot. With the chamfer, the panel flexes and pops out of the slot too easily. A T-edge is captured in both directions and can only slide in and out lengthwise. Keep the lead-in bevels on the sliding end (`PANEL_LEAD`), and size the T clearance with the part-vs-part check plus print oversize.
 - **Floor: quick release for hot-swapping battery packs in the field,** instead of 4 screws. Use an **off-the-shelf latch** (e.g. draw/toggle latches, or quarter-turn fasteners), not a printed compliant snap: it has to hold the battery's weight under impact (a dropped or knocked rig). Keep the floor's sliding tongues for location, and let the latches take the load.
 - Both: sketch for approval first (hard rule). Both affect `pi_box_bat_core_v3.py`, `pi_box_bat_floor_v3.py` and the panel.
+- **Tracking cameras: drop them from v3 (user decision, 2026-10-17),** unless a test on the v2 rig before v3 is built shows they measurably improve accuracy.
+  - **Evidence so far:**
+    - Camera-fused odometry gave no measurable gain on the office walk (one camera made a storey worse).
+    - Lidar + IMU alone held through a spiral staircase.
+    - Blur prediction now uses the GoPro's own EXIF exposure.
+  - **The only open case:** featureless spaces (plain corridors, garages, tunnels). Test there on v2 with lidar-only vs lidar + camera.
+  - **What dropping them removes:** both camera boards, ribbons and cartridges (`pi_box_cam_cartridge.py`), the lens shrouds, the Kalibr calibration, and ~1.9 GB of data per 18-minute walk.
+  - **Before modelling v3 around them,** check the decision hasn't been reversed. AprilTag loop closure would move to GoPro photos or retroreflective tags in the lidar intensity.
 - **GoPro mount: Arca-Swiss quick release (decided 2026-10-17).** The GoPro must come off for storage and go back in the same orientation, because the GoPro↔lidar calibration depends on it. GoPro-style buckles attach through the pivot fingers, so they're out.
   - **Parts:** a 50 mm Arca screw-knob clamp plus its all-metal plate (e.g. Fotasy CL50_PU50).
   - **The plate stays on the camera permanently;** the clamp is the quick release.
