@@ -104,7 +104,7 @@ BAT_SHOULDER_X = 23.5                         # flat seat's innermost |X|: 13.5 
 # (~15 cm) leaves the bank's top end, runs over the stop rib into the +X bay beside the tube, to a PD
 # trigger (female-input board, or the male trigger + a PD coupler) set to 15 V; its thin 15 V pair runs
 # through the +X upper web slot to the power switch and WAGOs under the Pi. Positions [MEASURE].
-PORT_WINDOW = (-22.0, 22.0, 36.8, 49.8)       # floor: X range, Yr range under the bank's end face
+PORT_WINDOW = (-32.0, 32.0, 36.8, 49.8)       # floor: X range, Yr range under the bank's end face (2026-10-17: +10 each end, was ±22)
 CORD_ROOT = (33.0, 43.3, -(DEPTH - 157.0))    # built-in cord leaves the bank's top end here
 PD_TRIGGER = (30.0, 42.0, 8.0, 20.0, 26.0, 48.0)    # USB-C female coupler on the built-in cord: X, Yr, depth (+X bay by the tube)
 # The PD trigger is itself a long corded plug: it plugs into the coupler and its 15 V lead (plenty of

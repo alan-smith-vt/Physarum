@@ -22,6 +22,8 @@ ALIASES = {
     'v3cam': 'pi_box_cam_cartridge',
     'collar': 'stick_collar',               # split cone collar for the monopod stick
     'v3floor': 'pi_box_bat_floor_v3',
+    'v3panel': 'pi_box_bat_panel_v3',          # front panel, L-hook edges
+    'v3back': 'pi_box_bat_back_panel_v3',      # back panel: MagSafe recess, braces, window
 }
 
 app = Flask(__name__)

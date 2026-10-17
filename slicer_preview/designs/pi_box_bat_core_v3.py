@@ -235,6 +235,15 @@ rails = union(*[_rail(s, BAT_RIB[3] if i == 0 else ry - BAT_RAIL_W / 2, ry + BAT
 
 
 
+# ── UE300 seat ledge off the web's Pi face (45° below in print), back from v2: holds the adapter down in the
+#    v2 floor's cradle with the rig upside down; its cord leaves the top end clear of the ledge ──
+_a = ETH_ADAPTER
+_seat_d = DEPTH - _a['h'] - ETH_SEAT['clear']
+seat = inter(Box(_a['x'] - _a['wx'] / 2, _a['x'] + _a['wx'] / 2, -WEB_T / 2 - ETH_SEAT['reach'], -WEB_T / 2 + 0.5,
+                 _seat_d - ETH_SEAT['reach'], _seat_d),
+             Half(0, -1, -1, -(_seat_d - ETH_SEAT['reach'] - WEB_T / 2)))
+
+
 # ── push-in cable clips ──
 def clip(axis, base, along, d0, D, out=None):
     o = out if out else -np.sign(base)                 # the side the clip stands on
@@ -356,7 +365,7 @@ skirt = sub(union(*[sbox(s, X_IN, X_OUT, Y_MIN, Y_MAX, BOT - 0.01, BOT + FLOOR_E
                     Half(0, 1, -1, Y_MIN - (BOT - _g - GROOVE_FLARE)),
                     Half(0, 1, 1, Y_MIN + BOT + FLOOR_T3 + _g + GROOVE_FLARE))
               for s in (-1, 1)], panel_cuts)
-below = union(*([skirt] if SLIDING_FLOOR else []), sub(union(tube, walls, hook_ribs, webs, rims, bosses, stop_ribs, rails, feet, cones, posts), cuts, panel_cuts),
+below = union(*([skirt] if SLIDING_FLOOR else []), sub(union(tube, walls, hook_ribs, webs, seat, rims, bosses, stop_ribs, rails, feet, cones, posts), cuts, panel_cuts),
               sub(bumps, cuts))
 
 

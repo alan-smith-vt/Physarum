@@ -31,7 +31,7 @@ NOTCH_X, NOTCH_Y = 29.0, PCB_YR - 0.5                        # open to the -Y ed
 SCREW_CLEAR = 4.5                      # M4 through the floor and up the core boss into an M4 insert set from the top
 NUB_D, NUB_H, NUB_TIP = 3.0, 3.0, 0.6  # alignment nubs in place of dowels; external faces print ~0.35 over → ~Ø3.35
                                        # in the core's loose PIN_SLIP holes (file down if tight)
-ETH_CRADLE = False                     # UE300 cradle + RJ45 opening: off (2026-10-15, the adapter's home is undecided)
+ETH_CRADLE = True                      # UE300 cradle + RJ45 opening: on (2026-10-17, v3 keeps the UE300 in the +X / web corner)
 FILL_T = 0.27                          # floor-plate gyroid sheet (walls use GYROID_T 0.35): sparser for area margin
 
 PANEL_W = 2 * (X_IN + GROOVE_D) - 0.8      # external faces print ~0.35 oversize

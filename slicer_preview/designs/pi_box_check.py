@@ -56,7 +56,9 @@ def _parts():
     if hasattr(C, 'PV'):                                           # v3: L-hook panels
         PV = C.PV
         for tag, face, sg in (('-Y', C._lo0 + PV.CL, 1), ('+Y', C._hi1 - PV.CL, -1)):
-            out.append((f'panel {tag} (L-hook)', lambda X, Y, d, face=face, sg=sg: _panel_v3(PV, X, Y, d, face, sg),
+            fn = PV.panel_mask if sg > 0 else importlib.import_module('designs.pi_box_bat_back_panel_v3').back_mask
+            out.append((f'panel {tag} (L-hook{"" if sg > 0 else ", back"})',
+                        lambda X, Y, d, face=face, sg=sg, fn=fn: _panel_v3(fn, PV, X, Y, d, face, sg),
                         (-PV.HALF_W - 1, PV.HALF_W + 1), tuple(sorted((face - sg, face + sg * (L.PANEL_T + PV.HOOK + 1)))),
                         (PV.D0 + 0.05, PV.D1 - 0.05)))
     elif hasattr(C, '_lo0'):
@@ -68,12 +70,12 @@ def _parts():
     return out
 
 
-def _panel_v3(PV, X, Y, d, face, sg):
+def _panel_v3(fn, PV, X, Y, d, face, sg):
     s = np.zeros(np.broadcast_shapes(X.shape, Y.shape), bool)
     for j in range(Y.shape[1]):
         y = sg * (float(Y[0, j]) - face)
         if 0.0 <= y <= PV.PANEL_T + PV.HOOK:
-            s[:, j] = np.broadcast_to(PV.panel_mask(X[:, 0], y, d), X.shape[:1])
+            s[:, j] = np.broadcast_to(fn(X[:, 0], y, d), X.shape[:1])
     return s
 
 

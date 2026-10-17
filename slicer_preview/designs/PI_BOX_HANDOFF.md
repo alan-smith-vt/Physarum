@@ -51,13 +51,19 @@ Approved sketches: `sketches/pi_box_v3_layout_sketch.py`, `_back_panel_sketch.py
   `SLIDING_FLOOR = False`: walls end at DEPTH, glued M3 inserts in the boss cones, the three nub sockets (PINS) back,
   and the webs now notched for the floor collar (v2's 10.8 mm² clash that was filed by hand). Floor part check 0 at
   nominal (v2: 10.8). Quick-release still wanted: latches go on this floor instead of the 4 screws (sketch next).
+- **Floor updates (user, 2026-10-17):** `ETH_CRADLE = True` (UE300 cradle + RJ45 opening on the v2 floor) and the
+  core's UE300 seat ledge is back from v2 (holds it down with the rig inverted). Bank port window `PORT_WINDOW`
+  widened 10 mm each end lengthwise: X ±32 (was ±22). Both are shared with v2's files.
+- **Back panel built:** `pi_box_bat_back_panel_v3.py` (viewer /v3back; front panel /v3panel): L-hook edges, 5 mm
+  frame, Ø59 disc with a Ø46–56 × 0.8 MagSafe recess in the outer face (prints on the plate side), 4 mm braces,
+  braced window X -40..12, d 142..175 over the button [MEASURE display]. Max layer ~7,400 mm². In the part check.
 - **Decided, not modelled yet:** warm swap (switch off → swap); bank USB-C via a panel-mount socket at the chamber's
   floor end (position [MEASURE]: the bank cord leaves at its top end, length unknown); M12 trunk (~95 cm, Ø10,
   25 mm U tested OK) as full-height ellipses in the side bays, 2 turns +X, 1 turn -X; breakout leads + slack on the
   -Y board side; backup = channels through the core between bays for bigger loops, maybe floor holes for outside
   routing. Back (+Y) panel: open frame like the v3 floor, Ø56 MagSafe ring recess centred, phone portrait (covers the
   window, comes off to read the battery), braces framing a display + button window (display position [MEASURE]).
-- **Next:** sketch + model floor quick-release latches (on the v2 floor), back panel; resolve the
+- **Next:** sketch + model floor quick-release latches (on the v2 floor); resolve the
   battery-seat clash; floor RJ45 cutout for the UE300; trunk vs battery stop ribs (touching).
 - **[MEASURE] at the office:** M12 split point + splitter size, bank cord length/exit, bank display position, phone
   model, plus the caliper list below.
