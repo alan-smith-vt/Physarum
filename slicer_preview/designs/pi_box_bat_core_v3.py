@@ -58,6 +58,16 @@ CART_SCREW_CLEAR = 2.2                             # M2 from outside through fla
 CART_NUT_L = 2.5                                   # ...into an M2 insert set in a pocket from the INNER face: it bottoms on
                                                    # the wall's outer 1.5 mm, so the screw pulls it into resin (a nut; CA only
                                                    # locates it). Flange 1.5 + wall 1.5 + insert 2.5 → M2×5 / M2×6 [MEASURE]
+# ── 2026-10-17 layout (sketches/pi_box_v3_layout_sketch.png, _trunk_sketch.png): cameras dropped; the power board
+#    (power_board/, 46 x 60) stands under the Pi, parts facing the -Y panel, against the +X wall so the kept switch
+#    body (ends at X -6) clears it. H1 on a post from the tube, H2 on a bracket from the +X wall (the UE300 is behind
+#    it, so no post from the tube there). The M12 trunk slack coils in the side bays (overlay only, no features).
+CAMERAS = False
+BRD = dict(x0=-1.0, top=112.0, w=46.0, h=60.0, t=1.6, back=-33.0)    # back face (no parts) toward the tube
+BRD_HOLES = [(BRD['x0'] + 3.0, BRD['top'] + 57.0), (BRD['x0'] + 43.0, BRD['top'] + 47.0)]   # H1 (tube post), H2 (bracket)
+BRD_BRACKET_T = 4.4                                # along Yr: back -33 -> -28.6, ~1 mm in front of the UE300 (-27.6)
+UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)   # as v2 ETH_ADAPTER: on the floor, RJ45 down
+
 # Sliding floor (2026-10-15): the camera walls run FLOOR_EXT past the interior bottom (DEPTH, unchanged); the floor
 # (designs/pi_box_bat_floor_v3.py) slides in from -Y between them, its edge tongues in grooves cut into the walls'
 # inner faces; the wall's FLOOR_LEDGE under each groove catches it if the M4s let go. Grooves stop short of +Y (stop).
@@ -159,7 +169,8 @@ solid_zone = union(
     Box(-X_OUT, X_OUT, Y_MIN, Y_MAX, DEPTH - WALL_BOTTOM_SOLID, BOT),
     Box(-X_OUT, X_OUT, Y_MIN, Y_MIN + PANEL_LIP + GW + 4.0),
     Box(-X_OUT, X_OUT, Y_MAX - PANEL_LIP - GW - 4.0, Y_MAX),
-    Box(-X_OUT, X_OUT, CAM_YR - CAM_PAD[0], CAM_YR + CAM_PAD[0], TOP, CAM_D + CAM_PAD[1]),
+    *([Box(-X_OUT, X_OUT, CAM_YR - CAM_PAD[0], CAM_YR + CAM_PAD[0], TOP, CAM_D + CAM_PAD[1])] if CAMERAS else []),
+    Box(X_IN - 1, X_OUT, BRD['back'] - 3, BRD['back'] + BRD_BRACKET_T + 3, BRD_HOLES[1][1] - 14, BRD_HOLES[1][1] + 8),
     Box(*((-INF, 0.0) if _sw['side'] < 0 else (0.0, INF)), _sw['y'] - SWITCH_PAD_R, _sw['y'] + SWITCH_PAD_R,
         _sw['d'] - SWITCH_PAD_R, _sw['d'] + SWITCH_PAD_R),
     Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),
@@ -253,9 +264,22 @@ for _px, _pd in PI_HOLES:
     posts += [sub(Cyl('y', (_px, _pd), PI_POST_R, PCB_YR, 0.0), _well),
               sub(inter(Box(_px - PI_POST_R, _px + PI_POST_R, PCB_YR, _yt + 1, max(_pd - _L, TOP), _pd),
                         Half(0, -1, -1, -(PCB_YR + _pd - PI_POST_R))), _well)]
+# power board: H1 on a post from the tube (as the Pi's), H2 on a bracket off the +X wall with a 45° underside
+for _px, _pd in BRD_HOLES[:1]:
+    _yt = -np.sqrt(max(WELL_R ** 2 - _px ** 2, 0.0))
+    _L = PI_POST_R + (_yt - BRD['back'])
+    posts += [sub(Cyl('y', (_px, _pd), PI_POST_R, BRD['back'], 0.0), _well),
+              sub(inter(Box(_px - PI_POST_R, _px + PI_POST_R, BRD['back'], _yt + 1, _pd - _L, _pd),
+                        Half(0, -1, -1, -(BRD['back'] + _pd - PI_POST_R))), _well)]
+_bx, _bd = BRD_HOLES[1]
+_b0 = _bx - PI_POST_R                              # bracket's inner end (|X|)
+posts.append(inter(Box(_b0, X_IN + 0.5, BRD['back'], BRD['back'] + BRD_BRACKET_T, _bd - PI_POST_R - (X_IN - _b0), _bd + PI_POST_R),
+                   taper(1, X_IN + _bd - PI_POST_R - (X_IN - _b0))))
 posts = union(*posts)
 pi_holes = union(*[hhole('y', px, pd, PI_INSERT_D, PCB_YR, PCB_YR + PI_INSERT_L) for px, pd in PI_HOLES],
-                 *[hhole('y', px, pd, PI_SCREW_CLEAR, PCB_YR, PCB_YR + PI_HOLE_DEPTH) for px, pd in PI_HOLES])
+                 *[hhole('y', px, pd, PI_SCREW_CLEAR, PCB_YR, PCB_YR + PI_HOLE_DEPTH) for px, pd in PI_HOLES],
+                 *[hhole('y', px, pd, PI_INSERT_D, BRD['back'], BRD['back'] + PI_INSERT_L) for px, pd in BRD_HOLES],
+                 *[hhole('y', px, pd, PI_SCREW_CLEAR, BRD['back'], BRD['back'] + PI_HOLE_DEPTH) for px, pd in BRD_HOLES])
 
 
 # ── cuts ──
@@ -268,12 +292,12 @@ panel_cuts = union(*[sbox(s, X_IN, X_IN + GROOVE_D, y0, y1, RIM_D, BOT + FLOOR_E
 cuts = union(
     bores, pi_holes,
     hhole('x', _sw['y'], _sw['d'], _sw['hole'], *sorted((_sw['side'] * (X_IN - 0.01), _sw['side'] * X_OUT))),
-    *[cart_profile(CART_HW + CART_CLEAR + RESIN_HOLE_COMP / 2, CART_D0 - CART_CLEAR - RESIN_HOLE_COMP / 2,
-                   CART_D1 + CART_CLEAR, *sorted((s * (X_IN - 0.01), s * (X_OUT + 0.01)))) for s in (-1, 1)],   # cartridge openings
-    *[hhole('x', cy, cd, CART_SCREW_CLEAR, *sorted((s * (X_IN - 0.01), s * (X_OUT + 0.01))))
-      for s in (-1, 1) for cy, cd in CART_SCREWS],
-    *[hhole('x', cy, cd, CAM_INSERT_D, *sorted((s * (X_IN - 0.01), s * (X_IN + CART_NUT_L))))
-      for s in (-1, 1) for cy, cd in CART_SCREWS],
+    *([*[cart_profile(CART_HW + CART_CLEAR + RESIN_HOLE_COMP / 2, CART_D0 - CART_CLEAR - RESIN_HOLE_COMP / 2,
+                       CART_D1 + CART_CLEAR, *sorted((s * (X_IN - 0.01), s * (X_OUT + 0.01)))) for s in (-1, 1)],   # cartridge openings
+       *[hhole('x', cy, cd, CART_SCREW_CLEAR, *sorted((s * (X_IN - 0.01), s * (X_OUT + 0.01))))
+         for s in (-1, 1) for cy, cd in CART_SCREWS],
+       *[hhole('x', cy, cd, CAM_INSERT_D, *sorted((s * (X_IN - 0.01), s * (X_IN + CART_NUT_L))))
+         for s in (-1, 1) for cy, cd in CART_SCREWS]] if CAMERAS else []),
     *[vhole(bx, by, M4_CLEAR, M4_SHOULDER - 1, BOT + 1) for bx, by in BOSSES],
     *[vhole(bx, by, M4_INSERT_D, DEPTH - 16.0, M4_SHOULDER) for bx, by in BOSSES])   # insert pocket, out through the cone top
 # anti-rattle bumps on each slot's outer face (added back after the slot cut)
@@ -382,6 +406,8 @@ def _v3_overlays():
     _pi_pt = R.pi_pt
     R.pi_pt = lambda bx, by: (_pi_pt(bx, by)[0] + PI_SHIFT, _pi_pt(bx, by)[1])
     stale = ('eth_adapter', 'cable_usbc', 'cable_ribbons')
+    if not CAMERAS:                                # the power board replaces the trigger, buck, WAGOs and their cables
+        stale += ('/cameras.', 'pd_trigger', 'buck_wago', 'cable_lidar', 'cable_battery', 'cable_buck_in')
     out = [o for o in R.build_overlays() if not any(k in o['file'] for k in stale)]
     for o in out:                                  # the viewer depth-writes only opaque overlays: make the boards sort
         if o['file'].endswith('/cameras.stl'):     # properly against the cartridges
@@ -391,7 +417,51 @@ def _v3_overlays():
     R._write_stl(path, R.to_print(R._box(px - 18.0, px, PCB_YR - 11.0, PCB_YR - 2.0, -31.0, -20.0)))
     out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color='#e74c3c', opacity=0.8,
                     label='USB-C right-angle plug 10 + adapter 8 (envelope)'))
-    return out + _part_overlays()
+    return out + _layout_overlays() + _part_overlays()
+
+
+TRUNK = dict(yr=(3.5, 28.5), d=(14.0, 176.0), cord=10.0, turns={1: 2, -1: 1})   # M12 slack ellipses (side bays)
+SOCKET = dict(x=-20.0, yr=43.0, d=176.0)           # bank USB-C panel socket at the chamber's floor end [placeholder]
+
+
+def _layout_overlays():
+    """2026-10-17 layout: power board + connector envelope, UE300, M12 trunk ellipses, bank socket placeholder."""
+    if CAMERAS:
+        return []
+    out = []
+
+    def add(name, tris, color, opacity, label):
+        path = R.OVERLAY_DIR / f'{name}.stl'
+        R._write_stl(path, R.to_print(tris))
+        out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color=color, opacity=opacity, label=label))
+    b = BRD
+    x0, x1, d0, d1 = b['x0'], b['x0'] + b['w'], b['top'], b['top'] + b['h']
+    add('power_board', R._box(x0, x1, b['back'] - b['t'] - 0.05, b['back'] - 0.05, -d1, -d0), '#1e8449', 1.0, 'power board 46 x 60')
+    add('power_board_parts', np.concatenate([
+        R._box(x0 + 5.5, x0 + 14.5, b['back'] - b['t'] - 3.3, b['back'] - b['t'], -(d0 + 7.5), -d0),      # J2 USB-C
+        R._box(x0 + 31.5, x0 + 40.5, b['back'] - b['t'] - 3.3, b['back'] - b['t'], -(d0 + 7.5), -d0),     # J1 USB-C
+        R._box(x0 + 30.0, x0 + 40.0, b['back'] - b['t'] - 22.0, b['back'] - b['t'], -d1, -(d1 - 9.0)),   # J3 + plug + wires
+        R._box(x0 + 7.0, x0 + 29.0, b['back'] - b['t'] - 14.0, b['back'] - b['t'], -d1, -(d1 - 6.0)),    # J5 + PH plug
+        R._box(x0 + 0.5, x0 + 7.0, b['back'] - b['t'] - 14.0, b['back'] - b['t'], -(d0 + 23.0), -(d0 + 12.0)),   # J4 + XH plug
+        R._box(x0 + 6.0, x0 + 40.0, b['back'] - b['t'] - 6.0, b['back'] - b['t'], -(d1 - 12.0), -(d0 + 10.0))]),  # parts (L1 ~5 tall)
+        '#f1c40f', 0.6, 'power board parts + mating plugs (envelope)')
+    u = UE300
+    add('ue300', R._box(u['x0'], u['x1'], u['y0'], u['y1'], -DEPTH, -u['d0']), '#ecf0f1', 0.8, 'TP-Link UE300 (as v2)')
+    t = TRUNK
+    rb = (t['yr'][1] - t['yr'][0] - t['cord']) / 2
+    ra = (t['d'][1] - t['d'][0] - t['cord']) / 2
+    yc, dc = (t['yr'][0] + t['yr'][1]) / 2, (t['d'][0] + t['d'][1]) / 2
+    a = np.linspace(0, 2 * np.pi, 49)
+    coils = []
+    for sx, n in t['turns'].items():
+        for i in range(n):
+            x = sx * (X_IN - t['cord'] / 2 - 0.5 - i * t['cord'])
+            coils.append(R._tube([(x, yc + rb * np.sin(q), -(dc + ra * np.cos(q))) for q in a], t['cord'] / 2))
+    add('m12_trunk', np.concatenate(coils), '#1f4e79', 0.9, 'M12 trunk slack: 3 ellipse turns, 25 mm U (~93 cm)')
+    c = SOCKET
+    add('bank_socket', R._box(c['x'] - 6, c['x'] + 6, c['yr'] - 4, c['yr'] + 4, -DEPTH, -(DEPTH - 12)), '#ff66cc', 0.9,
+        'bank USB-C panel socket (placeholder)')
+    return out
 
 
 def _mc(vol, h, origin):
@@ -427,8 +497,8 @@ def _part_overlays(h=0.35):
     vol = np.stack([np.broadcast_to(F.floor(xs[None, :], float(y), zs[:, None]), (len(zs), len(xs))) for y in fy])
     t = _mc(vol, h, (fy[0], 0.0, 0.0))                                                      # (y, z, x)
     flo = np.stack([t[..., 1] - F.TONGUE_X, t[..., 2] + Y_MIN, -(DEPTH + FLOOR_T3 - t[..., 0])], -1)
-    for name, tris, color, label in (('v3_cartridges', np.concatenate(cams), '#3498db', 'camera cartridges (v3)'),
-                                     ('v3_floor', flo, '#e67e22', 'sliding floor (v3)')):
+    parts = ([('v3_cartridges', np.concatenate(cams), '#3498db', 'camera cartridges (v3)')] if CAMERAS else [])         + [('v3_floor', flo, '#e67e22', 'sliding floor (v3)')]
+    for name, tris, color, label in parts:
         tris = R._decimate(tris, 0.3)
         print(f'  {name}: X {tris[..., 0].min():.1f}..{tris[..., 0].max():.1f}  Yr {tris[..., 1].min():.1f}..'
               f'{tris[..., 1].max():.1f}  d {-tris[..., 2].max():.1f}..{-tris[..., 2].min():.1f}')

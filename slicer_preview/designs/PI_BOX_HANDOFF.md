@@ -31,6 +31,24 @@ in the Ø43 floor hole. Shoulder hole stays Ø4.5 (user). Bore Ø29.0 + 1.0 spli
   proven (no Pi USB-C plug = no right-angle clash), not now.
 - Resistor swap to Basic parts (R9–R12, eFuse window/limit) was considered and skipped: ~$12 saving.
 
+## v3 layout, first modelling pass (2026-10-17)
+Approved sketches: `sketches/pi_box_v3_layout_sketch.py`, `_back_panel_sketch.py`, `_trunk_sketch.py` (.png beside).
+- **Modelled in `pi_box_bat_core_v3.py`:** `CAMERAS = False` (no cartridge openings / screws / pads); power board
+  `BRD` under the Pi (X -1..45, d 112..172, back face Yr -33, parts toward -Y) on an M2.5 post from the tube (H1)
+  and a 45°-undercut bracket off the +X wall (H2; the UE300 sits behind it, ~1 mm clear). Overlays: board + parts
+  envelope, UE300, M12 trunk ellipses, bank socket placeholder; the stale trigger/buck/WAGO/camera overlays dropped.
+  `pi_box_check` clean except the known flat-seat contact.
+- **Decided, not modelled yet:** warm swap (switch off → swap); bank USB-C via a panel-mount socket at the chamber's
+  floor end (position [MEASURE]: the bank cord leaves at its top end, length unknown); M12 trunk (~95 cm, Ø10,
+  25 mm U tested OK) as full-height ellipses in the side bays, 2 turns +X, 1 turn -X; breakout leads + slack on the
+  -Y board side; backup = channels through the core between bays for bigger loops, maybe floor holes for outside
+  routing. Back (+Y) panel: open frame like the v3 floor, Ø56 MagSafe ring recess centred, phone portrait (covers the
+  window, comes off to read the battery), braces framing a display + button window (display position [MEASURE]).
+- **Next:** sketch + model T-edge panels / T-channels, floor quick-release latches, back panel; resolve the
+  battery-seat clash; floor RJ45 cutout for the UE300; trunk vs battery stop ribs (touching).
+- **[MEASURE] at the office:** M12 split point + splitter size, bank cord length/exit, bank display position, phone
+  model, plus the caliper list below.
+
 ## Printer camera
 `python sdcp.py camera` works at full rate. ffmpeg log level is now `fatal`: the "non-existing PPS / no frame!"
 lines while it waits for the first keyframe are normal and hidden.
