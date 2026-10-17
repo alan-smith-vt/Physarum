@@ -43,7 +43,7 @@ Approved sketches: `sketches/pi_box_v3_layout_sketch.py`, `_back_panel_sketch.py
   contact; sampled gaps: parts↔Pi 13, ↔Pi plugs 7, ↔switch 20, ↔trunk 15, J3 plug clears the tube.
 - **Panel edge: L-hook approved** (`sketches/pi_box_v3_panel_edge_sketch.py`): neck 1.0, hook 1.6 × 2.0 turned
   inward (only 1.5 mm of wall outside the panel), 0.375/side clearance incl. comp, channel open at the floor end
-  with a 45° flare, ~0.6 mm skin left outside the channel. Not modelled yet.
+  with a 45° flare, ~1.0 mm skin left outside the channel. Not modelled yet.
 - **Decided, not modelled yet:** warm swap (switch off → swap); bank USB-C via a panel-mount socket at the chamber's
   floor end (position [MEASURE]: the bank cord leaves at its top end, length unknown); M12 trunk (~95 cm, Ø10,
   25 mm U tested OK) as full-height ellipses in the side bays, 2 turns +X, 1 turn -X; breakout leads + slack on the
