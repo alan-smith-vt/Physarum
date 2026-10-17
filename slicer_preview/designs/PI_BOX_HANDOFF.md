@@ -54,6 +54,12 @@ Approved sketches: `sketches/pi_box_v3_layout_sketch.py`, `_back_panel_sketch.py
 - **Floor updates (user, 2026-10-17):** `ETH_CRADLE = True` (UE300 cradle + RJ45 opening on the v2 floor) and the
   core's UE300 seat ledge is back from v2 (holds it down with the rig inverted). Bank port window `PORT_WINDOW`
   widened 10 mm each end lengthwise: X ±32 (was ±22). Both are shared with v2's files.
+- **Floor quick release modelled (2 latches, user 2026-10-17; sketch `pi_box_v3_floor_latch_sketch.py`):**
+  floor (`pi_box_bat_lids`, `LATCH_EARS`) grows a 3 × 22 × 16 ear up each ±X wall's outer face at Yr 0 (0.4 gap above
+  the plate) with 2 M2 pilots for the catch; core gets a solid pad + 2 M3 inserts (3 deep, inner face closed) per
+  wall for the latch body (`LATCH`, `LATCH_HOLES`, placeholder 12 × 18 × 6 at d 142–160) [MEASURE the latch bought].
+  **M3 screws → alignment pins** (`BOSS_PINS`): Ø3 × 4 chamfered pins on the floor into Ø3.4 sockets in the boss
+  cones (same fit as the v2 nubs; file down if tight). Note: these floor flags are shared with v2 files.
 - **Back panel built:** `pi_box_bat_back_panel_v3.py` (viewer /v3back; front panel /v3panel): L-hook edges, 5 mm
   frame, Ø59 disc with a Ø46–56 × 0.8 MagSafe recess in the outer face (prints on the plate side), 4 mm braces,
   braced window X -40..12, d 142..175 over the button [MEASURE display]. Max layer ~7,400 mm². In the part check.
@@ -63,7 +69,7 @@ Approved sketches: `sketches/pi_box_v3_layout_sketch.py`, `_back_panel_sketch.py
   -Y board side; backup = channels through the core between bays for bigger loops, maybe floor holes for outside
   routing. Back (+Y) panel: open frame like the v3 floor, Ø56 MagSafe ring recess centred, phone portrait (covers the
   window, comes off to read the battery), braces framing a display + button window (display position [MEASURE]).
-- **Next:** sketch + model floor quick-release latches (on the v2 floor); resolve the
+- **Next:** pick the latch and set its holes; resolve the
   battery-seat clash; floor RJ45 cutout for the UE300; trunk vs battery stop ribs (touching).
 - **[MEASURE] at the office:** M12 split point + splitter size, bank cord length/exit, bank display position, phone
   model, plus the caliper list below.

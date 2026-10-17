@@ -65,6 +65,11 @@ CART_NUT_L = 2.5                                   # ...into an M2 insert set in
 #    body (ends at X -6) clears it. H1 on a post from the tube, H2 on a bracket from the +X wall (the UE300 is behind
 #    it, so no post from the tube there). The M12 trunk slack coils in the side bays (overlay only, no features).
 CAMERAS = False
+# Floor quick release (2026-10-17, sketches/pi_box_v3_floor_latch_sketch.py): 2 mini draw latches, bodies on the ±X
+# walls' outer faces at Yr 0 (solid pad), catches on the floor's ears (pi_box_bat_lids.LATCH_EARS). [MEASURE latch]
+LATCH = dict(w=12.0, d0=142.0, d1=160.0, t=6.0)   # placeholder body: width (Yr), depth range, standoff off the wall
+LATCH_HOLES = [(0.0, 145.0), (0.0, 157.0)]         # (Yr, d) M3 inserts, along the body
+LATCH_INSERT_L = 3.0                               # in the 4 mm wall: the inner face stays closed (UE300 inside, +X)
 # Power board on the -X wall (2026-10-17, after the Pi's rigid plugs (d 102..~132) ruled out the spot under the Pi):
 # standing in the Yr-d plane on two short standoffs, parts facing +X, USB-Cs on its top edge (cables leave upward,
 # J2 -> the Pi's right-angle USB-C on the same side). Board coords (bx along the 46 edge, by down from the USB-C
@@ -188,6 +193,7 @@ solid_zone = union(
     Box(-X_OUT, X_OUT, Y_MIN, Y_MAX, DEPTH - WALL_BOTTOM_SOLID, BOT),
     Box(-X_OUT, X_OUT, Y_MIN, Y_MIN + PANEL_LIP + GW + 4.0),
     Box(-X_OUT, X_OUT, Y_MAX - PANEL_LIP - GW - 4.0, Y_MAX),
+    Box(-X_OUT, X_OUT, -LATCH['w'] / 2 - 3, LATCH['w'] / 2 + 3, LATCH['d0'] - 3, LATCH['d1'] + 3),   # latch pads
     *([Box(-X_OUT, X_OUT, CAM_YR - CAM_PAD[0], CAM_YR + CAM_PAD[0], TOP, CAM_D + CAM_PAD[1])] if CAMERAS else []),
     *[Box(-X_OUT, -X_IN + 1, brd_pt(hx, hy)[1] - 7, brd_pt(hx, hy)[1] + 7, brd_pt(hx, hy)[2] - 11, brd_pt(hx, hy)[2] + 7)
       for hx, hy in BRD_HOLES],                    # solid wall round the board standoffs
@@ -345,7 +351,10 @@ cuts = union(
          for s in (-1, 1) for cy, cd in CART_SCREWS]] if CAMERAS else []),
     *([vhole(bx, by, M4_CLEAR, M4_SHOULDER - 1, BOT + 1) for bx, by in BOSSES]
       + [vhole(bx, by, M4_INSERT_D, DEPTH - 16.0, M4_SHOULDER) for bx, by in BOSSES] if SLIDING_FLOOR
-      else [vhole(bx, by, INSERT_D, DEPTH - INSERT_DEPTH, BOT + 1) for bx, by in BOSSES]      # v2: glued M3 inserts
+      else ([Cyl('d', (bx, by), PIN_SLIP / 2, DEPTH - _L2.BOSS_PIN_H - 1.0, BOT + 1) for bx, by in BOSSES]   # floor's pins
+            if _L2.BOSS_PINS else [vhole(bx, by, INSERT_D, DEPTH - INSERT_DEPTH, BOT + 1) for bx, by in BOSSES])
+      + [hhole('x', ly, ld, INSERT_D, *sorted((s * (X_OUT - LATCH_INSERT_L), s * (X_OUT + 0.01))))
+         for s in (-1, 1) for ly, ld in LATCH_HOLES]    # draw latch bodies: M3 inserts from outside
       + [Cyl('d', (px, py), PIN_SLIP / 2, DEPTH - PIN_DEPTH, BOT + 1) for px, py in PINS]      # v2 floor's nubs
       + [inter(sub(Cyl('d', (0.0, 0.0), _L2.COLLAR_R1 + 0.3, DEPTH - _L2.COLLAR_H - 0.3, BOT + 1),
                    Cyl('d', (0.0, 0.0), _L2.COLLAR_R0 - 0.3)),
@@ -513,6 +522,9 @@ def _layout_overlays():
             x = sx * (X_IN - t['cord'] / 2 - 0.5 - i * t['cord'])
             coils.append(R._tube([(x, yc + rb * np.sin(q), -(dc + ra * np.cos(q))) for q in a], t['cord'] / 2))
     add('m12_trunk', np.concatenate(coils), '#1f4e79', 0.9, 'M12 trunk slack: 3 ellipse turns, 25 mm U (~93 cm)')
+    add('latches', np.concatenate([R._box(*sorted((sx * (X_OUT + 0.05), sx * (X_OUT + LATCH['t']))), -LATCH['w'] / 2, LATCH['w'] / 2,
+                                          -LATCH['d1'], -LATCH['d0']) for sx in (-1, 1)]), '#7f8c8d', 0.9,
+        'draw latches (placeholder 12 x 18 x 6) [MEASURE]')
     c = SOCKET
     add('bank_socket', R._box(c['x'] - 6, c['x'] + 6, c['yr'] - 4, c['yr'] + 4, -DEPTH, -(DEPTH - 12)), '#ff66cc', 0.9,
         'bank USB-C panel socket (placeholder)')

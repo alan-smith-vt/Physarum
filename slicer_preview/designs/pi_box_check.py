@@ -48,7 +48,8 @@ def _parts():
     out = []
     if name == 'pi_box_bat_core' or (name == 'pi_box_bat_core_v3' and not C.SLIDING_FLOOR):
         out.append(('floor (lids)', lambda X, Y, d: L._floor_solid(Y - C.Y_MIN, C.DEPTH + L.FLOOR_T - d, X + C.X_OUT),
-                    (-C.X_OUT, C.X_OUT), (C.Y_MIN, C.Y_MAX), (C.DEPTH - 5.0, C.DEPTH - 0.05)))
+                    (-C.X_OUT - getattr(L, 'EAR_OUT', 0.0), C.X_OUT + getattr(L, 'EAR_OUT', 0.0)), (C.Y_MIN, C.Y_MAX),
+                    (C.DEPTH - max(5.0, getattr(L, 'EAR_H', 0.0) + 0.5), C.DEPTH - 0.05)))
     elif name == 'pi_box_bat_core_v3':
         F = importlib.import_module('designs.pi_box_bat_floor_v3')
         out.append(('floor (v3 sliding)', lambda X, Y, d: F.floor(Y - C.Y_MIN, C.DEPTH + F.FLOOR_T3 - d, X + F.TONGUE_X),

@@ -32,6 +32,15 @@ SCREW_CLEAR = 4.5                      # M4 through the floor and up the core bo
 NUB_D, NUB_H, NUB_TIP = 3.0, 3.0, 0.6  # alignment nubs in place of dowels; external faces print ~0.35 over → ~Ø3.35
                                        # in the core's loose PIN_SLIP holes (file down if tight)
 ETH_CRADLE = True                      # UE300 cradle + RJ45 opening: on (2026-10-17, v3 keeps the UE300 in the +X / web corner)
+# v3 quick release (2026-10-17, sketches/pi_box_v3_floor_latch_sketch.py): 2 draw latches on the ±X walls pull the
+# floor up by an ear at Yr 0; the 4 M3 screws become alignment pins into sockets in the core's boss cones.
+BOSS_PINS = True                       # pins at BOSSES (no screw holes); v2 core needs its inserts drilled out to Ø3.4
+BOSS_PIN_D, BOSS_PIN_H, BOSS_PIN_TIP = 3.0, 4.0, 0.6
+LATCH_EARS = True
+EAR_T, EAR_H, EAR_W, EAR_GAP = 3.0, 16.0, 22.0, 0.4      # ear up the wall's outer face (above the plate: EAR_GAP off it)
+CATCH_HOLES = [(-4.0, 8.0), (4.0, 8.0)]                  # (Yr, height below the wall bottom) M2 pilots [MEASURE latch]
+CATCH_PILOT = 1.8
+EAR_OUT = EAR_T + EAR_GAP if LATCH_EARS else 0.0
 FILL_T = 0.27                          # floor-plate gyroid sheet (walls use GYROID_T 0.35): sparser for area margin
 
 PANEL_W = 2 * (X_IN + GROOVE_D) - 0.8      # external faces print ~0.35 oversize
@@ -54,13 +63,14 @@ def _floor_solid(x, y, z):
         s &= ~hole(0, 0, 2 * WELL_R, X, Yr)
         wx0, wx1, wy0, wy1 = PORT_WINDOW                         # BATTERY: the bank's ports, from below
         s &= ~((X >= wx0) & (X <= wx1) & (Yr >= wy0) & (Yr <= wy1))
-        for bx, by in BOSSES:
-            s &= ~hole(bx, by, SCREW_CLEAR, X, Yr)
+        if not BOSS_PINS:
+            for bx, by in BOSSES:
+                s &= ~hole(bx, by, SCREW_CLEAR, X, Yr)
         if ETH_CRADLE:                                         # BATTERY: UE300 RJ45 opening
             a = ETH_ADAPTER
             s &= ~((np.abs(X - a['x']) <= (ADAPTER_JACK[0] + RESIN_HOLE_COMP) / 2) &
                    (np.abs(Yr - a['y']) <= (ADAPTER_JACK[1] + RESIN_HOLE_COMP) / 2))
-        return s
+        return s | _ears(X, Yr, y - FLOOR_T)
     h = y - FLOOR_T
     s = (r2 >= COLLAR_R0 ** 2) & (r2 <= COLLAR_R1 ** 2) & (h <= COLLAR_H)
     gap = WEB_T / 2 + 0.15 + RESIN_HOLE_COMP / 2
@@ -81,6 +91,22 @@ def _floor_solid(x, y, z):
     for px, py in PINS:                                # alignment nubs, chamfered tip
         r = NUB_D / 2 - max(h - (NUB_H - NUB_TIP), 0.0)
         s |= ((X - px) ** 2 + (Yr - py) ** 2 <= r * r) & (h <= NUB_H)
+    if BOSS_PINS:                                      # alignment pins in place of the M3 screws
+        for bx, by in BOSSES:
+            r = BOSS_PIN_D / 2 - max(h - (BOSS_PIN_H - BOSS_PIN_TIP), 0.0)
+            s |= ((X - bx) ** 2 + (Yr - by) ** 2 <= r * r) & (h <= BOSS_PIN_H)
+    return s | _ears(X, Yr, h)
+
+
+def _ears(X, Yr, h):
+    """Latch ears: up the ±X walls' outer faces at Yr 0, joined to the plate's edge; M2 pilots for the catch."""
+    if not LATCH_EARS:
+        return False
+    aX = np.abs(X)
+    x0 = X_OUT if h < 0 else X_OUT + EAR_GAP
+    s = (aX >= x0 - 0.01) & (aX <= X_OUT + EAR_OUT) & (np.abs(Yr) <= EAR_W / 2) & (h <= EAR_H)
+    for cy, ch in CATCH_HOLES:
+        s &= ~((Yr - cy) ** 2 + (h - ch) ** 2 <= ((CATCH_PILOT + RESIN_HOLE_COMP) / 2) ** 2)
     return s
 
 
@@ -173,5 +199,7 @@ def panel(x, y, z, grille=True, cable_notch=False, button=False, gyroid=None):
 
 
 PIECES = [
-    implicit_piece(Y_MAX - Y_MIN, FLOOR_T + max(COLLAR_H, RAIL_H, NUB_H, CRADLE_H if ETH_CRADLE else 0), 2 * X_OUT, floor, x0=-(Y_MAX - Y_MIN) / 2, z0=-X_OUT),
+    implicit_piece(Y_MAX - Y_MIN, FLOOR_T + max(COLLAR_H, RAIL_H, NUB_H, BOSS_PIN_H, EAR_H if LATCH_EARS else 0,
+                                                CRADLE_H if ETH_CRADLE else 0),
+                   2 * (X_OUT + EAR_OUT), lambda x, y, z: floor(x, y, z - EAR_OUT), x0=-(Y_MAX - Y_MIN) / 2, z0=-(X_OUT + EAR_OUT)),
 ]
