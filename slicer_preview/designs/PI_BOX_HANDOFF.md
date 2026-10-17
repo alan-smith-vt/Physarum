@@ -32,6 +32,11 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
   user plans new cameras for v3.
 - **Camera orientation:** with the rig upright both images are landscape and need **no rotation** (raw frames).
 
+## v3 requirements from the field (user, 2026-10-17)
+- **Panels: T-shaped edge in a matching T-channel in the core,** replacing the planned chamfer-into-slot. With the chamfer, the panel flexes and pops out of the slot too easily. A T-edge is captured in both directions and can only slide in and out lengthwise. Keep the lead-in bevels on the sliding end (`PANEL_LEAD`), and size the T clearance with the part-vs-part check plus print oversize.
+- **Floor: quick release for hot-swapping battery packs in the field,** instead of 4 screws. Use an **off-the-shelf latch** (e.g. draw/toggle latches, or quarter-turn fasteners), not a printed compliant snap: it has to hold the battery's weight under impact (a dropped or knocked rig). Keep the floor's sliding tongues for location, and let the latches take the load.
+- Both: sketch for approval first (hard rule). Both affect `pi_box_bat_core_v3.py`, `pi_box_bat_floor_v3.py` and the panel.
+
 ## ⚠ BUG THE USER FIRST: caliper session before any more v3 work (user request, 2026-10-15)
 Ask them to grab calipers and measure the misc components, so v3's cable routing is designed ahead of time
 instead of cable-management Tetris at assembly. Every `[MEASURE]` in `pi_box_bat_rig.py` / `pi_box_bat_core_v3.py`
