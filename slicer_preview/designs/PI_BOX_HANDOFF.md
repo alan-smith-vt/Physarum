@@ -36,6 +36,14 @@ doesn't have the vault**. Everything needed for the reprint is repeated here.
 - **Panels: T-shaped edge in a matching T-channel in the core,** replacing the planned chamfer-into-slot. With the chamfer, the panel flexes and pops out of the slot too easily. A T-edge is captured in both directions and can only slide in and out lengthwise. Keep the lead-in bevels on the sliding end (`PANEL_LEAD`), and size the T clearance with the part-vs-part check plus print oversize.
 - **Floor: quick release for hot-swapping battery packs in the field,** instead of 4 screws. Use an **off-the-shelf latch** (e.g. draw/toggle latches, or quarter-turn fasteners), not a printed compliant snap: it has to hold the battery's weight under impact (a dropped or knocked rig). Keep the floor's sliding tongues for location, and let the latches take the load.
 - Both: sketch for approval first (hard rule). Both affect `pi_box_bat_core_v3.py`, `pi_box_bat_floor_v3.py` and the panel.
+- **GoPro mount: Arca-Swiss quick release (decided 2026-10-17).** The GoPro must come off for storage and go back in the same orientation, because the GoPro↔lidar calibration depends on it. GoPro-style buckles attach through the pivot fingers, so they're out.
+  - **Parts:** a 50 mm Arca screw-knob clamp plus its all-metal plate (e.g. Fotasy CL50_PU50).
+  - **The plate stays on the camera permanently;** the clamp is the quick release.
+  - **Camera ↔ plate:** the 1/4" screw tightened firmly, plus a paint-marker witness line across the camera and plate.
+  - **Clamp ↔ aluminium cross plate:** the cross plate's 1/4" hole, with medium (blue) threadlocker on the screw and a thin layer of two-part epoxy between the faces (scuff the anodising first). Rigid on purpose: no rubber, cork or VHB, because compliance would let the camera move off its calibration. Also a witness line across the clamp and the cross plate.
+  - **Upgrade only if a witness line shows movement:** steel dowel pins, never printed ones.
+    - For the clamp: pins in the cross plate engaging the clamp base's anti-twist slot beside the screw. Measure the slot width and its offset from the screw centre with calipers.
+    - For the camera: pins in the plate engaging the GoPro's two alignment holes beside its 1/4" thread.
 
 ## ⚠ BUG THE USER FIRST: caliper session before any more v3 work (user request, 2026-10-15)
 Ask them to grab calipers and measure the misc components, so v3's cable routing is designed ahead of time
