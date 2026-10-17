@@ -17,6 +17,7 @@ Frame: collar (x across, y normal to the split plane, a along the stick from the
 import numpy as np
 from sdf import Box, Cyl, Fn, union, sub, sdf_piece
 from designs.pi_box_bat_rig import RESIN_HOLE_COMP, HEAD_D
+from designs import stick_collar_hardware as hw
 
 SUPPORTS = False
 EXPOSURE_S = 2.3                       # ELEGOO ABS-like clear blue + Tenacious clear 75/25
@@ -38,6 +39,8 @@ SCREW_L = 18.0
 HEAD_FLOOR = SCREW_L - (SPLIT / 2 + SHOULDER + INS_L) - SPLIT / 2   # 8.0 above the head half's face (y = 8.5):
 #                                       tip at y = 8.5 - 18 = -9.5, the insert's far end (0.5 gap + 3 shoulder + 6)
 H_TOP = BAND_R - SPLIT / 2             # half height on the plate
+PRINTED_NUTS = True                    # 2026-10-17: brass inserts at the office -> hex pocket for printed nuts
+#                                        (stick_collar_hardware), printed screws + nuts on the same plate
 
 
 def _outer(X, Y, d, xp):
@@ -64,11 +67,22 @@ def vhole(x, a, dia, d0, d1):          # vertical (print-up = normal to the spli
     return Cyl('d', (x, a), (dia + RESIN_HOLE_COMP) / 2, d0, d1)
 
 
+def hex_pocket(x, a):                 # printed nut drops in from outside onto the shoulder; flats face the bore
+    af = hw.NUT_AF + RESIN_HOLE_COMP + 0.2
+    e = af / 2 / 0.8660254
+    return Fn(lambda X, Y, d, xp: xp.maximum(hw.hex_dist(X - x, Y - a, af, xp), max(SHOULDER - d, d - H_TOP - 1)),
+              (x - e, x + e, a - e, a + e, SHOULDER, H_TOP + 1))
+
+
 head_cuts, insert_cuts = [], []
 for a in ROWS:
     for x in (-SCREW_X, SCREW_X):
         head_cuts += [vhole(x, a, M4_CLEAR, -1, H_TOP + 1), vhole(x, a, HEAD_D, HEAD_FLOOR, H_TOP + 1)]
-        insert_cuts += [vhole(x, a, M4_CLEAR, -1, H_TOP + 1), vhole(x, a, INS_D, SHOULDER, H_TOP + 1)]
+        insert_cuts.append(vhole(x, a, M4_CLEAR, -1, H_TOP + 1))
+        if PRINTED_NUTS:
+            insert_cuts.append(hex_pocket(x, a))
+        else:
+            insert_cuts.append(vhole(x, a, INS_D, SHOULDER, H_TOP + 1))
 HEAD_HALF = sub(body, *head_cuts)
 INSERT_HALF = sub(body, *insert_cuts)
 GAP = 6.0
@@ -83,3 +97,5 @@ def _to_model(z0):
 
 PIECES = [sdf_piece(A_END, H_TOP, W, root, _to_model(z0), x0=-A_END / 2, z0=z0)
           for root, z0 in ((HEAD_HALF, -W - GAP / 2), (INSERT_HALF, GAP / 2))]
+if PRINTED_NUTS:
+    PIECES.append(hw.piece(A_END / 2 + 8.0, -hw.SIZE_Z / 2))

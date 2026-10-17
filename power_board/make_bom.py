@@ -69,13 +69,27 @@ with (FAB / "power_board_bom_jlc.csv").open("w", newline="", encoding="utf-8") a
     for (code, desc, pkg), refs in sorted(groups.items(), key=lambda g: g[1][0]):
         w.writerow([desc, ",".join(sorted(refs, key=lambda s: (s[0], int(s[1:])))), pkg, code.rstrip("*")])
 
+# Through-hole connectors: KiCad's anchor is pin 1, JLC's models sit on the body centre. Shift to the pin-row
+# centre (footprint-local mm, rotated with the part; the pos file's Y is up). Nudge any remainder in JLC's viewer.
+CENTRE = {"J3": (1.75, 0.0), "J4": (3.75, 0.0), "J5": (9.0, 0.0)}
+
+
+def mid(r):
+    import math
+    x, y = float(r["PosX"]), float(r["PosY"])
+    dx, dy = CENTRE.get(r["Ref"], (0.0, 0.0))
+    a = math.radians(float(r["Rot"]))
+    return x + dx * math.cos(a) - dy * math.sin(a), y + dx * math.sin(a) + dy * math.cos(a)
+
+
 with (FAB / "power_board_cpl_jlc.csv").open("w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
     for r in rows:
         if r["Ref"].startswith("H"):
             continue
-        w.writerow([r["Ref"], f'{float(r["PosX"]):.3f}mm', f'{float(r["PosY"]):.3f}mm', "Top", f'{float(r["Rot"]):.0f}'])
+        x, y = mid(r)
+        w.writerow([r["Ref"], f'{x:.3f}mm', f'{y:.3f}mm', "Top", f'{float(r["Rot"]):.0f}'])
 
 unverified = sorted({c for (c, _, _) in groups if c.endswith("*")})
 print(f"BOM lines {len(groups)}, parts {sum(len(v) for v in groups.values())}; codes to confirm in JLC's tool: {unverified}")

@@ -255,8 +255,9 @@ def main(argv):
     elif cmd in ('camera', 'snapshot'):
         import subprocess
         url = p.video_url()
-        flags = ['-hide_banner', '-loglevel', 'error', '-use_wallclock_as_timestamps', '1',
+        flags = ['-hide_banner', '-loglevel', 'fatal', '-use_wallclock_as_timestamps', '1',
                  '-buffer_size', '4000000', '-timeout', '10000000']     # exits by itself if the stream stalls
+        # 'fatal', not 'error': joining mid-stream logs "non-existing PPS" / "no frame!" until the next keyframe (normal)
         if cmd == 'camera':
             print(f"{url}  (quit with q or by closing the window, not Ctrl+C, so the session is released)")
             subprocess.run(['ffplay', *flags, '-window_title', 'Saturn camera', url])

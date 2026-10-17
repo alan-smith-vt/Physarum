@@ -3,14 +3,37 @@
 The decision history lives in the Notes vault (`Reference/lidar-photo-rig-cage-handoff.md`), but **the desktop
 doesn't have the vault**. Everything needed for the reprint is repeated here.
 
-## Stick collar: ready to finish and print (2026-10-17)
-`designs/stick_collar.py` (+ `stick_collar_check.py`, viewer route, concept sketch `sketches/stick_collar_v2_sketch.png`,
-approved 2026-10-16). It's a split cone collar clamped on the Ø29.3 monopod stick that seats in the Ø43 floor hole, so side loads go into the core instead of bending the 1/4-20 screw. It uses M4 × 18 truss screws into M4 inserts used as nuts.
-- **Open decision: ask the user before exporting.** The insert half's 3 mm shoulder (between the split face and the insert pocket) has a hole that's currently Ø4.5, clearance for the M4. The choice is **Ø4.0 or Ø4.5**:
-  - Ø4.0: tighter, the screw threads lightly into the resin and centres.
-  - Ø4.5: free clearance, with all the load on the insert.
-  The user never chose. Change `M4_CLEAR` for the shoulder only (the head half stays Ø4.5 clearance).
-- Then run the check, show the viewer preview, and export the print file. Resin settings are in the file (exposure 2.3 s, 75/25 ABS-like blue + Tenacious).
+## Stick collar: printing with printed hardware (2026-10-17)
+`designs/stick_collar.py` (+ `stick_collar_check.py`, viewer /collar). Split cone collar on the Ø29.3 stick, seated
+in the Ø43 floor hole. Shoulder hole stays Ø4.5 (user). Bore Ø29.0 + 1.0 split: the halves can't close on the stick
+(~1.4 mm gap left per side), so the screws keep clamping. User: "exactly how I wanted it".
+- **Brass inserts and M4s were at the office**, so `PRINTED_NUTS = True`: hex pockets in the insert half, and
+  `stick_collar_hardware.py` prints 8 screws (custom Ø4.2 × 1.2 pitch thread, not M4: a 0.7 pitch tooth is under
+  the min feature) and 16 hex nuts (7.7 AF × 6) in sets A–D = 0.10/0.20/0.30/0.40 radial clearance (tag holes
+  1–4). All on one plate with the collar, 2.3 s, started 2026-10-17 ~14:20. Day-use only; zip ties are the backup.
+  Start with set B. Set `PRINTED_NUTS = False` for the brass-insert version.
+- Result not yet reported: ask which nut set fits and whether the collar holds.
+
+## Power board: ordered from JLC (2026-10-17)
+- `power_board/` (46 × 60, 4-layer), 5 assembled (Economic, top side), "Confirm Parts Placement" ON: **the user
+  must approve JLC's placement preview within 72 h**; check U4 (TPS26631: the viewer's model looked rotated
+  against the pin-1 dot). ~$206 incl. ~$48 US duty (DDP); UPS Express Saver.
+- `make_bom.py` writes `fab/power_board_bom_jlc.csv` + `_cpl_jlc.csv`. All 12 "from memory" LCSC codes matched
+  correctly. Fixed: through-hole J3/J4/J5 were placed by pin 1 (KiCad anchor); now shifted to the pin-row centre
+  (`CENTRE` in make_bom.py), and JLC's viewer then lined them up.
+- Mating parts on Amazon (user checking out): 3.5 mm 2-pin plugs (J3), XH pre-crimped kit (J4), PH 2.0
+  pre-crimped kit with a 10P housing (J5). J5 → Pi: PH wires spliced to cut female–female Duponts (user has them).
+  Pins 1–7 needed (3V3, GND, SDA, SCL, LIDAR_EN, SW_SENSE, KEEP_ALIVE); 8–10 (LIDAR_FLT, PD_PG, BUCK_PG) optional.
+  The Pi GPIO mapping is not decided yet (do it with the Pi-side software).
+- **v3 assumes the board works:** one 46 × 60 board replaces the PD trigger, buck, WAGOs and slack; three cables
+  (bank USB-C in, Pi USB-C out, lidar terminal) + the J4 button lead + the J5 Pi lead. Bring it up on v2 first;
+  keep room in v3 to fall back to modules if it fails. A Pi HAT version is a possible rev B once the circuit is
+  proven (no Pi USB-C plug = no right-angle clash), not now.
+- Resistor swap to Basic parts (R9–R12, eFuse window/limit) was considered and skipped: ~$12 saving.
+
+## Printer camera
+`python sdcp.py camera` works at full rate. ffmpeg log level is now `fatal`: the "non-existing PPS / no frame!"
+lines while it waits for the first keyframe are normal and hidden.
 
 ## 2026-10-16: fit problems, part-vs-part check, calipers, v2 as built
 - **Printed v2 floor clashed with core v2:** the collar ring (r 23.8–25.6) runs through both webs at X ±24
