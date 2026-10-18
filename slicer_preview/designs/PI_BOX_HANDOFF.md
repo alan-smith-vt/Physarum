@@ -61,6 +61,11 @@ approved 2026-10-16). It's a split cone collar clamped on the Ø29.3 monopod sti
   - **Upgrade only if a witness line shows movement:** steel dowel pins, never printed ones.
     - For the clamp: pins in the cross plate engaging the clamp base's anti-twist slot beside the screw. Measure the slot width and its offset from the screw centre with calipers.
     - For the camera: pins in the plate engaging the GoPro's two alignment holes beside its 1/4" thread.
+- **Proposed, not decided: tilt the lidar 45° on the stick so its axis points forward (user proposal, 2026-10-17).** The stick is carried at ~45°; the tilt makes the lidar's axis horizontal and pointing in the walking direction.
+  - **Why:** the Mid-360 sees a band from −7° to +52° off its equator, all the way round. Pointing the axis forward turns that into a ring 38°–97° off the forward direction: floor, ceiling and both walls in every direction, and **nothing behind**: the operator, stick and arm fall outside it.
+  - **The problem it fixes:** walk 3 (2026-10-17, attic down 3 floors and back) showed the operator inside the field of view at a steady 0.7–0.8 m (azimuth 50°–100°, 60–80% of returns there). FAST-LIVO2 lost the climb back up in 2 of 5 identical runs. Masking the operator in software made it worse, so removing them optically is the cleaner fix.
+  - **Costs to check:** a 38° blind cone straight ahead (facing a wall on a landing or a dead end loses the frontal constraint); the GoPro's view and where the cage posts fall in it change with the mount; any v3 cage geometry follows from the angle.
+  - **Gate before modelling:** a short stairwell walk on v2 holding the stick level (axis forward) versus the normal carry. Compare how many operator returns are in view (`near_map.py` pattern, Notes `Reference/Lidar Rig Session Processing Handoff 2026-10-17`) and whether FAST-LIVO2 holds the climb across repeat runs (`rig/fusion/sweep_fastlivo2.sh` in PSViewer). Sketch for approval after that (hard rule).
 
 ## ⚠ BUG THE USER FIRST: caliper session before any more v3 work (user request, 2026-10-15)
 Ask them to grab calipers and measure the misc components, so v3's cable routing is designed ahead of time
