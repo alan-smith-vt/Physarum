@@ -136,6 +136,42 @@ lines while it waits for the first keyframe are normal and hidden.
   - **Costs to check:** a 38° blind cone straight ahead (facing a wall on a landing or a dead end loses the frontal constraint); the GoPro's view and where the cage posts fall in it change with the mount; any v3 cage geometry follows from the angle.
   - **Target environments (user, 2026-10-17):** mostly industrial and outdoor; tight stairwells are an outlier. **Basement corridors with pipes are the priority test:** long corridors are where lidar odometry drifts along their length, and the forward-axis ring sees the walls, floor and ceiling close as you pass (pipes, hangers, doorways), with its blind cone pointing down the corridor where there is little to see anyway. A third carry to test alongside: **overhead** (stick up, rig above the head at 30–45° forward tilt, GoPro clear of faces), which hides the operator in the lower blind cone but loses the nearby floor (weaker outdoors) and risks clearance on low pipes. The same corridor walks are also the featureless-space test for the tracking-camera decision above (the v2 cameras record anyway).
   - **Gate before modelling:** walks on v2 holding the stick level (axis forward) versus the normal carry (and overhead), in a basement corridor first, then a stairwell and outdoors. Compare how many operator returns are in view (`near_map.py` pattern, Notes `Reference/Lidar Rig Session Processing Handoff 2026-10-17`) and whether FAST-LIVO2 holds the climb across repeat runs (`rig/fusion/sweep_fastlivo2.sh` in PSViewer). Sketch for approval after that (hard rule).
+- **Future maybe for v3: phoneless mode (user, 2026-10-18; concept only, nothing modelled).** A backup display for
+  sites where the phone can't come in. **Depends on the tracking-camera decision:** a rig with cameras permanently
+  in the case can't go onto those secure sites anyway, which removes most of the reason for this mode.
+  - **Display:** 2.42" SSD1309 128×64 OLED (I2C 0x3C, no clash with the INA226 at 0x40; 3V3 only, because the
+    module's pull-ups would put 5 V on the Pi's SDA/SCL). Shares J5's SDA/SCL wires. Shows "lost tracking" plus a
+    very reduced coverage map. A beeper was rejected (can't be heard on industrial sites, annoys people in offices),
+    and so was vibration (it would add noise to the lidar IMU's data).
+  - **Back panel split in two** (`sketches/pi_box_v3_back_panel_split_sketch.png`): both pieces slide up the same
+    L-hook channels.
+    - **Top piece, d 14..66:** carries the module, which goes in from OUTSIDE because there's only ~1.2 mm between
+      the panel and the bank. The PCB sits in a ~1.6 mm pocket held by 4 M2 self-tappers, the glass stands ~2 mm
+      proud, and the board's back parts go through cuts into the gap. Wires run over the bank top (d 14..22,
+      beside its cord) to the upper web slot (|X| 30..41, d 24..34) and on to the Pi.
+    - **Lower piece:** the MagSafe ring as high as it goes (centre d ~100.5, disc d 71..130, raised 2.5 mm so the
+      phone clears the glass) and the bank window (d 142..), which is now clear of the disc.
+    - **Phone:** portrait, d 38..186, ~2 mm past the floor. It covers the display, and the phone replaces the
+      display whenever it's fitted.
+    - [MEASURE]: the module (PCB, glass, holes, height of the back parts), the bank display, the phone.
+  - **Switch scheme (software only).** The board reports switch position on SW_SENSE, and the Pi holds power via
+    KEEP_ALIVE, so the Pi decides what each switch action means:
+    | | Idle | Recording |
+    |---|---|---|
+    | switch off and held (>~2 s) | shut down | end run cleanly (stop, LIDAR_EN low, flush, metadata), shut down |
+    | quick off→on (~1.5 s) | start a phoneless run | future: "mark this spot" event (loop-closure hint) |
+    The button LED is wired to SW_ON, so it can't show the Pi's acknowledgement; use the display.
+  - **Normal boot expects the phone and waits indefinitely.** A phoneless run needs the explicit gesture: no timeout,
+    and no accidental run because the phone was slow to connect or left in the car. "Phone present" means the app
+    is connected, not just a DHCP lease.
+  - **LIDAR_EN:** R13 holds it low, so the lidar stays unpowered until a run starts. Drop it at run stop, not only at
+    shutdown. Phoneless start on the display: "Lidar starting…", then "Hold still" (IMU init), then "Recording ✓".
+    Time the Mid-360's power-on-to-first-points on v2. The GoPro keeps its own controls; maybe sync its clock
+    over BT at boot, in parallel, and flag a failure on the display.
+  - **Hard reset:** a frozen Pi holds KEEP_ALIVE high, so the switch can't cut power. Pull the bank cord, which
+    comes out of the floor for warm swaps. Enable the Pi 5 hardware watchdog. Record in a format that survives a
+    power cut: rosbag2 MCAP with chunked writes, run metadata written at start, and a check at the next boot that
+    reports "last run ended by power loss".
 
 ## ⚠ BUG THE USER FIRST: caliper session before any more v3 work (user request, 2026-10-15)
 Ask them to grab calipers and measure the misc components, so v3's cable routing is designed ahead of time
