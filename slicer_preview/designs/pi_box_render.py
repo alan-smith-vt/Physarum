@@ -301,4 +301,5 @@ def main():
     (OUT_DIR / 'views.json').write_text(json.dumps(VIEWS))
 
 
-main()
+if __name__ == '__main__':
+    main()
