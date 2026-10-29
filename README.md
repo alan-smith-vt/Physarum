@@ -23,7 +23,13 @@ cp designs/template.py designs/my_part.py   # edit PIECES
 python generate.py my_part                  # preview data (8× downsampled)
 python server.py                            # → http://localhost:5555
 python to_goo.py my_part                    # full-res → out/my_part.goo
+python send_to_printer.py out/my_part.goo   # upload over the network + start the print
 ```
+
+**Getting a print to the printer:** always `send_to_printer.py`. The printer's USB port is dead and we don't use
+the Elegoo software; the network (SDCP V3) is the only path. It finds the printer by broadcast (last seen at
+192.168.0.4), refuses to upload while it's busy, and starts the print. `--status` shows progress, `--list` the
+files on it, `--no-start` uploads only.
 
 Coordinates are mm; X/Z = plate plane, Y = up.
 

@@ -16,6 +16,7 @@ all pieces are built at full printer resolution. Layers are sliced in
 parallel; each worker builds the design once in its initializer.
 """
 import sys, struct, time, os
+sys.stdout.reconfigure(encoding='utf-8')   # log lines use → ; the Windows cp1252 console crashed on them
 import numpy as np
 from pathlib import Path
 from multiprocessing import Pool
