@@ -199,7 +199,7 @@ def _pad_support(s):
 # floor interface (home/v4-floor, 2026-10-29 decision home:1997/1998)
 DOOR_RAIL = dict(y0=30.5, d0=175.6, d1=178.4, depth=1.6)   # CLOSED groove: the 1.6 ledge below carries the door
 DOOR_WEB_CLEAR = 1.8
-PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(-42.0, 44.0), dia=5.4, L=7.0)
+PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(-41.1, 44.0), dia=4.0, L=6.0)   # M3 insert (door thumb screw, user 2026-10-29)
 FLOOR_BOSSES_V4 = [(sx * 31.0, -51.0) for sx in (-1, 1)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]
 
 
