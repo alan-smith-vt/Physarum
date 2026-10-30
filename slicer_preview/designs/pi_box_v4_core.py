@@ -51,7 +51,8 @@ PAD = SEAT - CSK - 1.0                             # pad frame inner face
 OPEN_T, OPEN_D = 13.5, (25.0, 59.5)                # cartridge pod's shadow along n: half-width along the land, d range
 FL_T, FL_D = OPEN_T + CSK, (OPEN_D[0] - CSK, OPEN_D[1] + CSK)
 CART_CL = 0.2                                      # per side, + RESIN_HOLE_COMP / 2 in the core
-CART_SCREWS = [(-(OPEN_T + 2.0), 42.6), (OPEN_T + 2.0, 42.6), (0.0, OPEN_D[1] + 2.0)]   # (t, d) on the countersink
+CART_SCREWS = [(sc * (OPEN_T + 2.0), d) for sc in (-1, 1) for d in (31.0, 55.0)]   # (t, d) on the countersink side
+# bands; no bottom screw: the ribbon leaves there (user, home:2195; home/v4-core home:2198)
 STUB_R, STUB_D = 7.1, 12.0
 CART_NUT_L = 2.5                                   # M2 insert, set from the pad's inner face, bottomed (a nut)
 
@@ -181,6 +182,8 @@ def _cam_core():
         # 45° underside on the pad (print: d is up; the pad hangs off the shell) -> grow it back to the wall
         cuts.append(frustum(s, g, LAND + 10.0))
         cuts.append(lbox(s, PAD - 1.0, SEAT, -OPEN_T - g, OPEN_T + g, OPEN_D[0] - g, OPEN_D[1] + g))
+        # open under the opening for the ribbon (pad bottom bar + its 45° fill, to d 76; round wall n 26..30 kept)
+        cuts.append(lbox(s, PAD - 2.0, R_FRONT - 4.0 - 0.6, -(OPEN_T + g), OPEN_T + g, OPEN_D[1] - 0.5, 76.0))
         for t, d in CART_SCREWS:
             cuts.append(lcyl(s, (SEAT, t, d), (1, 0, 0), (R.CAM_SCREW_CLEAR + R.RESIN_HOLE_COMP) / 2, -8.0, 8.0))
             cuts.append(lcyl(s, (SEAT, t, d), (1, 0, 0), (R.CAM_INSERT_D + R.RESIN_HOLE_COMP) / 2,
