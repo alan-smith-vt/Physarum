@@ -261,6 +261,22 @@ def _web_notch():
                  Box(-X_IN - 0.01, -19.0, *w, BRD_TOP_V4 + 48.0, BRD_TOP_V4 + 64.0))   # J3 plug + wires
 
 
+# Panel top-edge tongue groove under the back panel-stop rim (user approved home:2130; sketch
+# designs/sketches/pi_box_v4_panel_tongue_sketch.py): 2.35 wide (tongue 1.6 + CL per side), 3.4 deep, 45° roof.
+# The front panel's groove follows with the wide front panel decision (home:2131).
+TONGUE_T, TONGUE_H, TONGUE_GAP = 1.6, 3.0, 0.4
+BACK_TONGUE_X = (6.2, X_IN - 2.5)                  # |X| range: gap at the lidar-cable notch
+BACK_PANEL_YC = Y_MAX - R.PANEL_LIP - PV.CL - R.PANEL_T / 2
+
+
+def _rim_grooves():
+    g = TONGUE_T / 2 + PV.CL
+    yc, top = BACK_PANEL_YC, R.RIM_D - TONGUE_H - TONGUE_GAP
+    roof = [Half(0, 1, -1, yc - (top - g)), Half(0, -1, -1, -yc - (top - g))]
+    x0, x1 = BACK_TONGUE_X[0] - PV.CL, BACK_TONGUE_X[1] + PV.CL
+    return union(*[inter(Box(*sorted((s * x0, s * x1)), yc - g, yc + g, top - g, R.RIM_D + 0.01), *roof) for s in (-1, 1)])
+
+
 def _driver_paths():
     return union(*[Cyl('d', (s * R.POST, -R.POST), (R.HEAD_D + R.RESIN_HOLE_COMP) / 2, R.SPACER_SEAT, BOT + 1)
                    for s in (-1, 1)])
@@ -283,7 +299,7 @@ def _v4_below(below, v3_cuts):
 def _v4_root(root):
     pads, cam_cuts = _cam_core()
     _, floor_cuts = _floor_iface()
-    return sub(inter(root, ENVELOPE), cam_cuts, _front_channels(), floor_cuts, _driver_paths())
+    return sub(inter(root, ENVELOPE), cam_cuts, _front_channels(), floor_cuts, _driver_paths(), _rim_grooves())
 
 
 _V3_PATCHES = [

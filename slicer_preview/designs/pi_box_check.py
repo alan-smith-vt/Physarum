@@ -65,13 +65,16 @@ def _parts():
         PV = C.PV
         for tag, face, sg in (('-Y', C._lo0 + PV.CL, 1), ('+Y', C._hi1 - PV.CL, -1)):
             fn = PV.panel_mask if sg > 0 else importlib.import_module('designs.pi_box_bat_back_panel_v3').back_mask
-            hw = PV.HALF_W
+            hw, d0 = PV.HALF_W, PV.D0
             if sg > 0 and hasattr(C, 'front_panel_mask'):         # v4: narrow front panel
                 fn, hw = C.front_panel_mask, C.FRONT_HALF_W
+            if sg < 0 and hasattr(C, 'BACK_TONGUE_X'):            # v4: back panel with the top tongue
+                BP = importlib.import_module('designs.pi_box_v4_back_panel')
+                fn, d0 = BP.back_mask, BP.D_TIP
             out.append((f'panel {tag} (L-hook{"" if sg > 0 else ", back"})',
                         lambda X, Y, d, face=face, sg=sg, fn=fn: _panel_v3(fn, PV, X, Y, d, face, sg),
                         (-hw - 1, hw + 1), tuple(sorted((face - sg, face + sg * (L.PANEL_T + PV.HOOK + 1)))),
-                        (PV.D0 + 0.05, PV.D1 - 0.05)))
+                        (d0 + 0.05, PV.D1 - 0.05)))
     elif hasattr(C, '_lo0'):
         for tag, y0, y1 in (('-Y', C._lo0, C._lo1), ('+Y', C._hi0, C._hi1)):
             yp = (y0 + y1) / 2 - L.PANEL_T / 2                    # panel centred in its slot
