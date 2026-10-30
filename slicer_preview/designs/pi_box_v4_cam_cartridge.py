@@ -134,17 +134,20 @@ def bplane(a, k, sign):
 pod = inter(Box(0.0, LAND + 12.0, -POD_T, POD_T, 0.0, H_TOP),
             bplane(FC, POD_C[1], 1), bplane(FC, -POD_C[0], -1), bplane(UC, POD_B[1], 1), bplane(UC, -POD_B[0], -1),
             H(0, 1, 0, POD_T), H(0, -1, 0, POD_T))
+pod = union(pod, inter(Box(0.0, LAND + 12.0, -POD_T, POD_T, 0.0, H_TOP), bplane(FC, CAM_BOSS_H, 1), bplane(FC, -POD_C[0], -1),
+                       bplane(UC, 17.1, 1), bplane(UC, -POD_B[0], -1), H(0, 1, 0, POD_T), H(0, -1, 0, POD_T)))   # back block for the up pose
 face = bplane(FC, POD_C[1], 1)                      # nothing of the cartridge in front of the face plane
 board_pocket = inter(Box(0.0, LAND + 12.0, -12.5 - POCKET_CL, 12.5 + POCKET_CL, 0.0, H_TOP),
                      bplane(FC, CAM_BOSS_H, 1), bplane(FC, -POD_C[0] + 1.0, -1),
-                     bplane(UC, 8.25 + POCKET_CL, 1), bplane(UC, 15.6 + POCKET_CL, -1))   # open back, board + parts room
+                     bplane(UC, 15.6 + POCKET_CL, 1), bplane(UC, 15.6 + POCKET_CL, -1))   # REVERSIBLE (proposal, home:2221):
+#                                                    board fits connector-down or connector-up (u ±15.6 about the lens)   # open back, board + parts room
 bosses = union(*[axis_cyl(B3 + t * TC + v * UC, FC, CAM_BOSS_R, 0.0, CAM_BOSS_H + 0.5) for t, v in BOARD_HOLES])
 NUT_RUN = 1.5                                       # nut slot run outward from the hole (to the pod side)
 # the cap band under the pod opens for the ribbon (user, 2026-10-29: no bottom screw, open that region; the core
 # opens the same region, n 15.9..25.4, t ±13.875, d 59..76)
 under_open = inter(Box(15.9, 25.4, -OPEN_T, OPEN_T, FL_D[1] - 76.0, FL_D[1] - (OPEN_D[1] - 1.0)))
 RIBBON_IN_N = 16.0                                  # ribbon's drop line after the inward jog (land n)
-RIBBON_SLOT = dict(t=8.5, c=(-3.6, 1.0), b=(-24.0, -15.5))   # approved 2026-10-29: 17 wide, through the pod's bottom wall
+RIBBON_SLOT = dict(t=8.5, c=(-4.6, 1.0), b=(-24.0, -15.5))   # approved 2026-10-29: 17 wide, through the pod's bottom wall
 ribbon_slot = inter(Box(0.0, LAND + 12.0, -RIBBON_SLOT['t'], RIBBON_SLOT['t'], 0.0, H_TOP),
                     bplane(FC, RIBBON_SLOT['c'][1], 1), bplane(FC, -RIBBON_SLOT['c'][0], -1),
                     bplane(UC, RIBBON_SLOT['b'][1], 1), bplane(UC, -RIBBON_SLOT['b'][0], -1))
@@ -306,7 +309,11 @@ def hardware():
     rib = np.concatenate([_box_tris(e0 - 8.0 * TC, 16.0 * TC, (e1 - e0), 0.3 * FC),
                           _box_tris(e1 - 8.0 * TC, 16.0 * TC, (e2 - e1), np.array([0.0, 0.0, 0.3])),
                           _box_tris(e2 - 8.0 * TC, 16.0 * TC, (e3 - e2), np.array([0.3, 0.0, 0.0]))])
+    board_up = _box_tris(B3 - 12.5 * TC - 8.25 * UC - 1.6 * FC, 25 * TC, 23.85 * UC, 1.6 * FC)       # 180° about the lens
+    conn_up = _box_tris(B3 - 8.0 * TC + 15.6 * UC - 1.6 * FC, 16.0 * TC, -4.5 * UC, -2.5 * FC)
     return [('v4_cam_connector', conn, '#f1c40f', 'board FFC connector (back, bottom edge)'),
+            ('v4_cam_board_up', board_up, '#a9dfbf', 'ALTERNATIVE pose: board turned 180° (connector up), proposal'),
+            ('v4_cam_connector_up', conn_up, '#f9e79f', 'ALTERNATIVE pose: connector at the top edge'),
             ('v4_cam_holder', holder, '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
             ('v4_cam_screws', screws, '#bdc3c7', '4 x M2x8 board screws from behind'),
             ('v4_cam_nuts', nuts, '#2c3e50', '4 x M2 hex nuts in the side slots'),
@@ -374,6 +381,8 @@ _OV_DIR = 'slicer_preview/out/overlays_v4_cartridge'
 OVERLAYS = [dict(file=f'{_OV_DIR}/{n}.stl', color=c, opacity=1.0, label=l) for n, c, l in (
     ('board', '#1e8449', 'OV9281 board 25 x 23.85'), ('lens', '#34495e', 'lens Ø14 x 18'),
     ('cam_connector', '#f1c40f', 'board FFC connector (back, bottom edge)'),
+    ('cam_board_up', '#a9dfbf', 'ALTERNATIVE pose: board turned 180° (connector up), proposal'),
+    ('cam_connector_up', '#f9e79f', 'ALTERNATIVE pose: connector at the top edge'),
     ('cam_holder', '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
     ('cam_screws', '#bdc3c7', '4 x M2x8 board screws from behind'), ('cam_nuts', '#2c3e50', '4 x M2 hex nuts in the side slots'),
     ('flange_screws', '#ecf0f1', '4 x M2 flange screws (sides) into the core pad inserts'),
