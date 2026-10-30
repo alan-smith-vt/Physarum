@@ -318,7 +318,8 @@ RIBBON_ROUTES = {1: [(34.0, -40.1, 58.2), (38.0, -42.4, 66.0), (38.0, -42.4, 117
 
 def ribbon_route_tris():
     from designs import pi_box_bat_rig as R
-    return np.concatenate([R._strip([(x, y, -d) for x, y, d in RIBBON_ROUTES[s]], 16.0, 0.3, [0, 1.0, 0])
+    # width across the path and the land normal: going down beside the cartridge it lies along the land (like the slot)
+    return np.concatenate([R._strip([(x, y, -d) for x, y, d in RIBBON_ROUTES[s]], 16.0, 0.3, [s * N2[0], N2[1], 0.0])
                            for s in (1, -1)])
 
 
