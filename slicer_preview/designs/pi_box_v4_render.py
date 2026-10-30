@@ -23,9 +23,9 @@ VIEWS = [a for a in ARGV[1:] if not a.startswith('--') and not a.replace('.', ''
 PR.PART_MAT.update(core='smoke', cart_near='turquoise', cart_far='turquoise', floor='turquoise', door='turquoise',
                    panel_front='turquoise', panel_back='turquoise', v4_cam_boards='pcb',
                    v4_cam_lenses='gloss', power_board='pcb', ue300='white', bank_socket='black',
-                   pi_plugs='plug', usbc_plug_envelope='plug')
+                   pi_plugs='plug', usbc_plug_envelope='plug', door_screw='steel')
 PR.MATS['plug'] = dict(color=(0.95, 0.45, 0.1), rough=0.5, alpha=0.55)   # [MEASURE] envelopes, translucent
-BOX = ['core', 'cart_near', 'cart_far', 'power_switch', 'floor', 'door', 'panel_front', 'panel_back']
+BOX = ['core', 'cart_near', 'cart_far', 'power_switch', 'floor', 'door', 'door_screw', 'panel_front', 'panel_back']
 INSIDE = ['pi5', 'cooler', 'battery', 'v4_cam_boards', 'v4_cam_lenses', 'power_board', 'ue300', 'box_spacers',
           'pi_plugs', 'usbc_plug_envelope']
 TOP = ['base_plate', 'standoffs', 'cross', 'mid360s', 'coupler', 'm12_plug']
@@ -66,7 +66,7 @@ def main():
             PR.show(objs, every)
             PR.camera('cam', (0, 0.02, -0.15), (-0.7, 1.1, -0.65), 0.75)
         elif view == 'door_half':                   # door slid half out toward +Y
-            PR.show(objs, every, {'door': (0, 16, 0)})
+            PR.show(objs, every, {'door': (0, 16, 0), 'door_screw': (0, 16, 0)})
             PR.camera('cam', (0, 0.03, -0.16), (-0.75, 1.0, -0.45), 0.7)
         else:
             print('unknown view', view)

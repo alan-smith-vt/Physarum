@@ -23,10 +23,11 @@ import numpy as np
 from sdf import Box, Cyl, Half, Fn, union, inter, sub, sdf_piece, INF
 from designs import pi_box_bat_rig as R
 
-R_FRONT, LAND_OFF = 30.0, 1.0
+R_FRONT, LAND_OFF = 30.0, 0.0                    # no flat land: the cartridge is flush with the R30 curve
 YAW, PITCH = np.radians(30.0), np.radians(24.0)
 CAM_LENS_D = 35.0                                  # lens axis depth at the land
-LENS_RECESS = 0.0                                  # lens front centre behind the land, along the axis: its top rim
+LENS_RECESS = 0.4 / np.cos(np.radians(24.0))   # lens front centre 0.4 behind the curve; its lowest barrel edge
+#   (pitched 24°) still stands proud, reaching X ~49: set down on a side, the box rests on the flat (X 50), not the lens.                                  # lens front centre behind the land, along the axis: its top rim
                                                    # (pitched 24°) stays ~0.2 behind the land, the cap is its shroud
 PI_TOP_D_V4, PI_SHIFT_V4, BRD_TOP_V4 = 55.0, 2.0, 95.0   # shift 2: the +X lower post clears the UE300
 # ALTERNATIVE (user, 2026-10-29): PI_BOX_V4_PI=flip turns the Pi end for end (R.PI_FLIP): SD end at the floor

@@ -162,7 +162,9 @@ def mouth_cone(c0=POD_C[1] - 1.5, r0=5.0, half=np.radians(78.0)):
     return Fn(f, (0.0, LAND + 30, -60, 60, -10, H_TOP + 30))
 
 
-ROOT = sub(union(inter(cap, face), pod), sub(board_pocket, bosses), cuts, mouth_cone())
+# FLUSH insert (user, 2026-10-29): the outside is the core's R30 curve, nothing protrudes but the lens; the camera
+# pod is clipped to the inside of the curve.
+ROOT = sub(union(cap, inter(pod, Cyl('d', (0.0, 0.0), R_FRONT))), sub(board_pocket, bosses), cuts, mouth_cone())
 
 N0, N1 = 4.0, LAND + 9.0                               # part extent along n (tree X'): the pod's chin
 T0, T1 = -FL_T - 0.5, FL_T + 0.5

@@ -53,7 +53,7 @@ def floor_parts():
     ft = F._g['FLOOR_T']
     out['floor'] = E._march(F.floor_fixed, int(F._LF / h), int(F._FH / h), int(2 * F._XO / h), h,
                             lambda p: np.stack([p[:, 2] - F._XO, p[:, 0] + R.Y_MIN, p[:, 1] - (R.DEPTH + ft)], 1))
-    out['door'] = E._march(D.door, int(2 * D.PLATE_X / h), int((D.BOSS_D1 - D.D_TOP) / h), int((R.Y_MAX - D.Y_LO) / h), h,
+    out['door'] = E._march(D.door, int(2 * D.PLATE_X / h), int((D.GRIP['d1'] - D.D_TOP) / h), int((R.Y_MAX - D.Y_LO) / h), h,
                            lambda p: np.stack([p[:, 0] - D.PLATE_X, p[:, 2] + D.Y_LO, -(p[:, 1] + D.D_TOP)], 1))
     PV, B = C.PV, __import__('designs.pi_box_bat_back_panel_v3', fromlist=['x'])
     for name, fn, hw, face, sg in (('panel_front', C.front_panel_mask, C.FRONT_HALF_W, C._lo0 + PV.CL, 1),
@@ -74,6 +74,11 @@ def main():
         E.write_ply(OUT / f'{name}.ply', v, f)
         parts[name] = len(f)
         print(f'{name:14s} {len(f):9,d} tris', flush=True)
+    D = __import__('designs.pi_box_v4_door_a', fromlist=['x'])        # door lock: M3 x 8 socket cap under the door
+    sx, sy = getattr(D, 'SCREW_XY', (-41.1, 44.0))
+    z0 = -(D.PLATE_D[1])
+    E.write_stl(OUT / 'door_screw.stl', R._cyl((sx, sy, 0.0), 'z', 2.75, z0 - 3.0, z0, 24))
+    parts['door_screw'] = 1
     for name, tris in E.gopro(z_top).items():
         E.write_stl(OUT / f'{name}.stl', tris)
         parts[name] = len(tris)
