@@ -33,6 +33,40 @@ RING_C = (0.0, WIN_HEAD - B3.BRACE / 2 - B3.DISC_R)   # MagSafe disc as low as i
 
 SWOOP_GAP = 1.0                                 # swoop apex this far outside the disc rim
 
+# SGH logo (user home:2297; placeholder Arial Bold until real artwork): solid letter ribs replacing the gyroid in the
+# upper zone, read from outside (+Y side: rig +X is the viewer's left, so the text is mirrored in X; up = -d)
+LOGO = dict(text='SGH', font=r'C:\Windows\Fonts\arialbd.ttf', zone=(22.0, 66.0), max_w=72.0)
+LOGO_BOT = LOGO['zone'][1] + 3.0                # the swoops start below the logo zone
+_LOGO_H = 0.1                                   # raster pitch (mm)
+
+
+def _logo_raster():
+    from matplotlib.textpath import TextPath
+    from matplotlib.font_manager import FontProperties
+    tp = TextPath((0, 0), LOGO['text'], size=10.0, prop=FontProperties(fname=LOGO['font']))
+    v = tp.vertices
+    x0, x1, y0, y1 = v[:, 0].min(), v[:, 0].max(), v[:, 1].min(), v[:, 1].max()
+    zh = LOGO['zone'][1] - LOGO['zone'][0]
+    k = min(LOGO['max_w'] / (x1 - x0), zh / (y1 - y0))
+    xs = np.arange(-LOGO['max_w'] / 2, LOGO['max_w'] / 2, _LOGO_H)
+    ds = np.arange(LOGO['zone'][0], LOGO['zone'][1], _LOGO_H)
+    U, D = np.meshgrid(xs, ds)
+    dc = (LOGO['zone'][0] + LOGO['zone'][1]) / 2
+    u = -U / k + (x0 + x1) / 2                   # mirrored: rig X -> -text x
+    w = (dc - D) / k + (y0 + y1) / 2
+    inside = tp.contains_points(np.c_[u.ravel(), w.ravel()]).reshape(U.shape)
+    return xs[0], ds[0], inside
+
+
+_LX0, _LD0, _LOGO_M = _logo_raster()
+
+
+def logo_mask(X, d):
+    i = np.floor((np.asarray(d) - _LD0) / _LOGO_H).astype(int)
+    j = np.floor((np.asarray(X) - _LX0) / _LOGO_H).astype(int)
+    ok = (i >= 0) & (i < _LOGO_M.shape[0]) & (j >= 0) & (j < _LOGO_M.shape[1])
+    return ok & _LOGO_M[np.clip(i, 0, _LOGO_M.shape[0] - 1), np.clip(j, 0, _LOGO_M.shape[1] - 1)]
+
 
 def _arc(X, d, p0, p1, pm, w=B3.BRACE):
     """Band of width w along the circle through p0, pm, p1, between p0 and p1 (bounding box of the three)."""
@@ -55,14 +89,17 @@ def frame_mask(X, y, d):
     keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | ring   # inside it the braces
     top, bot, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.IN_X                 # swoops (user home:2293): four concave arcs
     R0 = B3.DISC_R                                                     # corner to corner, cradling the disc
-    for p0, p1, pm in [((-IN, top), (IN, top), (0.0, cd - R0 - SWOOP_GAP)),          # top, sagging to the disc
-                       ((-IN, top), (-IN, bot), (cx - R0 - SWOOP_GAP, cd)),          # sides, bowing in to it
-                       ((IN, top), (IN, bot), (cx + R0 + SWOOP_GAP, cd))]:
+    lt = LOGO_BOT                                                      # swoops start below the logo zone
+    for p0, p1, pm in [((-IN, lt), (IN, lt), (0.0, cd - R0 - SWOOP_GAP)),            # top, sagging to the disc
+                       ((-IN, lt), (-IN, bot), (cx - R0 - SWOOP_GAP, cd)),           # sides, bowing in to it
+                       ((IN, lt), (IN, bot), (cx + R0 + SWOOP_GAP, cd))]:
         keep |= _arc(X, d, p0, p1, pm)
     for t in [(0.0, cd - R0), (-R0, cd), (R0, cd), (0.0, cd + R0)] + \
             [(cx + R0 * np.cos(a), cd + R0 * np.sin(a)) for a in np.radians((45, 135, 225, 315))]:
         keep |= B3._seg(X, d, (cx, cd), t) & (r <= R0)                 # spokes through the middle, inside the ring
     keep |= B3._seg(X, d, (-IN, bot), (IN, bot))                       # window head
+    keep |= B3._seg(X, d, (-IN, lt), (IN, lt))                         # logo zone base
+    keep |= logo_mask(X, d)                                            # SGH letters, solid
     return s & keep
 
 

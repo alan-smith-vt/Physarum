@@ -80,14 +80,14 @@ def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     ground = PR.setup_scene()
     objs = PR.load_parts()
-    add_logo(objs)
+    # add_logo(objs): the SGH logo moved to the back panel model (solid letters, user home:2297)
     for n in GOPRO:                                                  # GoPro turned 90° about rig Z (user, home:2284)
         if n in objs:
             objs[n].rotation_euler[2] += math.radians(90)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     every = BOX + INSIDE + TOP + POLE
     for view in VIEWS:
-        ground.hide_render = view in ('rear34_below', 'door_half', 'lock_closed', 'lock_open')   # these cameras sit below the ground plane
+        ground.hide_render = view in ('rear34_below', 'door_half', 'lock_closed', 'lock_open', 'back_panel')   # these cameras sit below the ground plane
         for c in [o for o in bpy.data.objects if o.type == 'CAMERA']:
             bpy.data.objects.remove(c)
         if view == 'front34':                       # from the front (-Y), +X side, above
@@ -118,6 +118,9 @@ def main():
             shift = {'door': (0, 25, 0), 'door_screw': (0, 25, 0)} if view == 'lock_open' else None
             PR.show(objs, BOX + INSIDE, shift)      # in its insert boss; lock_open: door slid 25 out toward +Y
             PR.camera('cam', (-0.036, 0.046, -0.18), (-0.55, 0.75, -0.75), 0.17)
+        elif view == 'back_panel':                  # the back panel alone, from outside (+Y), slightly below
+            PR.show(objs, ['panel_back'])
+            PR.camera('cam', (0, 0.06, -0.095), (0.15, 1.0, -0.12), 0.24)
         else:
             print('unknown view', view)
             continue
