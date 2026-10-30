@@ -1,18 +1,23 @@
-"""v4 camera cartridge PROPOSAL (2026-10-29, not approved, don't print): the v3 cartridge re-done for the v4 core's
-camera lands (designs/pi_box_v4_core.py). Two identical parts (the -X one is the mirror image: print one mirrored).
+"""v4 camera cartridge (designs/pi_box_v4_core.py, flipped-Pi baseline). Two identical parts (the -X one is the mirror
+image: print one mirrored). Not printed yet.
 
-  - CAP: flush with the core's R30 round, with the 1 mm land in the middle; its inner side is the 45° countersunk
-    seat (rectangular frustum ±FL_T × FL_D at the seat plane, narrowing to the body). It slides in along the land
-    normal (no undercut) and centres itself in the core's countersink. 3 × M2 through the cap (counterbored) into
-    M2 inserts set in the core's pad from inside (nuts) -> M2×5 [MEASURE].
-  - BODY: the opening's prism, from the seat to a back face parallel to the board: the OV9281 board is pitched 24°
-    up inside it (yaw 30° comes from the land). Board on 4 bosses (2 tall) at its holes, M2 screws from BEHIND the
-    board into captive M2 hex nuts slid into slots from the body's sides (nothing on the face) -> M2×8 [MEASURE].
-    Window: a straight-edged eye slit (window_slit) that contains the exact field of view (window_fov). Lens Ø14 × 18 in a Ø19 bore, lens front LENS_RECESS behind the land; a 76°
-    window cone in front of it (the 125° × 78° fisheye's corners are at ≤ 74.4° off axis).
-  - Ribbon connector edge DOWN, behind the board: the back is open.
-Print: standing on the cap's bottom face (rig d max) with rig 'up' as print up: every face is ≤ 45° off vertical or
-faces up (the body's bottom is the countersink's 45° face continued; the lens bore has a 45° peaked roof).
+APPROVED (user, 2026-10-30, home:2253):
+  - REVERSIBLE board pocket: the OV9281 board fits connector-down or connector-up (pocket u ±15.6 about the lens,
+    behind the boss tops); no block over the top end, so connector-up the connector sticks out free.
+  - Board screws: 4 × M2×5 from behind the board into M2 threaded inserts held CAPTIVE in side slots (Ø3.55, slid in
+    from the pod sides), 1.0 resin shoulder to the board face takes the lens-cap push.
+  - FACE: flush with the core's R30 curve; above the lens a 77.7° flat slope from the lens rim to where the core's
+    countersink meets the outside (no ledge); below the lens a 45° flat facet (rays reach -38.8°).
+Also in (user decisions 2026-10-29/30): ribbon exits DOWN through a 17 × 4 slot under the connector, then jogs
+inward (n 16) above the front panel's step groove; 200 mm ribbons. Flange: 45° countersunk seat in the core (CSK 6.5),
+4 × M2×8 at t ±17.25, d 31 / 55 into core pad inserts. Lens Ø14 × 18 square to the face, front 0.4 behind the curve.
+
+  - POD: a box square to the camera axis (board pitched 24° up; yaw 30° from the land), board on 4 bosses (2 tall);
+    square lens-holder pocket 15.6 [MEASURE caliper], Ø14.5 barrel bore (peaked roof except the last 6 mm).
+  - CAP: the countersink frustum ∩ the core's outside; slides in along the land normal and centres itself.
+Checks: designs/pi_box_v4_view_check.py (whole front glass vs the displayed meshes): 0 % blocked.
+Print: standing on the cap's bottom face (rig d max), rig up = print up.
+Overlays (board, lens, holder, connector, both poses, screws, inserts, ribbon): python -m designs.pi_box_v4_cam_cartridge
 Tree frame: (X', Y', d') = (n, t, h) in the +X camera's land frame, h = FL_D[1] - d (height off the plate).
 """
 import numpy as np
