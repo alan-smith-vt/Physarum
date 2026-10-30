@@ -29,16 +29,17 @@ CAM_LENS_D = 35.0                                  # lens axis depth at the land
 LENS_RECESS = 0.4 / np.cos(np.radians(24.0))   # lens front centre 0.4 behind the curve; its lowest barrel edge
 #   (pitched 24°) still stands proud, reaching X ~49: set down on a side, the box rests on the flat (X 50), not the lens.                                  # lens front centre behind the land, along the axis: its top rim
                                                    # (pitched 24°) stays ~0.2 behind the land, the cap is its shroud
-PI_TOP_D_V4, PI_SHIFT_V4, BRD_TOP_V4 = 55.0, 2.0, 95.0   # shift 2: the +X lower post clears the UE300
+PI_TOP_D_V4, PI_SHIFT_V4 = 55.0, 2.0              # shift 2: the +X lower post clears the UE300
 # ALTERNATIVE (user, 2026-10-29): PI_BOX_V4_PI=flip turns the Pi end for end (R.PI_FLIP): SD end at the floor
 # (d 174), ports facing the flange (port end d 89), plugs pointing up beside the cartridges; switch to Yr -42.
 FLIP = os.environ.get('PI_BOX_V4_PI') == 'flip'
 if FLIP:
     PI_TOP_D_V4 = 89.0                             # the port end (R.PI_FLIP_TOP); SD end at 89 + 85 = 174 (user: back up; the switch moves)
-BRD_Y0_V4 = -43.0                                  # power board Yr start (v3 -55.5): the -X round pulls the wall in
-                                                   # forward of Yr -32; its +Y edge now passes the web (notched)
-SWITCH_YR_V4 = -42.0 if FLIP else -38.0                               # OPEN: v3's spot, now on the round and in the lowered Pi's RJ45
-                                                   # plug (d 143..173); Yr -21 on the flat wall hits the well tube
+# Power board <-> UE300 swap (user approved, home:2065; spec home/v4-layout spec_core.md): the board stands on the
+# +X wall, USB-C edge DOWN, parts facing -X; board X 41.9..43.5, Yr -43..+3 (its +Y edge passes the web, notched),
+# d 73..133. brd_pt(bx, by, h) = (43.5 - 1.6 - h, -43 + bx, 133 - by). The UE300 moves to -X; the wall switch is
+# gone (floor button, home/v4-power-button).
+BRD_Y0_V4, BRD_BOT_V4 = -43.0, 133.0               # board Yr start; d of its USB-C edge (by 0)
 
 X_OUT, X_IN, Y_MIN, Y_MAX, DEPTH = R.X_OUT, R.X_IN, R.Y_MIN, R.Y_MAX, R.DEPTH
 RC = np.array([X_OUT - R_FRONT, Y_MIN + R_FRONT])  # +X front round centre (X, Yr); -X mirrored
@@ -251,16 +252,13 @@ def _front_bosses():
 
 
 def _web_notch():
-    """Notch in the -X web for the power board's +Y edge and its parts (board X -43.5..-41.9, parts to ~-36)."""
+    """+X web: the power board's +Y edge and parts (board X 41.9..43.5, parts and the J1 plug to ~34), J3 and the
+    lidar power lead (d 68..86), the J1 lead from the bank socket (d 166..176). -X web: only the J4 lead pass."""
     w = (-R.WEB_T / 2 - 0.01, R.WEB_T / 2 + 0.01)
-    return union(Box(-X_IN - 0.01, -35.5, *w, BRD_TOP_V4 - 25.0, BRD_TOP_V4 + 62.0),   # J1/J2 plugs leave upward
-                 Box(-X_IN - 0.01, -19.0, *w, BRD_TOP_V4 + 48.0, BRD_TOP_V4 + 64.0))   # J3 plug + wires
-
-
-def _switch_hole():
-    """v3 cuts the switch hole through |X| 46..50 only; on the round the wall's inner face reaches |X| ~42."""
-    sw = R.POWER_SWITCH
-    return Cyl('x', (sw['y'], sw['d']), (sw['hole'] + R.RESIN_HOLE_COMP) / 2, *sorted((sw['side'] * 36.0, sw['side'] * (X_OUT + 1))))
+    return union(Box(33.5, X_IN + 0.01, *w, 68.0, 157.0),
+                 Box(19.0, X_IN + 0.01, *w, 68.0, 86.0),
+                 Box(23.5, 31.0, *w, 166.0, 176.0),
+                 Box(-X_IN - 0.01, -24.0, *w, 98.0, 112.0))
 
 
 def _driver_paths():
@@ -277,7 +275,7 @@ def _v4_below(below, v3_cuts):
     pads, cam_cuts = _cam_core()
     boss, floor_cuts = _floor_iface()
     body = union(below, _shells(), pads, *[_pad_support(s) for s in (-1, 1)], boss, _stubs(), _front_bosses())
-    return sub(inter(body, ENVELOPE), v3_cuts, _front_channels(), cam_cuts, floor_cuts, _driver_paths(), _web_notch(), _switch_hole(),
+    return sub(inter(body, ENVELOPE), v3_cuts, _front_channels(), cam_cuts, floor_cuts, _driver_paths(), _web_notch(),
                *[Cyl('d', (bx, by), (R.INSERT_D + R.RESIN_HOLE_COMP) / 2, DEPTH - R.INSERT_DEPTH, BOT + 1)
                  for bx, by in FLOOR_BOSSES_V4[:2]])
 
@@ -290,8 +288,49 @@ def _v4_root(root):
 
 _V3_PATCHES = [
     ('PI_SHIFT = 6.0 ', f'PI_SHIFT = {PI_SHIFT_V4} '),
-    ("y0=-55.5, top=80.0,", f"y0={BRD_Y0_V4}, top={BRD_TOP_V4},"),
-    ("POWER_SWITCH = dict(POWER_SWITCH, y=-38.0, d=168.0)", f"POWER_SWITCH = dict(POWER_SWITCH, y={SWITCH_YR_V4}, d=168.0)"),
+    # power board on the +X wall (swap, home:2065): board, standoffs, bores and wall pads mirror; d runs up from the
+    # USB-C edge
+    ("back=-X_IN + 2.5, t=1.6, y0=-55.5, top=80.0,", f"back=X_IN - 2.5, t=1.6, y0={BRD_Y0_V4}, top={BRD_BOT_V4},"),
+    ("return BRD['back'] + BRD['t'] + h, BRD['y0'] + bx, BRD['top'] + by",
+     "return BRD['back'] - BRD['t'] - h, BRD['y0'] + bx, BRD['top'] - by"),
+    ("*[Box(-X_OUT, -X_IN + 1, brd_pt(hx, hy)[1] - 7", "*[Box(X_IN - 1, X_OUT, brd_pt(hx, hy)[1] - 7"),
+    ("_L = BRD['back'] + X_IN ", "_L = X_IN - BRD['back'] "),
+    ("posts.append(inter(Box(-X_IN - 0.5, BRD['back'], ", "posts.append(inter(Box(BRD['back'], X_IN + 0.5, "),
+    ("taper(-1, X_IN + _pd - BRD_STANDOFF_R - _L)))", "taper(1, X_IN + _pd - BRD_STANDOFF_R - _L)))"),
+    ("PI_INSERT_D, BRD['back'] - PI_INSERT_L, BRD['back'] + 0.01)", "PI_INSERT_D, BRD['back'] - 0.01, BRD['back'] + PI_INSERT_L)"),
+    ("PI_SCREW_CLEAR, BRD['back'] - PI_HOLE_DEPTH, BRD['back'] + 0.01)", "PI_SCREW_CLEAR, BRD['back'] - 0.01, BRD['back'] + PI_HOLE_DEPTH)"),
+    # no wall switch (floor button): its pad and hole go
+    ("    Box(*((-INF, 0.0) if _sw['side'] < 0 else (0.0, INF)), _sw['y'] - SWITCH_PAD_R, _sw['y'] + SWITCH_PAD_R,\n"
+     "        _sw['d'] - SWITCH_PAD_R, _sw['d'] + SWITCH_PAD_R),\n", ""),
+    ("    hhole('x', _sw['y'], _sw['d'], _sw['hole'], *sorted((_sw['side'] * (X_IN - 0.01), _sw['side'] * X_OUT))),\n", ""),
+    # UE300 to -X: seat ledge and overlay
+    ("_a = ETH_ADAPTER\n", "_a = dict(ETH_ADAPTER, x=-ETH_ADAPTER['x'])\n"),
+    ("UE300 = dict(x0=29.9, x1=45.9,", "UE300 = dict(x0=-45.9, x1=-29.9,"),
+    ("-WEB_T / 2 if s > 0 else -FOOT_Y, FOOT_Y,", "-WEB_T / 2 if s < 0 else -FOOT_Y, FOOT_Y,"),   # web foot: UE300 side on -Y only
+    # layout overlays (spec 5): board envelopes, socket, trunk turns
+    ("        return R._box(min(X0, X1), max(X0, X1), Y0, Y1, -D1, -D0)",
+     "        return R._box(min(X0, X1), max(X0, X1), Y0, Y1, -max(D0, D1), -min(D0, D1))"),
+    ("'power board 46 x 60 (-X wall)'", "'power board 46 x 60 (+X wall, USB-C edge down)'"),
+    ("""        bbox(5.5, 14.5, 0, 7.5, 0, 3.3), bbox(31.5, 40.5, 0, 7.5, 0, 3.3),         # J2, J1 sockets
+        bbox(4.0, 16.0, -22.0, 0.0, -1.0, 6.0), bbox(30.0, 42.0, -22.0, 0.0, -1.0, 6.0),   # their plugs, leaving upward
+        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 22.0),                                    # J3 + plug + wires""",
+     """        bbox(4.0, 16.0, -22.0, 7.5, 0.0, 7.5), bbox(30.0, 42.0, -22.0, 7.5, 0.0, 7.5),   # J2, J1 + plugs (leave down)
+        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 15.0),                                    # J3 + plug"""),
+    ("SOCKET = dict(x=-20.0,", "SOCKET = dict(x=20.0,"),
+    ("TRUNK = dict(yr=(3.5, 28.5), d=(14.0, 166.0),", "TRUNK = dict(yr=(3.5, 28.5), d={-1: (14.0, 136.0), 1: (14.0, 160.0)},"),
+    ("""    rb = (t['yr'][1] - t['yr'][0] - t['cord']) / 2
+    ra = (t['d'][1] - t['d'][0] - t['cord']) / 2
+    yc, dc = (t['yr'][0] + t['yr'][1]) / 2, (t['d'][0] + t['d'][1]) / 2
+""", """    rb = (t['yr'][1] - t['yr'][0] - t['cord']) / 2
+    yc = (t['yr'][0] + t['yr'][1]) / 2
+"""),
+    ("""    for sx, n in t['turns'].items():
+        for i in range(n):""", """    for sx, n in t['turns'].items():
+        ra = (t['d'][sx][1] - t['d'][sx][0] - t['cord']) / 2   # -X turn clears the floor button, +X passes over J1
+        dc = (t['d'][sx][0] + t['d'][sx][1]) / 2
+        for i in range(n):"""),
+    ("f'M12 trunk slack: 3 ellipse turns, 25 mm U (~{3 * np.pi * (3 * (ra + rb) - np.sqrt((3 * ra + rb) * (ra + 3 * rb))) / 10:.0f} cm)'",
+     "'M12 trunk slack: 3 ellipse turns, 25 mm U (-X d 14..136, +X d 14..160)'"),
     ('PI_PORT_D = 102.0 ', 'PI_PORT_D = PI_TOP_D + 88.0 '),
     ('FLOOR_BOSSES = _L2.FLOOR_BOSSES ', 'FLOOR_BOSSES = _V4.FLOOR_BOSSES_V4 '),
     ("HINGE_WALL_HOLES = [(HINGE['yc'] + dy, DEPTH - 7.0) for dy in (-5.0, 5.0)]",
@@ -383,7 +422,25 @@ def _switch_candidate_overlays():
     return out
 
 
-OVERLAYS = _v4_overlays() + _switch_candidate_overlays()
+# Cable routes after the swap (home/v4-layout sketch, Ø3, rig (X, Yr, d)); overlay only
+CABLE_ROUTES = [
+    ('J5 -> Pi GPIO', [(30, -25, 78), (-27, -27, 80), (-27, -38, 120), (-22.5, -38, 125)]),
+    ('J4 -> floor button', [(35, -40, 93), (35, -28, 95), (-27.5, -28, 100), (-27.5, 0, 105), (-36, 7, 140)]),
+    ('bank socket -> J1', [(31, -7, 155), (31, -7, 170), (26, 0, 172), (26, 22, 174), (20, 25, 176)]),
+    ('J2 -> Pi USB-C', [(33, -34, 155), (36, -38, 160)]),
+    ('lidar power', [(26, 10, 77), (26, 0, 77), (35, -6, 77)]),
+]
+
+
+def _cable_route_overlays():
+    tris = np.concatenate([R._tube([(x, y, -d) for x, y, d in pts], 1.5) for _, pts in CABLE_ROUTES])
+    path = R.OVERLAY_DIR / 'cable_routes.stl'
+    R._write_stl(path, R.to_print(tris))
+    return [dict(file=path.relative_to(R.ROOT).as_posix(), color='#c0392b', opacity=0.9,
+                 label='cable routes (Ø3): ' + '; '.join(n for n, _ in CABLE_ROUTES))]
+
+
+OVERLAYS = _v4_overlays() + _switch_candidate_overlays() + _cable_route_overlays()
 
 
 # ── v4 front panel (plain; the styling comes later): v3's L-hook edge on the narrow front, |X| <= XE + hook ──
