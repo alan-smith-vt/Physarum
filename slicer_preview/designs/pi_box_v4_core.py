@@ -9,7 +9,7 @@
   - front panel L-slot channels where the rounds start (|X| = 20); back panel channels as v3;
   - interior: Pi lowered to PI_TOP_D 55 (v3: 14), PI_SHIFT +4 (v3: +6); power board top d 95 (v3: 80);
   - floor interface with home/v4-floor (battery door slides out +Y): rail rebates in both wall inner faces
-    (Yr 30.5..62, d 177.2..180, 1.6 deep) and the plunger boss in the -X back corner (Ø5.4 × 7 pin hole);
+    (closed grooves Yr 30.5..62, d 175.6..178.4, 1.6 deep) and the plunger boss in the -X back corner (Ø5.4 × 7 pin hole);
     the v3 door latch / hinge holes are dropped; the fixed floor's front screw bosses move inside the rounds.
 Sketch: designs/sketches/pi_box_v4_core_sketch.png. Viewer: python generate.py pi_box_v4_core.
 
@@ -191,24 +191,24 @@ def _pad_support(s):
 
 
 # floor interface (home/v4-floor, 2026-10-29 decision home:1997/1998)
-DOOR_RAIL = dict(y0=30.5, d0=177.2, depth=1.6)
-PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, hole=(-42.0, 44.0), dia=5.4, L=7.0)
+DOOR_RAIL = dict(y0=30.5, d0=175.6, d1=178.4, depth=1.6)   # CLOSED groove: the 1.6 ledge below carries the door
+PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=175.8, hole=(-42.0, 44.0), dia=5.4, L=7.0)
 FLOOR_BOSSES_V4 = [(sx * 31.0, -51.0) for sx in (-1, 1)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]
 
 
 def _floor_iface():
     g = R.RESIN_HOLE_COMP / 2
     r = DOOR_RAIL
-    cuts = [Box(*sorted((s * (X_IN - 0.01), s * (X_IN + r['depth'] + g))), r['y0'], Y_MAX + 1, r['d0'] - g, BOT + 1)
+    cuts = [Box(*sorted((s * (X_IN - 0.01), s * (X_IN + r['depth'] + g))), r['y0'], Y_MAX + 1, r['d0'] - g, r['d1'] + g)
             for s in (-1, 1)]
     cuts += [inter(Box(*sorted((s * (X_IN - 0.01), s * (X_IN + r['depth'] + g + 1.0))), Y_MAX - 1.0, Y_MAX + 1,
-                       r['d0'] - g - 1.0, BOT + 1),
+                       r['d0'] - g - 1.0, r['d1'] + g + 1.0),
                    Half(s, -1, 0, X_IN + r['depth'] + g - (Y_MAX - 1.0)))  # 45° flare at the +Y mouth
              for s in (-1, 1)]
     p = PLUNGER
-    boss = inter(Box(p['x0'], p['x1'], p['y0'], p['y1'], p['d0'] - (p['x1'] - p['x0']), BOT),
+    boss = inter(Box(p['x0'], p['x1'], p['y0'], p['y1'], p['d0'] - (p['x1'] - p['x0']), p['d1']),
                  Half(1, 0, -1, -(X_IN + p['d0'] - (p['x1'] - p['x0']))))   # |X| + d >= 206: 45° top (print: underside)
-    cuts.append(Cyl('d', p['hole'], (p['dia'] + R.RESIN_HOLE_COMP) / 2, BOT - p['L'], BOT + 1))
+    cuts.append(Cyl('d', p['hole'], (p['dia'] + R.RESIN_HOLE_COMP) / 2, p['d1'] - p['L'], p['d1'] + 1))
     return boss, union(*cuts)
 
 
