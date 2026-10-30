@@ -182,13 +182,23 @@ def _cam_core():
         # 45° underside on the pad (print: d is up; the pad hangs off the shell) -> grow it back to the wall
         cuts.append(frustum(s, g, LAND + 10.0))
         cuts.append(lbox(s, PAD - 1.0, SEAT, -OPEN_T - g, OPEN_T + g, OPEN_D[0] - g, OPEN_D[1] + g))
-        # open under the opening for the ribbon (pad bottom bar + its 45° fill, to d 76; round wall n 26..30 kept)
-        cuts.append(lbox(s, PAD - 2.0, R_FRONT - 4.0 - 0.6, -(OPEN_T + g), OPEN_T + g, OPEN_D[1] - 0.5, 76.0))
+        # open under the opening for the ribbon (n 14.9..23, t ±8.9, d 59..80; home/v4-core home:2226): the ribbon jogs in
+        # to n 16 and drops; corner at R 24.65, inside the step rib (R 24.8)
+        cuts.append(sub(lbox(s, PAD - 3.0, 23.0, -(8.5 + g), 8.5 + g, OPEN_D[1] - 0.5, 80.0),
+                        _groove_keep()))      # the step rib + panel-tongue groove stay whole (user, home:2224)
         for t, d in CART_SCREWS:
             cuts.append(lcyl(s, (SEAT, t, d), (1, 0, 0), (R.CAM_SCREW_CLEAR + R.RESIN_HOLE_COMP) / 2, -8.0, 8.0))
             cuts.append(lcyl(s, (SEAT, t, d), (1, 0, 0), (R.CAM_INSERT_D + R.RESIN_HOLE_COMP) / 2,
                              PAD - SEAT - 1.0, PAD - SEAT + CART_NUT_L))      # insert (nut) from the pad's inner face
     return union(*pads), union(*cuts)
+
+
+def _groove_keep():
+    """The step rib and its groove, + 0.5: never cut for the ribbon (rad >= STEP_RIB r - 0.5 from d 63.5)."""
+    def f(X, Y, d, xp):
+        rad = xp.sqrt(xp.maximum(xp.abs(X) - XE, 0.0) ** 2 + xp.maximum(RC[1] - Y, 0.0) ** 2)
+        return xp.maximum((24.0 - 0.5) - rad, 63.5 - d)
+    return Fn(f, (-X_OUT, X_OUT, Y_MIN, RC[1] + 1, 63.0, 77.0))
 
 
 def _pad_support(s):
@@ -440,6 +450,8 @@ _V3_PATCHES = [
      "        _sw['d'] - SWITCH_PAD_R, _sw['d'] + SWITCH_PAD_R),\n", ""),
     ("    hhole('x', _sw['y'], _sw['d'], _sw['hole'], *sorted((_sw['side'] * (X_IN - 0.01), _sw['side'] * X_OUT))),\n", ""),
     ("y0=-55.5, top=80.0,", f"y0={BRD_Y0_V4}, top={BRD_TOP_V4},"),
+    # board screw clearance blind, 5 deep (to X -48.5): the shared PI_HOLE_DEPTH 8 broke the outer skin (user home:2220)
+    ("PI_SCREW_CLEAR, BRD['back'] - PI_HOLE_DEPTH, BRD['back'] + 0.01)", "PI_SCREW_CLEAR, BRD['back'] - 5.0, BRD['back'] + 0.01)"),
     # uni USB-A GbE adapter replaces the UE300 (user, home:2158; spec home/v4-layout home:2160): seat ledge + overlay
     ("_a = ETH_ADAPTER\n", "_a = _V4.ETH_ADAPTER_V4\n"),
     ("UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)",
