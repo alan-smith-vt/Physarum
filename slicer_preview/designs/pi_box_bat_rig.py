@@ -307,7 +307,7 @@ CAM_INSET, CAM_LENS_L = 8.0, 18.0
 CAM_FACE = X_IN - CAM_BOSS_H - CAM_INSET      # |X| of the board's front face (the block's inner face)
 CAM_POCKET = (6.0, 4.0)                       # connector pocket: width in from the board edge, depth into the block
 # Glued M2 brass insert (kit: L 2) in each boss, clearance beyond for the M2×5 socket cap's tip
-CAM_INSERT_D, CAM_INSERT_L, CAM_SCREW_CLEAR, CAM_HOLE_DEPTH = 3.2, 2.5, 2.2, 5.0   # [MEASURE] insert OD
+CAM_INSERT_D, CAM_INSERT_L, CAM_SCREW_CLEAR, CAM_HOLE_DEPTH = 3.0, 2.5, 2.2, 5.0   # M2 insert hole, 3.0 as printed (user 2026-10-30: snug, open up with a drill/file; 3.2 was loose)
 # Connector edge direction per side. Board 25 × 23.86; the lens sits 8.25 from the edge opposite
 # the connector and the 21 × 12.5 holes are symmetric about it. The -X (near) camera turns its
 # connector down so its ribbon runs down to the Pi, clear of the Pi's USB-C plug ~25 mm down.
