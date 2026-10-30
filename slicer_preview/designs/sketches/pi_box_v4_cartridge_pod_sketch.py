@@ -50,17 +50,17 @@ ax.add_patch(Polygon([P(18, -7.0), P(18, -9.7), P(18 + GUARD, -9.7), P(18 + GUAR
 # flange: flat plate in the seat plane, where the pod crosses the land
 z_lo, z_hi = -60.5, -21.5
 ax.add_patch(Rectangle((SEAT, z_lo), 1.8, z_hi - z_lo, fc='#1abc9c', ec='#117864'))
-ax.text(SEAT - 0.5, z_lo - 4, 'flange: flat, in the seat plane\n3 × M2 into the core pad', fontsize=7, ha='right')
+ax.text(SEAT - 0.5, z_lo - 4, 'flange: a flat FRAME round the pod,\nin the seat plane; 3 × M2 into the core pad', fontsize=7, ha='right')
 for da in (-40.5, 0, 37.4):
     a = PITCH + np.radians(da)
     e = np.array([np.cos(a), np.sin(a)]) * 28
     ax.plot([LENS[0], LENS[0] + e[0]], [LENS[1], LENS[1] + e[1]], color='#27ae60', ls='-' if da == 0 else '--')
 ax.text(LENS[0] + 3, LENS[1] + 14, 'view: front face is square to the\naxis, so nothing of the pod is in\nfront of the lens (FOV < 180°)', fontsize=7, color='#1e8449')
 top = P(POD_C[1], POD_U[1]); bot = P(POD_C[1], POD_U[0])
-ax.annotate(f'top edge {top[0] - LAND:+.1f} past the land (brow)', xy=top, xytext=(top[0] + 3, top[1] + 8), fontsize=7,
+ax.annotate(f'top edge {top[0] - LAND:+.1f} (sits inside the land)', xy=top, xytext=(top[0] + 3, top[1] + 8), fontsize=7,
             arrowprops=dict(arrowstyle='->'))
-ax.annotate(f'bottom edge {bot[0] - LAND:+.1f} (inside the round)', xy=bot, xytext=(bot[0] + 5, bot[1] - 8), fontsize=7,
-            arrowprops=dict(arrowstyle='->'))
+ax.annotate(f'bottom edge {bot[0] - LAND:+.1f} past the land: a CHIN\n(can take a 45° chamfer below the lens)', xy=bot,
+            xytext=(bot[0] + 3, bot[1] - 12), fontsize=7, arrowprops=dict(arrowstyle='->'))
 ax.annotate('', xy=(R_FRONT + 9, -48), xytext=(R_FRONT + 2, -48), arrowprops=dict(arrowstyle='<-', lw=1.5))
 ax.text(R_FRONT + 2, -52, 'slides in along n', fontsize=7)
 ax.set_xlim(-5, 50); ax.set_ylim(-80, 10); ax.set_aspect('equal'); ax.grid(alpha=0.3)
