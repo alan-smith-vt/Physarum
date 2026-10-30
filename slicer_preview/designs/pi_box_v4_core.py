@@ -350,3 +350,17 @@ def _v4_overlays():
 
 
 OVERLAYS = _v4_overlays()
+
+
+# ── v4 front panel (plain; the styling comes later): v3's L-hook edge on the narrow front, |X| <= XE + hook ──
+FRONT_HALF_W = XE + PV.NECK + PV.HOOK_T - PV.PRINT_GROW
+_FRONT_NECK_X = XE + PV.NECK + PV.PRINT_GROW
+
+
+def front_panel_mask(X, y, d):
+    """X rig, y off the outer face toward the interior (0 .. PANEL_T + HOOK), d rig depth (as PV.panel_mask)."""
+    s = np.ones(np.broadcast_shapes(np.shape(X), np.shape(d)), bool)
+    body = y <= R.PANEL_T - PV.PRINT_GROW
+    hook = (y <= R.PANEL_T + PV.HOOK - PV.PRINT_GROW) & (np.abs(X) >= _FRONT_NECK_X)
+    s &= (np.abs(X) <= FRONT_HALF_W) & (body | hook) & (y >= 0) & (d >= PV.D0) & (d <= PV.D1)
+    return s
