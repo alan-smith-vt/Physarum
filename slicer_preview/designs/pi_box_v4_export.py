@@ -76,6 +76,24 @@ def main():
         E.write_ply(OUT / f'{name}.ply', v, f)
         parts[name] = len(f)
         print(f'{name:14s} {len(f):9,d} tris', flush=True)
+    B = __import__('designs.pi_box_v4_back_panel', fromlist=['x'])    # MagSafe steel ring insert in the back panel's
+    a = np.linspace(0, 2 * np.pi, 97)                                  # outer-face recess (black in the renders)
+    cx, cd = B.RING_C
+    ri, ro, y1 = B.B3.RING_ID / 2, B.B3.RING_OD / 2, B.B3._FACE
+    y0 = y1 - B.B3.RING_DEPTH
+    tris = []
+    for i in range(96):
+        c0, s0, c1, s1 = np.cos(a[i]), np.sin(a[i]), np.cos(a[i + 1]), np.sin(a[i + 1])
+        for r in (ri, ro):
+            p = [(cx + r * c0, y0, -(cd + r * s0)), (cx + r * c1, y0, -(cd + r * s1)),
+                 (cx + r * c1, y1, -(cd + r * s1)), (cx + r * c0, y1, -(cd + r * s0))]
+            tris += [(p[0], p[1], p[2]), (p[0], p[2], p[3])]
+        for y in (y0, y1):
+            p = [(cx + ri * c0, y, -(cd + ri * s0)), (cx + ro * c0, y, -(cd + ro * s0)),
+                 (cx + ro * c1, y, -(cd + ro * s1)), (cx + ri * c1, y, -(cd + ri * s1))]
+            tris += [(p[0], p[1], p[2]), (p[0], p[2], p[3])]
+    E.write_stl(OUT / 'magsafe_ring.stl', np.array(tris))
+    parts['magsafe_ring'] = len(tris)
     D = __import__('designs.pi_box_v4_door_a', fromlist=['x'])        # door lock: M3 x 8 socket cap under the door
     sx, sy = getattr(D, 'SCREW_XY', (-41.1, 44.0))
     z0 = -(D.PLATE_D[1])

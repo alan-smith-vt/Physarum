@@ -31,12 +31,13 @@ RING_C = (0.0, WIN_HEAD - B3.BRACE / 2 - B3.DISC_R)   # MagSafe disc as low as i
 #                                                (user home:2285: phone clears the cable at the top, overhangs the bottom)
 
 
-SWOOP_GAP = 1.0                                 # swoop apex this far outside the disc rim
+SWOOP_BITE = 1.5                                # side swoops run this far into the disc rim (they hold it)
 
 # SGH logo (user home:2297; placeholder Arial Bold until real artwork): solid letter ribs replacing the gyroid in the
 # upper zone, read from outside (+Y side: rig +X is the viewer's left, so the text is mirrored in X; up = -d)
-LOGO = dict(text='SGH', font=r'C:\Windows\Fonts\arialbd.ttf', zone=(22.0, 66.0), max_w=72.0)
-LOGO_BOT = LOGO['zone'][1] + 3.0                # the swoops start below the logo zone
+LOGO = dict(text='SGH', font=r'C:\Windows\Fonts\arialbd.ttf', max_w=72.0, grip=1.0)
+# Letters are solid ribs in an open box (no gyroid, single print, user 2026-10-30): the box is exactly as tall as the
+# letters, so every letter runs grip mm into the top frame and into the box's base bar; that is what holds them.
 _LOGO_H = 0.1                                   # raster pitch (mm)
 
 
@@ -46,8 +47,9 @@ def _logo_raster():
     tp = TextPath((0, 0), LOGO['text'], size=10.0, prop=FontProperties(fname=LOGO['font']))
     v = tp.vertices
     x0, x1, y0, y1 = v[:, 0].min(), v[:, 0].max(), v[:, 1].min(), v[:, 1].max()
-    zh = LOGO['zone'][1] - LOGO['zone'][0]
-    k = min(LOGO['max_w'] / (x1 - x0), zh / (y1 - y0))
+    k = LOGO['max_w'] / (x1 - x0)
+    top = PV.D0 + B3.FRAME
+    LOGO['zone'] = (top - LOGO['grip'], top - LOGO['grip'] + (y1 - y0) * k)
     xs = np.arange(-LOGO['max_w'] / 2, LOGO['max_w'] / 2, _LOGO_H)
     ds = np.arange(LOGO['zone'][0], LOGO['zone'][1], _LOGO_H)
     U, D = np.meshgrid(xs, ds)
@@ -59,6 +61,7 @@ def _logo_raster():
 
 
 _LX0, _LD0, _LOGO_M = _logo_raster()
+LOGO_BOT = LOGO['zone'][1] - LOGO['grip'] + B3.BRACE / 2   # base bar centre: its top edge grips the letters
 
 
 def logo_mask(X, d):
@@ -85,27 +88,23 @@ def frame_mask(X, y, d):
     s = PV.panel_mask(X, y, d)
     cx, cd = RING_C
     r = np.hypot(X - cx, d - cd)
-    ring = (r <= B3.DISC_R) & (r >= B3.RING_ID / 2 - 1.5)              # solid annulus under the MagSafe ring only;
-    keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | ring   # inside it the braces
-    top, bot, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.IN_X                 # swoops (user home:2293): four concave arcs
-    R0 = B3.DISC_R                                                     # corner to corner, cradling the disc
-    lt = LOGO_BOT                                                      # swoops start below the logo zone
-    for p0, p1, pm in [((-IN, lt), (IN, lt), (0.0, cd - R0 - SWOOP_GAP)),            # top, sagging to the disc
-                       ((-IN, lt), (-IN, bot), (cx - R0 - SWOOP_GAP, cd)),           # sides, bowing in to it
-                       ((IN, lt), (IN, bot), (cx + R0 + SWOOP_GAP, cd))]:
+    ring = (r <= B3.DISC_R) & (r >= B3.RING_ID / 2 - 1.5)              # MagSafe annulus only, open middle
+    keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | ring
+    top, bot, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.IN_X                 # (user home:2302) open panes, no gyroid:
+    R0, lt = B3.DISC_R, LOGO_BOT                                       # side swoops flank the disc and merge with
+    for p0, p1, pm in [((-IN, lt), (-IN, bot), (cx - R0 + SWOOP_BITE, cd)),   # its rim; a tie up to the logo box
+                       ((IN, lt), (IN, bot), (cx + R0 - SWOOP_BITE, cd))]:
         keep |= _arc(X, d, p0, p1, pm)
-    for t in [(0.0, cd - R0), (-R0, cd), (R0, cd), (0.0, cd + R0)] + \
-            [(cx + R0 * np.cos(a), cd + R0 * np.sin(a)) for a in np.radians((45, 135, 225, 315))]:
-        keep |= B3._seg(X, d, (cx, cd), t) & (r <= R0)                 # spokes through the middle, inside the ring
+    keep |= B3._seg(X, d, (cx, lt), (cx, cd - R0 + 1.0))              # tie: disc top to the logo box
     keep |= B3._seg(X, d, (-IN, bot), (IN, bot))                       # window head
-    keep |= B3._seg(X, d, (-IN, lt), (IN, lt))                         # logo zone base
-    keep |= logo_mask(X, d)                                            # SGH letters, solid
+    keep |= B3._seg(X, d, (-IN, lt), (IN, lt))                         # logo box base
+    keep |= logo_mask(X, d)                                            # SGH: solid letters bridging frame and bar
     return s & keep
 
 
 def back_mask(X, y, d):
-    s = frame_mask(X, y, d) | (PV.panel_mask(X, y, d, gyroid_face=(_FACE, -1)) & (d <= WIN_HEAD))   # gyroid panes
-    if y < B3.RING_DEPTH:                                                  # MagSafe recess in the outer face
+    s = frame_mask(X, y, d)                                            # no gyroid: open panes (user home:2302)
+    if y < B3.RING_DEPTH:                                              # MagSafe ring recess in the outer face
         r = np.hypot(X - RING_C[0], d - RING_C[1])
         s &= ~((r >= B3.RING_ID / 2) & (r <= B3.RING_OD / 2 + PV.RESIN_HOLE_COMP / 2))
     return s | tongue_mask(X, y, d)

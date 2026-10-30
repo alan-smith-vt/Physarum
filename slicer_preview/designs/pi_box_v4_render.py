@@ -21,12 +21,13 @@ OUT_DIR = Path(ARGV[0]) if ARGV else PR.MESHES / 'png'
 VIEWS = [a for a in ARGV[1:] if not a.startswith('--') and not a.replace('.', '').isdigit()] or \
     ['front34', 'front', 'side_px', 'plan', 'eyes', 'bay']
 PR.PART_MAT.update(core='smoke', cart_near='turquoise', cart_far='turquoise', floor='turquoise', door='turquoise',
-                   panel_front='smoke', panel_back='smoke', v4_cam_boards='pcb',
+                   panel_front='smoke', panel_back='clear_blue', magsafe_ring='black', battery='black', v4_cam_boards='pcb',
                    v4_cam_lenses='gloss', power_board='pcb', ue300='white', bank_socket='black',
                    pi_plugs='plug', usbc_plug_envelope='plug', door_screw='steel')
+PR.MATS['clear_blue'] = dict(color=(0.35, 0.62, 0.95), rough=0.3, transmission=0.55, ior=1.5)   # back panel (user home:2302)
 PR.MATS['plug'] = dict(color=(0.95, 0.45, 0.1), rough=0.5, alpha=0.55)   # [MEASURE] envelopes, translucent
 BOX = ['core', 'cart_near', 'cart_far', 'power_switch', 'floor', 'door', 'door_screw', 'panel_front', 'panel_back',
-       'sgh_insert']
+       'sgh_insert', 'magsafe_ring']
 INSIDE = ['pi5', 'cooler', 'battery', 'v4_cam_boards', 'v4_cam_lenses', 'power_board', 'ue300', 'box_spacers',
           'pi_plugs', 'usbc_plug_envelope']
 TOP = ['base_plate', 'standoffs', 'cross', 'mid360s', 'coupler', 'm12_plug']
@@ -119,7 +120,7 @@ def main():
             PR.show(objs, BOX + INSIDE, shift)      # in its insert boss; lock_open: door slid 25 out toward +Y
             PR.camera('cam', (-0.036, 0.046, -0.18), (-0.55, 0.75, -0.75), 0.17)
         elif view == 'back_panel':                  # the back panel alone, from outside (+Y), slightly below
-            PR.show(objs, ['panel_back'])
+            PR.show(objs, ['panel_back', 'magsafe_ring', 'battery'])   # battery behind: contrast through the openings
             PR.camera('cam', (0, 0.06, -0.095), (0.15, 1.0, -0.12), 0.24)
         else:
             print('unknown view', view)
