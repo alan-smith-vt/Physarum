@@ -144,7 +144,7 @@ bosses = union(*[axis_cyl(B3 + t * TC + v * UC, FC, CAM_BOSS_R, 0.0, CAM_BOSS_H 
 INS_C0 = 1.0                                        # insert's board-side face behind the board face (the shoulder)
 INS_R = (CAM_INSERT_D + RESIN_HOLE_COMP) / 2         # slot half-width = insert OD + comp
 INS_RUN = 13.5 - 10.5 + 0.5                         # from the hole axis out through the pod side (t 13.5)
-FLANGE_SCREW_L = 10.0                               # M2x10: head on the seat (n 22.9), through the core insert (n 13.9..16.4)
+FLANGE_SCREW_L = 8.0                                # M2x8 (on hand): head on the seat (n 22.9), through the core insert (n 15.4..17.9)
 BOARD_SCREW_L = 5.0                                 # M2x5: 1.6 board + 2.5 insert + 0.9 tip room
 NUT_RUN = 1.5                                       # nut slot run outward from the hole (to the pod side)
 # the cap band under the pod opens for the ribbon (user, 2026-10-29: no bottom screw, open that region; the core
@@ -324,7 +324,7 @@ def hardware():
             ('v4_cam_holder', holder, '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
             ('v4_cam_screws', screws, '#bdc3c7', '4 x M2x5 board screws from behind'),
             ('v4_cam_nuts', nuts, '#2c3e50', '4 x M2 threaded inserts, captive in side slots'),
-            ('v4_flange_screws', fl, '#ecf0f1', '4 x M2x10 flange screws (sides) into the core pad inserts'),
+            ('v4_flange_screws', fl, '#ecf0f1', '4 x M2x8 flange screws (sides) into the core pad inserts'),
             ('v4_cam_ribbon', rib, '#e67e22', 'ribbon out through the 17 x 4 slot, jog inward, down (first ~30 mm)')]
 
 
@@ -392,7 +392,7 @@ OVERLAYS = [dict(file=f'{_OV_DIR}/{n}.stl', color=c, opacity=1.0, label=l) for n
     ('cam_connector_up', '#f9e79f', 'ALTERNATIVE pose: connector at the top edge'),
     ('cam_holder', '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
     ('cam_screws', '#bdc3c7', '4 x M2x5 board screws from behind'), ('cam_nuts', '#2c3e50', '4 x M2 threaded inserts, captive in side slots'),
-    ('flange_screws', '#ecf0f1', '4 x M2x10 flange screws (sides) into the core pad inserts'),
+    ('flange_screws', '#ecf0f1', '4 x M2x8 flange screws (sides) into the core pad inserts'),
     ('cam_ribbon', '#e67e22', 'ribbon out through the 17 x 4 slot (first 30 mm)'))]
 # (no file writes at import: python -m designs.pi_box_v4_cam_cartridge writes these overlay STLs)
 
