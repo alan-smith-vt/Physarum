@@ -27,8 +27,8 @@ def tongue_mask(X, y, d):
 
 _FACE = B3._FACE                                 # outer face Yr (interior toward -Y)
 WIN_HEAD = B3.WIN[2] - B3.BRACE / 2             # above this: panes gyroid-filled; below: the open window (user home:2279)
-RING_C = (0.0, WIN_HEAD - B3.BRACE / 2 - B3.DISC_R)   # MagSafe disc as low as it goes: its edge on the window head bar
-#                                                (user home:2285: phone clears the cable at the top, overhangs the bottom)
+RING_C = (0.0, 100.0)                           # MagSafe ring centre (user 2026-10-30: up a little from 108.5),
+#                                                held by four swoops (above, below, both sides)
 
 
 SWOOP_BITE = 1.5                                # side swoops run this far into the disc rim (they hold it)
@@ -92,10 +92,11 @@ def frame_mask(X, y, d):
     keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | ring
     top, bot, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.IN_X                 # (user home:2302) open panes, no gyroid:
     R0, lt = B3.DISC_R, LOGO_BOT                                       # side swoops flank the disc and merge with
-    for p0, p1, pm in [((-IN, lt), (-IN, bot), (cx - R0 + SWOOP_BITE, cd)),   # its rim; a tie up to the logo box
-                       ((IN, lt), (IN, bot), (cx + R0 - SWOOP_BITE, cd))]:
+    for p0, p1, pm in [((-IN, lt), (-IN, bot), (cx - R0 + SWOOP_BITE, cd)),   # its rim: four concave swoops,
+                       ((IN, lt), (IN, bot), (cx + R0 - SWOOP_BITE, cd)),     # sides from the box corners to the
+                       ((-IN, lt), (IN, lt), (cx, cd - R0 + SWOOP_BITE)),     # window-head ends, top from the box
+                       ((-IN, bot), (IN, bot), (cx, cd + R0 - SWOOP_BITE))]:  # base, bottom from the window head
         keep |= _arc(X, d, p0, p1, pm)
-    keep |= B3._seg(X, d, (cx, lt), (cx, cd - R0 + 1.0))              # tie: disc top to the logo box
     keep |= B3._seg(X, d, (-IN, bot), (IN, bot))                       # window head
     keep |= B3._seg(X, d, (-IN, lt), (IN, lt))                         # logo box base
     keep |= logo_mask(X, d)                                            # SGH: solid letters bridging frame and bar
