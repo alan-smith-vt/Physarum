@@ -8,7 +8,7 @@ bank in shear. It slides in from +Y (under the back panel) until the webs butt t
 M8 pull-ring index plunger [VERIFY: M8x1.25 body, Ø5 pin, ~6 throw, 13 AF nut] in a boss under the plate shoots its
 pin up into the core's PLUNGER hole at (-42, 44) (boss bottom at d 180). Pull the ring, slide the door out by its lip.
 The plate also closes the bottom of the back-panel channels (Yr 56..60.5), so it holds the panel in.
-Fixed floor (stick hole, collar, UE300 cradle, FLOOR_BOSSES_V4, R30 front) not modelled yet.
+Fixed floor: designs/pi_box_v4_floor.py. Fit strip: designs/pi_box_v4_door_fit.py.
 
 Rig -> print (web tops down): (X, Yr, d) -> (x = X + PLATE_X, y = d - D_TOP, z = Yr - Y_LO).
 """

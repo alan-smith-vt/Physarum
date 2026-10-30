@@ -51,21 +51,33 @@ def door(ax):
 fig = plt.figure(figsize=(20, 24))
 gs = fig.add_gridspec(5, 2, height_ratios=[1, 1, 1, 1, .9], hspace=.35, wspace=.12)
 
-# A: sliding door in rails + pull-ring index plunger
-ax = fig.add_subplot(gs[0, 0]); plan(ax, 'A  SLIDING DOOR + INDEX PLUNGER (recommended): slides out -X')
-ax.annotate('', (-66, 40), (-50, 40), arrowprops=dict(arrowstyle='->', lw=2)); ax.text(-67, 35, 'pull out', fontsize=7)
-ax.add_patch(Rectangle((-X_OUT - 6, Y0), 6, Y1 - Y0, fc=DOOR, ec='k')); ax.text(-X_OUT - 5.5, 56, 'end\ncap', fontsize=6)
-ax.add_patch(Circle((-X_OUT - 3, 46), 2.5, fc=PART, ec='k')); ax.text(-66, 64, 'M8 pull-ring plunger, pin up', fontsize=6)
-ax.plot([-X_IN, X_IN], [Y0 + 0.8, Y0 + 0.8], 'k--', lw=.8); ax.plot([-X_IN, X_IN], [Y1 - 4.8, Y1 - 4.8], 'k--', lw=.8)
-ax.text(5, 64, 'grooves: rib face + back wall inner face', fontsize=6)
-ax = fig.add_subplot(gs[0, 1]); section(ax, 'A  section: door tongues in grooves carry the bank in shear')
-door(ax)
-for y in (Y0 - 2.4, Y1 - 4):
-    ax.add_patch(Rectangle((y, DEPTH + 0.7), 2.4, 1.6, fc=DOOR, ec='k'))
-dim(ax, (Y1 - 4, 188), (Y1 - 1.6, 188), '2.4 tongue / 2.8 groove', off=(0, 3))
-dim(ax, (20, DEPTH), (20, DEPTH + FT), '3.0', off=(-4, 1))
-ax.text(7, 141, 'Door stops on the +X wall. Plunger pin (Ø5, ~6 throw) in the door end cap shoots up\n'
-        'into a hole in the -X wall foot. Bank load goes into the rails (2 × 92 mm), never the plunger.', fontsize=7, va='top')
+# A: sliding door in wall grooves + pull-ring index plunger (as modelled: designs/pi_box_v4_door_a.py)
+ax = fig.add_subplot(gs[0, 0]); plan(ax, 'A  SLIDING DOOR + INDEX PLUNGER (recommended): slides out +Y, under the back panel')
+ax.annotate('', (0, 71), (0, 58), arrowprops=dict(arrowstyle='->', lw=2)); ax.text(3, 66, 'pull out (+Y)', fontsize=7)
+ax.add_patch(Rectangle((-25, Y1 - 4), 50, 4, fc='#a04000', ec='k')); ax.text(-24, 52, 'grip lip', fontsize=6)
+ax.add_patch(Circle((-42, 44), 2.7, fc=PART, ec='k')); ax.add_patch(Circle((-42, 44), 9, fc='none', ec='k', ls=':'))
+ax.text(-66, 6, 'M8 pull-ring plunger\nin Ø18 boss (-42, 44)', fontsize=6)
+for s in (-1, 1):
+    ax.plot([s * 46.8] * 2, [30.5, 62], 'k--', lw=1)
+ax.text(-45, 66, 'grooves in ±X wall inner faces, Yr 30.5..62; door butts the rib', fontsize=6)
+ax = fig.add_subplot(gs[0, 1]); ax.set_aspect('equal')
+ax.set_title('A  section across X at Yr 44 (-X side): plate under the wall, web + hook in a closed groove', fontsize=10)
+ax.add_patch(Polygon([(-50, 165), (-46, 165), (-46, 175.6), (-44.4, 175.6), (-44.4, 178.4), (-46, 178.4), (-46, 180),
+                      (-50, 180)], fc=WALL, ec='k')); ax.text(-49.5, 168, 'wall', fontsize=7)
+ax.add_patch(Rectangle((-46, 168), 8, 7.8 + 4.2, fc=WALL, ec='k', alpha=.6)); ax.text(-41.5, 170, 'plunger\nboss', fontsize=7)
+ax.add_patch(Rectangle((-42.5 - 0.2, 173), 5.4, 7, fc='w', ec='k', ls=':'))
+ax.add_patch(Polygon([(-49.8, 180.2), (-30, 180.2), (-30, 183.2), (-49.8, 183.2)], fc=DOOR, ec='k'))
+ax.add_patch(Polygon([(-45.6, 180.2), (-45.6, 178.0), (-47.2, 178.0), (-47.2, 176.0), (-44.2, 176.0), (-44.2, 180.2)], fc=DOOR, ec='k'))
+ax.add_patch(Rectangle((-51, 183.2), 18, 8, fc=DOOR, ec='k', alpha=.7)); ax.text(-50.5, 189.5, 'boss + M8 nut', fontsize=7)
+ax.add_patch(Rectangle((-44.5, 180.2), 5, 6 + 3, fc=PART, ec='k', alpha=.6)); ax.text(-38.5, 187, 'plunger body', fontsize=6)
+ax.add_patch(Rectangle((-36, 160), 6, 20, fc=BANK, ec='k', alpha=.6)); ax.text(-35.5, 172, 'bank', fontsize=7)
+dim(ax, (-27, 175.6), (-27, 178.4), 'groove 2.8 × 1.6', off=(6, 0))
+dim(ax, (-27, 178.4), (-27, 180), 'ledge 1.6', off=(5, 1.5))
+dim(ax, (-27, 180.2), (-27, 183.2), 'plate 3', off=(4, 1))
+ax.text(-58, 160, 'Bank stands on the plate top (d 180.2): same height as v3 (core seat d 22).\n'
+        'The bank load hangs on the 1.6 ledges (shear, ~2 MPa at 50 g), never on the plunger:\n'
+        'the plunger pin (in hole Ø5.4 × 7 up from d 180) only stops sliding.', fontsize=7, va='top')
+ax.set_xlim(-60, -15); ax.set_ylim(194, 152); ax.tick_params(labelsize=6); ax.set_xlabel('X', fontsize=7); ax.set_ylabel('d', fontsize=7)
 
 # B: hook-in edge + quarter-turn compression cam latch
 ax = fig.add_subplot(gs[1, 0]); plan(ax, 'B  HOOK-IN EDGE + QUARTER-TURN CAM LATCH (wing knob)')
@@ -108,11 +120,11 @@ rows = [['', 'A slide + plunger', 'B hook + 1/4-turn cam', 'C 2 × 1/4-turn stud
         ['retention 30-50 g, bank on door', '★★★ rails take the load in shear;\nplunger only stops sliding',
          '★★ hook + cam pawl in tension', '★★ 2 studs in tension', '★★ 2 latches in tension;\ncatch stops knock-open'],
         ['one-handed', '★★★ pull ring + slide', '★★★ one turn, door swings', '★ two turns, door loose', '★★ two latches'],
-        ['print / assembly risk', '★★ rails must slide (resin bows:\nlead-ins, 0.4 clearance)', '★★ slot in back wall',
+        ['print / assembly risk', '★★ rails must slide fit strip\nfirst (pi_box_v4_door_fit)', '★★ slot in back wall',
          '★★ bosses in bank chamber', '★★★ v3 ears/inserts exist'],
         ['sourcing', '★★★ M8 pull-ring index plunger\n(Kipp / McMaster type) ~$10', '★★ Southco E3-type\nwing latch ~$15',
          '★★ Southco/Dzus ~$8 each', '★★★ Amazon mini toggle\nwith safety catch ~$8/2'],
-        ['outside profile', 'flush; ring under the -X end', 'flush knob under the floor', 'flush heads', 'proud of ±X walls ~7 mm']]
+        ['outside profile', 'plate flush; grip lip + plunger\nboss 8 below the floor', 'flush knob under the floor', 'flush heads', 'proud of ±X walls ~7 mm']]
 t = ax.table(cellText=rows, loc='center', cellLoc='center'); t.auto_set_font_size(False); t.set_fontsize(8); t.scale(1, 3.2)
 ax.set_title('Rated (★★★ best). Bayonet twist floor rejected: the stick hole is in the floor centre and the bank strip is 92 × 31,'
              ' so a round twist door does not fit.', fontsize=9, y=1.12)
