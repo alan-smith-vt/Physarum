@@ -26,14 +26,14 @@ from designs import pi_box_bat_rig as R
 R_FRONT, LAND_OFF = 30.0, 1.0
 YAW, PITCH = np.radians(30.0), np.radians(24.0)
 CAM_LENS_D = 35.0                                  # lens axis depth at the land
-LENS_RECESS = 3.0                                  # lens front centre behind the land, along the axis: its top rim
+LENS_RECESS = 0.0                                  # lens front centre behind the land, along the axis: its top rim
                                                    # (pitched 24°) stays ~0.2 behind the land, the cap is its shroud
 PI_TOP_D_V4, PI_SHIFT_V4, BRD_TOP_V4 = 55.0, 2.0, 95.0   # shift 2: the +X lower post clears the UE300
 # ALTERNATIVE (user, 2026-10-29): PI_BOX_V4_PI=flip turns the Pi end for end (R.PI_FLIP): SD end at the floor
 # (d 174), ports facing the flange (port end d 89), plugs pointing up beside the cartridges; switch to Yr -42.
 FLIP = os.environ.get('PI_BOX_V4_PI') == 'flip'
 if FLIP:
-    PI_TOP_D_V4 = 72.0                             # the port end (R.PI_FLIP_TOP); SD end at 72 + 85 = 157: clear of the switch body (d 158.5+)
+    PI_TOP_D_V4 = 89.0                             # the port end (R.PI_FLIP_TOP); SD end at 89 + 85 = 174 (user: back up; the switch moves)
 BRD_Y0_V4 = -43.0                                  # power board Yr start (v3 -55.5): the -X round pulls the wall in
                                                    # forward of Yr -32; its +Y edge now passes the web (notched)
 SWITCH_YR_V4 = -42.0 if FLIP else -38.0                               # OPEN: v3's spot, now on the round and in the lowered Pi's RJ45
@@ -47,7 +47,7 @@ LAND = R_FRONT - LAND_OFF                          # land plane, n from RC
 SEAT = 22.9                                        # cap seat plane (the countersink's outer edge)
 CSK = 4.0                                          # 45° countersink depth: ±FL_T at SEAT .. ±OPEN_T at SEAT - CSK
 PAD = SEAT - CSK - 1.0                             # pad frame inner face
-OPEN_T, OPEN_D = 13.5, (25.7, 59.5)                # cartridge body: half-width along the land, d range (nominal)
+OPEN_T, OPEN_D = 13.5, (25.0, 59.5)                # cartridge pod's shadow along n: half-width along the land, d range
 FL_T, FL_D = OPEN_T + CSK, (OPEN_D[0] - CSK, OPEN_D[1] + CSK)
 CART_CL = 0.2                                      # per side, + RESIN_HOLE_COMP / 2 in the core
 CART_SCREWS = [(-(OPEN_T + 2.0), 42.6), (OPEN_T + 2.0, 42.6), (0.0, OPEN_D[1] + 2.0)]   # (t, d) on the countersink
@@ -349,7 +349,29 @@ def _v4_overlays():
     return out
 
 
-OVERLAYS = _v4_overlays()
+# Power switch CANDIDATES (user, 2026-10-29: the switch must move; Ø16 hole, body Ø16 x 40 incl. its plug [MEASURE]).
+# Overlay only: (label, axis, centre (X, Yr, d), from, to along the axis)
+SWITCH_CANDIDATES = [
+    ('A nose: front panel centre, d 40 (body Yr -62..-22: 1.5 into the well tube; a 36 body clears)', 'y', (0.0, 40.0), -62.0, -22.0),
+    ('B -X flat wall, Yr -20, d 168 (body X -50..-10: needs <= 26 long to clear the tube)', 'x', (-20.0, 168.0), -50.0, -10.0),
+    ('C floor, -X side bay, pointing down (X -36, Yr 15; trunk coil turns lifted)', 'd', (-36.0, 15.0), 140.0, 180.0),
+]
+
+
+def _switch_candidate_overlays():
+    out = []
+    for i, (label, ax, c, a0, a1) in enumerate(SWITCH_CANDIDATES):
+        centre = {'x': (0.0, c[0], -c[1]), 'y': (c[0], 0.0, -c[1]), 'd': (c[0], c[1], 0.0)}[ax]
+        lo, hi = (a0, a1) if ax != 'd' else (-a1, -a0)
+        tris = R._cyl(centre, 'z' if ax == 'd' else ax, 8.0, lo, hi, 32)
+        path = R.OVERLAY_DIR / f'switch_candidate_{"ABC"[i]}.stl'
+        R._write_stl(path, R.to_print(tris))
+        out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color=('#f1c40f', '#e67e22', '#9b59b6')[i], opacity=0.6,
+                        label='switch candidate ' + label))
+    return out
+
+
+OVERLAYS = _v4_overlays() + _switch_candidate_overlays()
 
 
 # ── v4 front panel (plain; the styling comes later): v3's L-hook edge on the narrow front, |X| <= XE + hook ──

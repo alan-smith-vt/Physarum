@@ -117,22 +117,54 @@ def obox(c, axes, half):
 cap = inter(Box(SEAT - CSK, LAND, -FL_T, FL_T, 0.0, H_TOP),
             H(-1, 1, 0, FL_T - SEAT), H(-1, -1, 0, FL_T - SEAT), H(-1, 0, -1, -FL_D[0] - SEAT), H(-1, 0, 1, FL_D[1] - SEAT),
             Cyl('d', (0.0, 0.0), R_FRONT), H(N2[0], T2[0], 0, X_OUT - RC[0]), H(-N2[1], -T2[1], 0, RC[1] - Y_MIN))
-# body: the opening prism from the seat back to the board-face plane (+ the countersink's bottom 45° face continued)
-_cb = BOARD_B[0] * F_ND[0] + BOARD_B[1] * F_ND[1] + CAM_BOSS_H     # f . x >= this
-body = inter(Box(BOARD_B[0] - 20, SEAT, -OPEN_T, OPEN_T, FL_D[1] - OPEN_D[1], FL_D[1] - OPEN_D[0]),
-             H(-F_ND[0], 0, -F_ND[1], -_cb), H(-1, 0, 1, FL_D[1] - SEAT))
+# POD (2026-10-29 redo, sketches/pi_box_v4_cartridge_pod_sketch.png): a box square to the camera axis, its front face
+# square to the axis with the lens front FLUSH in it, so no material can sit in front of any part of the glass. Board
+# frame: c along the axis from the board's front face, b along the board's up, t across.
+POD_C, POD_B, POD_T = (-3.0, 18.0), (-17.1, 10.75), 13.5
+POCKET_CL = 0.3                                     # board pocket clearance per side
+HOLDER_D, HOLDER_C = 19.0, 7.0                      # lens holder envelope Ø, height off the board [MEASURE]
+BARREL_D = 14.0 + 0.5                               # lens barrel Ø14 + clearance
+
+
+def bplane(a, k, sign):
+    """sign * (a . (x - B3)) <= k, in the tree frame."""
+    return H(sign * a[0], sign * a[1], sign * a[2], k + sign * (a @ B3))
+
+
+pod = inter(Box(0.0, LAND + 12.0, -POD_T, POD_T, 0.0, H_TOP),
+            bplane(FC, POD_C[1], 1), bplane(FC, -POD_C[0], -1), bplane(UC, POD_B[1], 1), bplane(UC, -POD_B[0], -1),
+            H(0, 1, 0, POD_T), H(0, -1, 0, POD_T))
+face = bplane(FC, POD_C[1], 1)                      # nothing of the cartridge in front of the face plane
+board_pocket = inter(Box(0.0, LAND + 12.0, -12.5 - POCKET_CL, 12.5 + POCKET_CL, 0.0, H_TOP),
+                     bplane(FC, CAM_BOSS_H, 1), bplane(FC, -POD_C[0] + 1.0, -1),
+                     bplane(UC, 8.25 + POCKET_CL, 1), bplane(UC, 15.6 + POCKET_CL, -1))   # open back, board + parts room
 bosses = union(*[axis_cyl(B3 + t * TC + v * UC, FC, CAM_BOSS_R, 0.0, CAM_BOSS_H + 0.5) for t, v in BOARD_HOLES])
 cuts = union(
-    axis_cyl(Q3, FC, (CAM_WINDOW + RESIN_HOLE_COMP) / 2, -20.0, 0.01, peak=True),          # lens bore back to the board
-    window_slit(),
+    axis_cyl(B3, FC, (HOLDER_D + RESIN_HOLE_COMP) / 2, -0.5, HOLDER_C, peak=True),          # lens holder
+    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] + 1.0),     # barrel, out the face
     *[axis_cyl(B3 + t * TC + v * UC, FC, (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -1.0, NUT_C + NUT_T + 2.0) for t, v in BOARD_HOLES],
     *[obox(B3 + (t + np.sign(t) * 3.0) * TC + v * UC + (NUT_C + NUT_T / 2) * FC, (TC, UC, FC),
            (3.0 + (NUT_AF + 0.4) / 2 / np.cos(np.pi / 6), (NUT_AF + 0.4) / 2, (NUT_T + 0.4) / 2)) for t, v in BOARD_HOLES],
     *[axis_cyl((SEAT, t, d), (1, 0, 0), (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -10.0, 20.0) for t, d in CART_SCREWS],
     *[axis_cyl((SEAT, t, d), (1, 0, 0), (HEAD_CB + RESIN_HOLE_COMP) / 2, 0.0, 20.0) for t, d in CART_SCREWS])
-ROOT = sub(union(cap, body, bosses), cuts)
 
-N0, N1 = BOARD_B[0] - 4.0, LAND + 0.5                  # part extent along n (tree X')
+
+def mouth_cone(c0=POD_C[1] - 1.5, r0=5.0, half=np.radians(78.0)):
+    """Countersunk eye: everything within `half` of the axis from a ring r0 at c0 (behind the face), so rays from
+    the whole front glass clear the hole edge (the barrel hole alone clipped ~10 % of the rim's rays)."""
+    ta = np.tan(half)
+
+    def f(X, Y, h, xp):
+        vn, vt, vd = X - B3[0], Y - B3[1], (FL_D[1] - h) - B3[2]
+        c = vn * FC[0] + vt * FC[1] + vd * FC[2]
+        rad = xp.sqrt(xp.maximum(vn * vn + vt * vt + vd * vd - c * c, 0.0))
+        return xp.maximum((rad - r0 - (c - c0) * ta) * np.cos(half), c0 - c)
+    return Fn(f, (0.0, LAND + 30, -60, 60, -10, H_TOP + 30))
+
+
+ROOT = sub(union(inter(cap, face), pod), sub(board_pocket, bosses), cuts, mouth_cone())
+
+N0, N1 = 4.0, LAND + 9.0                               # part extent along n (tree X'): the pod's chin
 T0, T1 = -FL_T - 0.5, FL_T + 0.5
 GAP = 6.0
 

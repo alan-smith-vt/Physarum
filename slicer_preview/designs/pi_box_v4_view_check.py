@@ -6,7 +6,7 @@ Works on the SAME meshes the viewer shows (out/overlays_battery_v4/v4_cartridges
 when pi_box_v4_core is imported), not on the model functions, so a placement or frame error shows up here:
   1. the lens front is found from the lens mesh (the ring of vertices furthest along the optical axis);
   2. every Kalibr pixel ray (equidistant f 294, 640 x 400, principal point 192 px from the top) is fired from the
-     lens-front centre and 4 points 1.5 mm off it, and tested against every cartridge triangle (Möller-Trumbore)
+     lens-front centre and 8 points on a Ø9 ring round it (the whole front glass), and tested against every cartridge triangle (Möller-Trumbore)
      and against the core (its SDF, the same solid the viewer slices);
   3. the lens front must not be inside the cartridge either (a mesh-in-mesh test along the axis).
 Prints % of rays blocked per camera and FAILS (exit 1) if anything is blocked.
@@ -22,6 +22,7 @@ from designs import pi_box_bat_rig as R               # noqa: E402
 from designs import pi_box_v4_core as C               # noqa: E402
 
 F, W, H, CY = 294.0, 640, 400, 192.0
+GLASS_R, GLASS_BACK = 4.5, 1.0                       # front element radius tested, and its depth behind the lens tip
 
 
 def rays(axis, step):
@@ -80,7 +81,10 @@ def main(step=8):
         front = L[proj >= proj.max() - 0.05]
         o = front.mean(0)                              # lens-front centre, from the mesh
         D, r, u = rays(axis, step)
-        pts = [o] + [o + 1.5 * a for a in (r, -r, u, -u)]
+        # the WHOLE front glass, not just its centre (user 2026-10-29: a lip hid half the lens while the centre
+        # passed): centre + 8 points on a Ø9 ring, GLASS_BACK behind the tip
+        o = o - GLASS_BACK * axis
+        pts = [o] + [o + GLASS_R * (np.cos(q) * r + np.sin(q) * u) for q in np.linspace(0, 2 * np.pi, 8, endpoint=False)]
         blk_c = np.zeros(len(D), bool)
         blk_k = np.zeros(len(D), bool)
         for p in pts:
