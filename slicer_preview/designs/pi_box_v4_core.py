@@ -394,7 +394,7 @@ def core(x, d, z, xp=np):
 
 
 def _v4_overlays():
-    out = [o for o in _g['_v3_overlays']() if not any(k in o['file'] for k in ('v2_floor', 'latches', 'hinge', 'pi_flip'))]   # the v4 floor is home/v4-floor's
+    out = [o for o in _g['_v3_overlays']() if not any(k in o['file'] for k in ('v2_floor', 'latches', 'hinge', 'pi_flip', 'power_switch'))]   # the v4 floor is home/v4-floor's
     if 'designs.pi_box_v4_cam_cartridge' in sys.modules and not hasattr(sys.modules['designs.pi_box_v4_cam_cartridge'], 'ROOT'):
         return out                                 # imported from the cartridge module (circular)
     from designs import pi_box_v4_cam_cartridge as K
@@ -405,32 +405,32 @@ def _v4_overlays():
     return out
 
 
-# Power switch CANDIDATES (user, 2026-10-29: the switch must move; Ø16 hole, body Ø16 x 40 incl. its plug [MEASURE]).
-# Overlay only: (label, axis, centre (X, Yr, d), from, to along the axis)
-SWITCH_CANDIDATES = [
-    ('A nose: front panel centre, d 40 (body Yr -62..-22: 1.5 into the well tube; a 36 body clears)', 'y', (0.0, 40.0), -62.0, -22.0),
-    ('B -X flat wall, Yr -20, d 168 (body X -50..-10: needs <= 26 long to clear the tube)', 'x', (-20.0, 168.0), -50.0, -10.0),
-    ('C floor, -X side bay, pointing down (X -36, Yr 15; trunk coil turns lifted)', 'd', (-36.0, 15.0), 140.0, 180.0),
-]
+# Power button on the fixed floor (user approved, home:2092; home/v4-power-button): Ø16 latching switch at (-34, +13),
+# pointing down, bezel on the floor's outer face, body (40 incl. its plug [MEASURE]) up into the -X side bay. Overlay
+# only: the Ø16.35 hole and nut seat are in the floor (home/v4-floor).
+FLOOR_BUTTON = (-34.0, 13.0)
 
 
-def _switch_candidate_overlays():
+def _floor_button_overlay():
+    from designs.pi_box_bat_lids import FLOOR_T
+    x, y = FLOOR_BUTTON
+    face = DEPTH + FLOOR_T                         # floor outer face (d); its top face is DEPTH
+    tris = np.concatenate([R._cyl((x, y, 0.0), 'z', 8.0, -DEPTH, -(DEPTH - 40.0), 32),        # body + plug, d 140..180
+                           R._cyl((x, y, 0.0), 'z', 9.5, -(face + 2.5), -(face + 0.05), 32)])  # bezel Ø19 x 2.5 [MEASURE]
+    nut = R._cyl((x, y, 0.0), 'z', 10.0, -DEPTH + 0.05, -(DEPTH - 2.5), 32)                   # nut Ø20 x 2.5 [MEASURE]
     out = []
-    for i, (label, ax, c, a0, a1) in enumerate(SWITCH_CANDIDATES):
-        centre = {'x': (0.0, c[0], -c[1]), 'y': (c[0], 0.0, -c[1]), 'd': (c[0], c[1], 0.0)}[ax]
-        lo, hi = (a0, a1) if ax != 'd' else (-a1, -a0)
-        tris = R._cyl(centre, 'z' if ax == 'd' else ax, 8.0, lo, hi, 32)
-        path = R.OVERLAY_DIR / f'switch_candidate_{"ABC"[i]}.stl'
-        R._write_stl(path, R.to_print(tris))
-        out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color=('#f1c40f', '#e67e22', '#9b59b6')[i], opacity=0.6,
-                        label='switch candidate ' + label))
+    for name, t, op, label in (('power_switch', tris, 0.8, 'power switch, 16 mm latching (15 V line), floor (-34, 13)'),
+                               ('power_switch_nut', nut, 0.35, 'nut Ø20 [MEASURE]: -0.1 into +Yr rail end if Ø20')):
+        path = R.OVERLAY_DIR / f'{name}.stl'
+        R._write_stl(path, R.to_print(t))
+        out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color='#e74c3c', opacity=op, label=label))
     return out
 
 
 # Cable routes after the swap (home/v4-layout sketch, Ø3, rig (X, Yr, d)); overlay only
 CABLE_ROUTES = [
     ('J5 -> Pi GPIO', [(30, -25, 78), (-27, -27, 80), (-27, -38, 120), (-22.5, -38, 125)]),
-    ('J4 -> floor button', [(35, -40, 93), (35, -28, 95), (-27.5, -28, 100), (-27.5, 0, 105), (-40, 2, 108), (-40, 7, 135), (-36, 7, 140)]),
+    ('J4 -> floor button', [(35, -40, 93), (35, -28, 95), (-27.5, -28, 100), (-27.5, 0, 105), (-40, 2, 108), (-40, 7, 135), (-34, 13, 140)]),
     ('bank socket -> J1', [(36, -7, 155), (36, -7, 170), (34, 0, 172), (34, 22, 174), (20, 25, 176)]),
     ('J2 -> Pi USB-C', [(33, -34, 155), (36, -38, 160)]),
     ('lidar power', [(26, 10, 77), (26, 0, 77), (35, -6, 77)]),
@@ -445,7 +445,7 @@ def _cable_route_overlays():
                  label='cable routes (Ø3): ' + '; '.join(n for n, _ in CABLE_ROUTES))]
 
 
-OVERLAYS = _v4_overlays() + _switch_candidate_overlays() + _cable_route_overlays()
+OVERLAYS = _v4_overlays() + _floor_button_overlay() + _cable_route_overlays()
 
 
 # ── v4 front panel (plain; the styling comes later): v3's L-hook edge on the narrow front, |X| <= XE + hook ──
