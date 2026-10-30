@@ -14,7 +14,10 @@ from pathlib import Path
 import numpy as np                                                     # noqa: F401  (used by the patched source)
 
 R_FRONT, ROUND_C = 30.0, (20.0, -32.0)       # core v4 R_FRONT and round centres (|X|, Yr)
-FLOOR_BOSSES_V4 = [(sx * 31.0, -51.0) for sx in (-1, 1)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]   # = core
+# wide front panel (user approved, home:2136): the front pair leaves the R30 rounds: (-42, -18) off the -X wall,
+# (45, 6.5) on the +X web foot (the +X front quadrant is the UE300); the +X nub at (46, 5.5) goes. = core
+FLOOR_BOSSES_V4 = [(-42.0, -18.0), (45.0, 6.5)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]
+DROP_PINS = [(46.0, 5.5)]
 RIB_Y, DOOR_GAP = 30.5, 0.4
 SWITCH_XY, SWITCH_D, SWITCH_SEAT = (-34.0, 13.0), 16.0, 24.0   # hole() adds RESIN_HOLE_COMP: cut Ø16.35 [MEASURE nut]
 
@@ -22,7 +25,7 @@ _ROUND = '((np.abs({x}) <= _V4.ROUND_C[0]) | ({y} >= _V4.ROUND_C[1]) | ' \
          '(np.hypot(np.abs({x}) - _V4.ROUND_C[0], {y} - _V4.ROUND_C[1]) <= _V4.R_FRONT{m}))'
 _PATCHES = [
     ('FLOOR_BOSSES = [(sx * 44.0, Y_MIN + 10.5) for sx in (-1, 1)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]',
-     'FLOOR_BOSSES = _V4.FLOOR_BOSSES_V4'),
+     'FLOOR_BOSSES = _V4.FLOOR_BOSSES_V4\nPINS = [q for q in PINS if q not in _V4.DROP_PINS]'),
     ('LATCH_EARS = True', 'LATCH_EARS = False'),
     ('HINGE_HOLES = [(HINGE_SIDE * (X_OUT - 6.0), DOOR_YC + dy) for dy in (-5.0, 5.0)]', 'HINGE_HOLES = []'),
     ('SPLIT_Y, DOOR_GAP, DOOR_LIP = 30.5, 0.4, 2.0', 'SPLIT_Y, DOOR_GAP, DOOR_LIP = _V4.RIB_Y - _V4.DOOR_GAP, 0.0, 0.0'),
