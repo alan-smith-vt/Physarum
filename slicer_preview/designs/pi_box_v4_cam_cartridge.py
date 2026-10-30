@@ -151,7 +151,8 @@ cuts = union(
     ribbon_slot,
     obox(B3 + (HOLDER_C - 0.5) / 2 * FC, (TC, UC, FC), ((HOLDER_SQ + RESIN_HOLE_COMP) / 2, (HOLDER_SQ + RESIN_HOLE_COMP) / 2,
          (HOLDER_C + 0.5) / 2)),                                                              # lens holder (square)
-    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] + 1.0, peak=True),   # barrel
+    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] - 6.0, peak=True),   # barrel: peaked
+    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, POD_C[1] - 6.01, POD_C[1] + 1.0),   # ...round for the last 6 (no notch in the eye)
     *[axis_cyl(B3 + t * TC + v * UC, FC, (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -1.0, NUT_C + NUT_T + 2.0) for t, v in BOARD_HOLES],
     *[obox(B3 + (t + np.sign(t) * NUT_RUN) * TC + v * UC + (NUT_C + NUT_T / 2) * FC, (TC, UC, FC),
            (NUT_RUN + (NUT_AF + 0.4) / 2 / np.cos(np.pi / 6), (NUT_AF + 0.4) / 2, (NUT_T + 0.4) / 2)) for t, v in BOARD_HOLES],
@@ -192,8 +193,20 @@ def brow_slope():
                  H(-ta, 0, -1, -(n0 * ta + d0)), H(0, 0, 1, LENS_Q[1]))
 
 
+CHIN_DEPR = float(__import__('os').environ.get('PI_BOX_V4_CHIN', '45'))   # deg below horizontal (rays reach -38.8)
+
+
+def chin_slope():
+    """Below the lens: the matching flat facet (user, 2026-10-29: no hard corner where the countersink met the curve),
+    a plane along t through the lens's bottom rim falling outward at CHIN_DEPR; everything outside it removed."""
+    n0, d0 = LENS_Q[0] - SLOPE_RIM * U_ND[0], LENS_Q[1] - SLOPE_RIM * U_ND[1]
+    tb = np.tan(np.radians(CHIN_DEPR))
+    return inter(Box(n0 - 12.0, LAND + 12.0, -FL_T - 1, FL_T + 1, 0.0, H_TOP),
+                 H(-tb, 0, 1, d0 - n0 * tb), H(0, 0, -1, -LENS_Q[1]))
+
+
 ROOT = sub(union(cap, inter(pod, Cyl('d', (0.0, 0.0), R_FRONT))), sub(board_pocket, bosses), cuts,
-           inter(mouth_cone(), H(0, 0, -1, -LENS_Q[1])), brow_slope())
+           brow_slope(), chin_slope())
 
 N0, N1 = 4.0, LAND + 9.0                               # part extent along n (tree X'): the pod's chin
 T0, T1 = -FL_T - 0.5, FL_T + 0.5
