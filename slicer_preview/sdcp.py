@@ -52,12 +52,26 @@ def discover(timeout=3.0):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     s.settimeout(timeout)
-    s.sendto(b'M99999', ('255.255.255.255', PORT_UDP))
+    # 255.255.255.255 leaves by one interface only; on a multi-NIC PC (home: LAN + 10.0.0.x link + Tailscale) it can
+    # miss the printer's LAN, so also hit each local /24's broadcast address.
+    targets = {'255.255.255.255'}
+    try:
+        for ip in socket.gethostbyname_ex(socket.gethostname())[2]:
+            targets.add(ip.rsplit('.', 1)[0] + '.255')
+    except OSError:
+        pass
+    for t in targets:
+        try:
+            s.sendto(b'M99999', (t, PORT_UDP))
+        except OSError:
+            pass
     found = []
     try:
         while True:
             data, _ = s.recvfrom(8192)
-            found.append(json.loads(data)['Data'])
+            d = json.loads(data)['Data']
+            if all(f['MainboardID'] != d['MainboardID'] for f in found):
+                found.append(d)
     except socket.timeout:
         pass
     return found
