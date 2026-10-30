@@ -47,7 +47,7 @@ T2 = np.array([np.sin(YAW), np.cos(YAW)])          # land tangent (toward +Yr)
 LAND = R_FRONT - LAND_OFF                          # land plane, n from RC
 SEAT = 22.9                                        # cap seat plane (the countersink's outer edge)
 CSK = 6.5                                          # 45° countersink depth: ±FL_T at SEAT .. ±OPEN_T at SEAT - CSK
-PAD = SEAT - CSK - 1.0                             # pad frame inner face
+PAD = SEAT - CSK - 2.5                             # pad frame inner face
 OPEN_T, OPEN_D = 13.5, (25.0, 59.5)                # cartridge pod's shadow along n: half-width along the land, d range
 FL_T, FL_D = OPEN_T + CSK, (OPEN_D[0] - CSK, OPEN_D[1] + CSK)
 CART_CL = 0.2                                      # per side, + RESIN_HOLE_COMP / 2 in the core
@@ -187,7 +187,7 @@ def _cam_core():
         cuts.append(sub(lbox(s, PAD - 3.0, 23.0, -(8.5 + g), 8.5 + g, OPEN_D[1] - 0.5, 80.0),
                         _groove_keep()))      # the step rib + panel-tongue groove stay whole (user, home:2224)
         for t, d in CART_SCREWS:
-            cuts.append(lcyl(s, (SEAT, t, d), (1, 0, 0), (R.CAM_SCREW_CLEAR + R.RESIN_HOLE_COMP) / 2, -8.0, 8.0))
+            cuts.append(lcyl(s, (SEAT, t, d), (1, 0, 0), (R.CAM_SCREW_CLEAR + R.RESIN_HOLE_COMP) / 2, PAD - SEAT - 1.5, 8.0))   # M2x10 tip room
             cuts.append(lcyl(s, (SEAT, t, d), (1, 0, 0), (R.CAM_INSERT_D + R.RESIN_HOLE_COMP) / 2,
                              PAD - SEAT - 1.0, PAD - SEAT + CART_NUT_L))      # insert (nut) from the pad's inner face
     return union(*pads), union(*cuts)
