@@ -218,6 +218,17 @@ def _floor_iface():
                  Half(1, 0, -1, -(X_IN + p['d0'] - (p['x1'] - p['x0']))))   # |X| + d >= 206: 45° top (print: underside)
     cuts += [Box(*sorted((s * (X_IN - DOOR_WEB_CLEAR), s * (X_IN + 0.01))), r['y0'], Y_MAX + 1, 175.5, BOT + 1)
              for s in (-1, 1)]                     # the door's webs ride up inside each wall face (home:2006)
+    # ...which leaves the cradle-rail bottoms (and the bits by the back panel channel) hanging as thin slabs off
+    # the wall (user, 2026-10-29: remove them). Everything inboard of the web slot below d 175.5 goes, except the
+    # lock boss (+-X), which keeps its insert depth.
+    for s in (-1, 1):
+        cuts += [Box(*sorted((s * 30.0, s * (X_IN - DOOR_WEB_CLEAR + 0.01))), y0, y1, 175.5, BOT + 1)
+                 for y0, y1 in ((r['y0'], Y_MAX + 1),) if s > 0]
+        cuts += [Box(*sorted((s * 30.0, s * (X_IN - DOOR_WEB_CLEAR + 0.01))), y0, y1, 175.5, BOT + 1)
+                 for y0, y1 in ((r['y0'], PLUNGER['y0']), (PLUNGER['y1'], Y_MAX + 1)) if s < 0]
+        # where the groove/web cut passes the back-panel L-channel: a ~0.25 fin and a hook-rib strip (home:2051);
+        # the groove ledge only needs Yr 30.5..54.5, so clear the channel corner inboard of its outer skin
+        cuts.append(Box(*sorted((s * 44.0, s * 48.9)), 54.0, Y_MAX + 1, 175.5, BOT + 1))
     cuts.append(Cyl('d', p['hole'], (p['dia'] + R.RESIN_HOLE_COMP) / 2, p['d1'] - p['L'], p['d1'] + 1))
     return boss, union(*cuts)
 
