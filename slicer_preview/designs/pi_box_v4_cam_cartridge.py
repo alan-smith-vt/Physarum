@@ -143,6 +143,7 @@ NUT_RUN = 1.5                                       # nut slot run outward from 
 # the cap band under the pod opens for the ribbon (user, 2026-10-29: no bottom screw, open that region; the core
 # opens the same region, n 15.9..25.4, t ±13.875, d 59..76)
 under_open = inter(Box(15.9, 25.4, -OPEN_T, OPEN_T, FL_D[1] - 76.0, FL_D[1] - (OPEN_D[1] - 1.0)))
+RIBBON_IN_N = 16.0                                  # ribbon's drop line after the inward jog (land n)
 RIBBON_SLOT = dict(t=8.5, c=(-3.6, 1.0), b=(-24.0, -15.5))   # approved 2026-10-29: 17 wide, through the pod's bottom wall
 ribbon_slot = inter(Box(0.0, LAND + 12.0, -RIBBON_SLOT['t'], RIBBON_SLOT['t'], 0.0, H_TOP),
                     bplane(FC, RIBBON_SLOT['c'][1], 1), bplane(FC, -RIBBON_SLOT['c'][0], -1),
@@ -298,21 +299,25 @@ def hardware():
     # ribbon: from the connector down along the board, out through the slot, then straight down (+d) 20 mm
     e0 = B3 - 15.6 * UC - 2.6 * FC
     e1 = e0 - 9.0 * UC
-    e2 = e1 + np.array([0.0, 0.0, 20.0])               # straight down at n ~20.8, through the opened region
+    # out of the slot, then at once inward (away from the wide panel's step groove + rib at R >= 24.8, user
+    # 2026-10-29: keep them intact) to n 16, then down toward the Pi
+    e2 = np.array([RIBBON_IN_N, 0.0, e1[2] + 2.0])
+    e3 = e2 + np.array([0.0, 0.0, 14.0])
     rib = np.concatenate([_box_tris(e0 - 8.0 * TC, 16.0 * TC, (e1 - e0), 0.3 * FC),
-                          _box_tris(e1 - 8.0 * TC, 16.0 * TC, (e2 - e1), 0.3 * FC)])
+                          _box_tris(e1 - 8.0 * TC, 16.0 * TC, (e2 - e1), np.array([0.0, 0.0, 0.3])),
+                          _box_tris(e2 - 8.0 * TC, 16.0 * TC, (e3 - e2), np.array([0.3, 0.0, 0.0]))])
     return [('v4_cam_connector', conn, '#f1c40f', 'board FFC connector (back, bottom edge)'),
             ('v4_cam_holder', holder, '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
             ('v4_cam_screws', screws, '#bdc3c7', '4 x M2x8 board screws from behind'),
             ('v4_cam_nuts', nuts, '#2c3e50', '4 x M2 hex nuts in the side slots'),
             ('v4_flange_screws', fl, '#ecf0f1', '4 x M2 flange screws (sides) into the core pad inserts'),
-            ('v4_cam_ribbon', rib, '#e67e22', 'ribbon out through the 17 x 4 slot (first 30 mm)')]
+            ('v4_cam_ribbon', rib, '#e67e22', 'ribbon out through the 17 x 4 slot, jog inward, down (first ~30 mm)')]
 
 
 # 200 mm ribbons, routes in the core (rig X, Yr, d), per sketches/pi_box_v4_ribbon_sketch.py (approved 2026-10-29)
-RIBBON_ROUTES = {1: [(34.0, -40.1, 58.2), (38.0, -42.4, 66.0), (38.0, -42.4, 117.0), (31.0, -36.5, 117.0),
-                     (24.0, -36.0, 117.0)],
-                 -1: [(-34.0, -40.1, 58.2), (-38.0, -42.4, 66.0), (-38.0, -42.4, 80.0), (-37.0, -50.0, 100.0), (-30.0, -51.0, 125.0),
+RIBBON_ROUTES = {1: [(34.0, -40.1, 58.2), (38.0, -42.4, 66.0), (33.9, -40.0, 68.0), (33.9, -40.0, 117.0),
+                     (31.0, -36.5, 117.0), (24.0, -36.0, 117.0)],
+                 -1: [(-34.0, -40.1, 58.2), (-38.0, -42.4, 66.0), (-33.9, -40.0, 68.0), (-33.9, -40.0, 80.0), (-37.0, -50.0, 100.0), (-30.0, -51.0, 125.0),
                       (31.0, -51.0, 125.0), (31.0, -36.0, 125.0), (24.0, -34.0, 125.0)]}
 
 
