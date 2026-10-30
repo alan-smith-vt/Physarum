@@ -32,10 +32,6 @@ _PATCHES = [
     ('    req |= (np.abs(XX) >= X_OUT - b) | (YY <= Y_MIN + b) | (YY >= Y_MAX - b)\n',
      '    req |= (np.abs(XX) >= X_OUT - b) | (YY <= Y_MIN + b) | (YY >= Y_MAX - b)\n'
      '    req |= ~' + _ROUND.format(x='XX', y='YY', m=' - b') + '\n'),
-    # UE300 swap (user approved, home:2065; home/v4-layout): cradle + RJ45 opening mirrored to -X
-    # (X -45.9..-29.9, Yr -27.6..-1.6); the floor rail on that side opens for it instead of the +X one
-    ('ETH_CRADLE = True ', 'ETH_ADAPTER = dict(ETH_ADAPTER, x=-ETH_ADAPTER["x"])\nETH_CRADLE = True '),
-    ('        rails &= ~((X > 0) & (Yr < 0))', '        rails &= ~((X < 0) & (Yr < 0))'),
     # floor power button (user approved, home:2092; home/v4-power-button): Ø16 switch down through the plate at
     # BUTTON_XY, nut on the top face: plate solid (no gyroid) over a Ø24 seat
     ('                s &= ~hole(bx, by, SCREW_CLEAR, X, Yr)\n',
@@ -44,9 +40,9 @@ _PATCHES = [
     ('    for bx, by in FLOOR_BOSSES + HINGE_HOLES:\n',
      '    req |= np.hypot(XX - _V4.SWITCH_XY[0], YY - _V4.SWITCH_XY[1]) <= _V4.SWITCH_SEAT / 2\n'
      '    for bx, by in FLOOR_BOSSES + HINGE_HOLES:\n'),
-    ("    wall &= (X < a['x']) | (Yr < a['y'])", "    wall &= (X > a['x']) | (Yr < a['y'])"),
-    ('    wall &= (Yr < -WEB_T / 2 - 0.5) & (X < X_IN - 0.5) &', '    wall &= (Yr < -WEB_T / 2 - 0.5) & (X > -X_IN + 0.5) &'),
 ]
+# UE300 side swap (home:2065) REVERTED by the user (home:2102): cradle + RJ45 back on +X, as in v3. The mirror
+# patches, if ever needed again: a90a30b.
 
 
 def _load():
