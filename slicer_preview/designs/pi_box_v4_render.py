@@ -21,7 +21,7 @@ OUT_DIR = Path(ARGV[0]) if ARGV else PR.MESHES / 'png'
 VIEWS = [a for a in ARGV[1:] if not a.startswith('--') and not a.replace('.', '').isdigit()] or \
     ['front34', 'front', 'side_px', 'plan', 'eyes', 'bay']
 PR.PART_MAT.update(core='smoke', cart_near='turquoise', cart_far='turquoise', floor='turquoise', door='turquoise',
-                   panel_front='smoke', panel_back='clear_blue', magsafe_ring='black', battery='black', v4_cam_boards='pcb',
+                   panel_front='smoke', panel_back='smoke', magsafe_ring='black', battery='black', v4_cam_boards='pcb',
                    v4_cam_lenses='gloss', power_board='pcb', ue300='white', bank_socket='black',
                    pi_plugs='plug', usbc_plug_envelope='plug', door_screw='steel')
 PR.MATS['clear_blue'] = dict(color=(0.35, 0.62, 0.95), rough=0.3, transmission=0.55, ior=1.5)   # back panel (user home:2302)
