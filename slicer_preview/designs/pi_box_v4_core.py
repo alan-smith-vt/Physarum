@@ -305,6 +305,24 @@ def _front_rad(X, Y, xp):
     return xp.sqrt(xp.maximum(xp.abs(X) - XE, 0.0) ** 2 + xp.maximum(RC[1] - Y, 0.0) ** 2)
 
 
+# power board support after the wide panel took H1 (user approved home:2175; spec home/v4-layout home:2160/2171):
+# H2 screw as before, a bottom-edge ledge and a top-edge hook on the flat -X wall. 45° faces for print (+d up).
+BRD_LEDGE = dict(y=(-31.0, -12.0), d=155.2, x_lip=41.4)   # stops short of the J3 plug (Yr -11..-1, to d 157)
+BRD_HOOK = dict(y=(-25.0, -14.0), d0=93.0, x_lip=40.9)
+
+
+def _board_support():
+    b = BRD_LEDGE
+    ledge = inter(Box(-X_IN - 0.5, -b['x_lip'], *b['y'], b['d'] - 2.6, b['d'] + 2.0),
+                  Half(1, 0, -1, -(43.6 + b['d'])))          # |X| + d >= 198.8: 45° off the wall; the board's back
+    h = BRD_HOOK                                             # corner (X -43.5, d 155) rests on it
+    slot = Box(-43.6, -41.8, *h['y'], BRD_TOP_V4 - 0.2, BRD_TOP_V4 + 2.4)   # board top edge goes 2 into the hook
+    hook = sub(inter(Box(-X_IN - 0.5, -h['x_lip'], *h['y'], h['d0'] - 8.0, BRD_TOP_V4 + 2.2),
+                     Half(1, 0, -1, -(h['d0'] + h['x_lip']))),   # |X| + d >= d0 + x_lip: 45° off the wall (print)
+               slot)
+    return union(ledge, hook)
+
+
 def _front_cuts():
     cl = PV.CL
     y_hook = RC[1] + NECK_L
@@ -386,7 +404,9 @@ FRONT_PANEL_D0 = PV.D0 - TONGUE_H
 
 
 def _driver_paths():
-    return union(*[Cyl('d', (s * R.POST, -R.POST), (R.HEAD_D + R.RESIN_HOLE_COMP) / 2, R.SPACER_SEAT, BOT + 1)
+    """The front M4 head pockets open through the stub only (user, home:2181: no bore through the cartridge slot
+    floor; a thin driver reaches the head from inside with the cartridge out)."""
+    return union(*[Cyl('d', (s * R.POST, -R.POST), (R.HEAD_D + R.RESIN_HOLE_COMP) / 2, R.SPACER_SEAT, STUB_D + 0.5)
                    for s in (-1, 1)])
 
 
@@ -398,7 +418,7 @@ def _stubs():
 def _v4_below(below, v3_cuts):
     pads, cam_cuts = _cam_core()
     boss, floor_cuts = _floor_iface()
-    body = union(below, _shells(), pads, *[_pad_support(s) for s in (-1, 1)], boss, _stubs(), _step_rib())   # front bosses: v3 cones
+    body = union(below, _shells(), pads, *[_pad_support(s) for s in (-1, 1)], boss, _stubs(), _step_rib(), _board_support())   # front bosses: v3 cones
     return sub(inter(body, ENVELOPE), v3_cuts, _front_channels(), cam_cuts, floor_cuts, _driver_paths(), _web_notch(),
                *[Cyl('d', (bx, by), (R.INSERT_D + R.RESIN_HOLE_COMP) / 2, DEPTH - R.INSERT_DEPTH, BOT + 1)
                  for bx, by in FLOOR_BOSSES_V4[:2]])
@@ -422,10 +442,11 @@ _V3_PATCHES = [
     ("UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)",
      "UE300 = dict(x0=29.9, x1=45.9, y0=-27.0, y1=-3.0, d0=DEPTH - 53.0)"),
     ("'TP-Link UE300 (as v2)'", "'uni USB-A GbE adapter 53x24x16 [MEASURE depth; if thicker: drop the +X lower Pi post, home:2173]'"),
-    # solid wall (no gyroid) round the wide front panel's hook channels, 3+ mm margin (user, home:2148)
+    # solid wall (no gyroid) round the wide front panel's hook channels, 3+ mm margin (user, home:2148), and on up
+    # past the camera cartridges to the flange (home:2179)
     ("    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n",
      "    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n"
-     f"    Box(-X_OUT, X_OUT, {RC[1] - 3.0}, {RC[1] + 5.0 + 2.0 + 4.0}, {72.0 - 4.0}, BOT),\n"),
+     f"    Box(-X_OUT, X_OUT, {RC[1] - 3.0}, {RC[1] + 5.0 + 2.0 + 4.0}, TOP, BOT),\n"),
     ("        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 22.0),                                    # J3 + plug + wires",
      "        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 11.0), bbox(42.0, 48.0, 52.0, 60.0, 0.0, 6.0),   # J3 plug; wires leave +Y (home:2127)"),
     # -X trunk turn lifted to d 136: clears the floor button (home:2105)
