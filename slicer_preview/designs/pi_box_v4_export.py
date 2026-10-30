@@ -45,7 +45,7 @@ def cartridge(s):
 
 
 def floor_parts():
-    """home/v4-floor's fixed floor + door A (UNAPPROVED), and the panels: v4 narrow front + v3 back."""
+    """home/v4-floor's fixed floor + door A, and the panels: v4 wide front + v4 back (top tongues)."""
     h = VOX
     out = {}
     F = __import__('designs.pi_box_v4_floor', fromlist=['x'])
@@ -55,13 +55,15 @@ def floor_parts():
                             lambda p: np.stack([p[:, 2] - F._XO, p[:, 0] + R.Y_MIN, p[:, 1] - (R.DEPTH + ft)], 1))
     out['door'] = E._march(D.door, int(2 * D.PLATE_X / h), int((D.GRIP['d1'] - D.D_TOP) / h), int((R.Y_MAX - D.Y_LO) / h), h,
                            lambda p: np.stack([p[:, 0] - D.PLATE_X, p[:, 2] + D.Y_LO, -(p[:, 1] + D.D_TOP)], 1))
-    PV, B = C.PV, __import__('designs.pi_box_bat_back_panel_v3', fromlist=['x'])
-    for name, fn, hw, face, sg in (('panel_front', C.front_panel_mask, C.FRONT_HALF_W, C._lo0 + PV.CL, 1),
-                                   ('panel_back', B.back_mask, PV.HALF_W, R.Y_MAX - R.PANEL_LIP - PV.CL, -1)):
-        th = R.PANEL_T + PV.HOOK
-        out[name] = E._march(lambda x, y, z, fn=fn, hw=hw: fn(x - hw, y, z + PV.D0), int(2 * hw / h), int(th / h) + 1,
-                             int((PV.D1 - PV.D0) / h), h,
-                             lambda p, hw=hw, face=face, sg=sg: np.stack([p[:, 0] - hw, face + sg * p[:, 1], -(p[:, 2] + PV.D0)], 1))
+    PV, B = C.PV, __import__('designs.pi_box_v4_back_panel', fromlist=['x'])
+    d0 = C.FRONT_PANEL_D0                                    # wide front panel (rig solid): x -> X, y -> d, z -> Yr
+    out['panel_front'] = E._march(lambda x, y, z: C.front_panel_rig(x - C.X_OUT, z + R.Y_MIN, y + d0),
+                                  int(2 * C.X_OUT / h) + 1, int((R.DEPTH - d0) / h), int((C.RC[1] + 12.0 - R.Y_MIN) / h), h,
+                                  lambda p: np.stack([p[:, 0] - C.X_OUT, p[:, 2] + R.Y_MIN, -(p[:, 1] + d0)], 1))
+    hw, face, th, bd0 = PV.HALF_W, R.Y_MAX - R.PANEL_LIP - PV.CL, R.PANEL_T + PV.HOOK, B.D_TIP   # v4 back panel + tongue
+    out['panel_back'] = E._march(lambda x, y, z: B.back_mask(x - hw, y, z + bd0), int(2 * hw / h), int(th / h) + 1,
+                                 int((PV.D1 - bd0) / h), h,
+                                 lambda p: np.stack([p[:, 0] - hw, face - p[:, 1], -(p[:, 2] + bd0)], 1))
     return out
 
 
