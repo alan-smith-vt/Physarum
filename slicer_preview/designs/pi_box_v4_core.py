@@ -293,6 +293,8 @@ _V3_PATCHES = [
      "        _sw['d'] - SWITCH_PAD_R, _sw['d'] + SWITCH_PAD_R),\n", ""),
     ("    hhole('x', _sw['y'], _sw['d'], _sw['hole'], *sorted((_sw['side'] * (X_IN - 0.01), _sw['side'] * X_OUT))),\n", ""),
     ("y0=-55.5, top=80.0,", f"y0={BRD_Y0_V4}, top={BRD_TOP_V4},"),
+    ("        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 22.0),                                    # J3 + plug + wires",
+     "        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 11.0), bbox(42.0, 48.0, 52.0, 60.0, 0.0, 6.0),   # J3 plug; wires leave +Y (home:2127)"),
     # -X trunk turn lifted to d 136: clears the floor button (home:2105)
     ("TRUNK = dict(yr=(3.5, 28.5), d=(14.0, 166.0),", "TRUNK = dict(yr=(3.5, 28.5), d={-1: (14.0, 136.0), 1: (14.0, 166.0)},"),
     ("""    rb = (t['yr'][1] - t['yr'][0] - t['cord']) / 2
