@@ -101,14 +101,13 @@ def frame_mask(X, y, d):
                        ((-IN, bot), (IN, bot), (cx, cd + R0 - SWOOP_BITE))]:  # base, bottom from the window head
         keep |= _arc(X, d, p0, p1, pm)
     keep |= B3._seg(X, d, (-IN, bot), (IN, bot))                       # window head
-    keep |= B3._seg(X, d, (-IN, lt), (IN, lt))                         # logo box base
-    keep |= logo_mask(X, d)                                            # SGH: solid letters bridging fill and bar
-    keep |= (d >= top) & (d <= LOGO['zone'][0] + LOGO['grip'])           # solid fill above the letters (user)
+    keep |= B3._seg(X, d, (-IN, lt), (IN, lt))                         # top swoops' base bar (d 60)
     return s & keep
 
 
 def back_mask(X, y, d):
-    s = frame_mask(X, y, d)                                            # no gyroid: open panes (user home:2302)
+    s = frame_mask(X, y, d) | (PV.panel_mask(X, y, d, gyroid_face=(_FACE, -1)) & (d <= WIN_HEAD))   # gyroid everywhere
+    # above the window head, round the swoops and in the ring; window open; SGH removed (user 2026-10-30)
     if y < B3.RING_DEPTH:                                              # MagSafe ring recess in the outer face
         r = np.hypot(X - RING_C[0], d - RING_C[1])
         s &= ~((r >= B3.RING_ID / 2) & (r <= B3.RING_OD / 2 + PV.RESIN_HOLE_COMP / 2))

@@ -81,7 +81,7 @@ def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     ground = PR.setup_scene()
     objs = PR.load_parts()
-    # add_logo(objs): the SGH logo moved to the back panel model (solid letters, user home:2297)
+    add_logo(objs)                                                   # SGH cut + clear-blue inlay in the front panel
     for n in GOPRO:                                                  # GoPro turned 90° about rig Z (user, home:2284)
         if n in objs:
             objs[n].rotation_euler[2] += math.radians(90)
