@@ -387,12 +387,12 @@ def _floor_button_overlay():
     from designs.pi_box_bat_lids import FLOOR_T
     x, y = FLOOR_BUTTON
     face = DEPTH + FLOOR_T                         # floor outer face (d); its top face is DEPTH
-    tris = np.concatenate([R._cyl((x, y, 0.0), 'z', 8.0, -DEPTH, -(DEPTH - 40.0), 32),        # body + plug, d 140..180
-                           R._cyl((x, y, 0.0), 'z', 9.5, -(face + 2.5), -(face + 0.05), 32)])  # bezel Ø19 x 2.5 [MEASURE]
-    nut = R._cyl((x, y, 0.0), 'z', 10.0, -DEPTH + 0.05, -(DEPTH - 2.5), 32)                   # nut Ø20 x 2.5 [MEASURE]
+    tris = np.concatenate([R._cyl((x, y, 0.0), 'z', 8.0, -DEPTH, -(DEPTH - 46.0), 32),        # body + plug, d 134..180 (listing: 46 overall)
+                           R._cyl((x, y, 0.0), 'z', 9.4, -(face + 2.5), -(face + 0.05), 32)])  # bezel Ø18.8 x 2.5 [MEASURE height]
+    nut = R._cyl((x, y, 0.0), 'z', 11.0, -DEPTH + 0.05, -(DEPTH - 2.5), 32)                   # M16 nut ~Ø22 AC [MEASURE]
     out = []
     for name, t, op, label in (('power_switch', tris, 0.8, 'power switch, 16 mm latching (15 V line), floor (-34, 13)'),
-                               ('power_switch_nut', nut, 0.35, 'nut Ø20 [MEASURE]: -0.1 into +Yr rail end if Ø20')):
+                               ('power_switch_nut', nut, 0.35, 'M16 nut, ~22 AC conservative [MEASURE]')):
         path = R.OVERLAY_DIR / f'{name}.stl'
         R._write_stl(path, R.to_print(t))
         out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color='#e74c3c', opacity=op, label=label))
@@ -401,7 +401,7 @@ def _floor_button_overlay():
 
 # Cable route (Ø3, rig (X, Yr, d)); overlay only. J4 -> floor button: PROVISIONAL (home/v4-power-button owns it)
 CABLE_ROUTES = [
-    ('J4 -> floor button', [(-29, -40, 141), (-40, -40, 141), (-40, 8, 140), (-34, 13, 140)]),
+    ('J4 -> floor button', [(-29, -40, 141), (-40, -40, 141), (-40, 8, 140), (-34, 13, 134)]),
 ]
 
 
