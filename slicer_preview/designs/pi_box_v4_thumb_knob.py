@@ -1,4 +1,4 @@
-"""v4 PROPOSAL, UNAPPROVED (2026-10-29, v4-floor): thumb knob for the battery door's lock screw. Do not print yet.
+"""DEFERRED (user, 2026-10-29: hex key first, knob later): thumb knob for the battery door's lock screw.
 
 A stock M3 x 12 socket cap screw (head Ø5.5 x 3 [MEASURE the one used]) is pushed head-first into the pocket from the
 knob's outer face and CA-glued; its thread leaves through the top face, goes up through the door's captive hole

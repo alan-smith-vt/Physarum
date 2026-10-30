@@ -1,12 +1,15 @@
-"""v4 PROPOSAL, UNAPPROVED (2026-10-29, v4-floor): sliding battery door for designs/pi_box_v4_core.py. Do not print.
+"""v4 battery door, APPROVED by the user 2026-10-29 (single-piece sliding door, one M3 screw): for
+designs/pi_box_v4_core.py. Print the fit strip (pi_box_v4_door_fit.py) first. Lock screw for now: a stock M3 x 8
+socket cap driven with a hex key (plate 3 + gap 0.2 + insert 4: M3 x 10 would bottom in the 6 deep hole); the
+printed thumb knob comes later.
 
 Option A of sketches/pi_box_v4_floor_options_sketch.py, slide direction changed to +Y (board home:1999): the door
 plate sits UNDER the wall ends (d 180.2..183.2, so the bank keeps the v3 height under the core's seat at d 22). Along
 each ±X wall a thin web stands up inside the wall and turns out into a hook in the wall's closed groove (core
 DOOR_RAIL, d 175.6..178.4, 1.6 deep): the door hangs from the 1.6 mm wall ledges under the grooves, which carry the
 bank in shear. It slides in from +Y (under the back panel) until the webs butt the battery rib, and is locked by a
-thumb screw (user, 2026-10-29): a stock M3 x 12 socket cap with a printed knurled knob CA-glued on its head
-(designs/pi_box_v4_thumb_knob.py) goes up through the plate into an M3 brass insert (Ø4 x 4, glued) in the core's
+screw (user, 2026-10-29): an M3 socket cap (later an M3 x 12 with the printed knob, designs/pi_box_v4_thumb_knob.py,
+CA-glued on its head) goes up through the plate into an M3 brass insert (Ø4 x 4, glued) in the core's
 lock boss at SCREW_XY. The plate's hole is undersize (CAPTIVE_D): the thread is screwed through it once, so the screw
 cannot drop out when undone. The screw only stops sliding; the bank load stays in the rails. Undo, slide out by the lip.
 The plate also closes the bottom of the back-panel channels (Yr 56..60.5), so it holds the panel in.
@@ -38,7 +41,7 @@ Y_LO = RIB_Y + CLEAR + OVERSIZE
 GRIP = dict(x=25.0, y0=Y_MAX - 4.0, d1=PLATE_D[1] + 5.0)   # finger lip under the +Y end, |X| <= x
 SCREW_XY = (-41.1, 44.0)                 # core lock boss X -44.2..-38: Ø4 insert hole centred, ~0.9 walls
 CAPTIVE_D = 2.6                          # M3 thread cuts its way through once (hole() adds the resin comp)
-KNOB_H = 6.0                             # printed knob under the plate (pi_box_v4_thumb_knob)
+KNOB_H = 6.0                             # printed knob under the plate (pi_box_v4_thumb_knob, later)
 
 
 def door(x, y, z):

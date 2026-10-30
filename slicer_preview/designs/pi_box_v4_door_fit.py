@@ -1,12 +1,12 @@
-"""v4 PROPOSAL, UNAPPROVED (2026-10-29, v4-floor): fit strip for the option-A battery door. Do not print yet.
+"""Fit strip for the v4 battery door (door APPROVED 2026-10-29): print this first, before the core and door.
 
 Print this before the core/door: it tests the door's rail clearances and the thumb-screw lock at the real sizes.
   1. WALL: a -X wall stub (X -50..-46, Yr 28.5..52, d 165..180) with the battery rib stub, the closed door groove
      (core DOOR_RAIL: d 175.6..178.4, 1.6 deep, +comp) with its 45° mouth flare at +Y, the 1.8 web clearance, and
      the lock boss (X -46..-38, Yr 38..50, d 168..180) with its M3 insert hole Ø4 × 6 (+comp) at SCREW_XY.
   2. DOOR: the -X corner of designs/pi_box_v4_door_a.py (X <= -30, Yr <= 52): plate, web + hook, captive M3 hole.
-Check: the door corner slides in from +Y with no force and no rattle, butts the rib, and the thumb screw
-runs into the insert by hand. Clearances: 0.4 per side + RESIN_HOLE_COMP/2 on holes; external faces are pulled in by
+Check: the door corner slides in from +Y with no force and no rattle, butts the rib, and an M3 x 8 socket cap
+runs through the captive hole into the insert with a hex key. Clearances: 0.4 per side + RESIN_HOLE_COMP/2 on holes; external faces are pulled in by
 OVERSIZE (= EXT_COMP/2 of ir_filter_clip).
 Rig -> print (both pieces, top down): y = d - 165 (wall) or the door's own mapping.
 """
