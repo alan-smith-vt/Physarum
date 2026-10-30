@@ -21,9 +21,9 @@ from designs import pi_box_bat_rig as R                          # noqa: E402
 from designs import pi_box_v4_core as C                          # noqa: E402
 from designs import pi_box_v4_cam_cartridge as K                 # noqa: E402
 
-OUT = R.ROOT / 'slicer_preview' / 'out' / 'render_v4'
+OUT = R.ROOT / 'slicer_preview' / 'out' / ('render_v4flip' if C.FLIP else 'render_v4')
 VOX = float(os.environ.get('PI_BOX_VOX', '0.35'))
-SKIP = ('base_plate', 'usbc_plug_envelope', 'v4_cartridges', 'm12_trunk', 'power_board_parts', 'pi_plugs')
+SKIP = ('base_plate', 'v4_cartridges', 'm12_trunk', 'power_board_parts')
 
 
 def core():

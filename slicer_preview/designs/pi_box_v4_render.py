@@ -14,15 +14,19 @@ sys.path.insert(0, str(HERE.parent))
 sys.argv = [a for a in sys.argv]                      # pi_box_render parses the args after '--' at import
 from designs import pi_box_render as PR               # noqa: E402
 
-PR.MESHES = HERE.parent / 'out' / 'render_v4'
+import os                                             # noqa: E402
+PR.MESHES = HERE.parent / 'out' / ('render_v4flip' if os.environ.get('PI_BOX_V4_PI') == 'flip' else 'render_v4')
 ARGV = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT_DIR = Path(ARGV[0]) if ARGV else PR.MESHES / 'png'
 VIEWS = [a for a in ARGV[1:] if not a.startswith('--') and not a.replace('.', '').isdigit()] or \
     ['front34', 'front', 'side_px', 'plan', 'eyes', 'bay']
 PR.PART_MAT.update(core='smoke', cart_near='turquoise', cart_far='turquoise', v4_cam_boards='pcb',
-                   v4_cam_lenses='gloss', power_board='pcb', ue300='white', bank_socket='black')
+                   v4_cam_lenses='gloss', power_board='pcb', ue300='white', bank_socket='black',
+                   pi_plugs='plug', usbc_plug_envelope='plug')
+PR.MATS['plug'] = dict(color=(0.95, 0.45, 0.1), rough=0.5, alpha=0.55)   # [MEASURE] envelopes, translucent
 BOX = ['core', 'cart_near', 'cart_far', 'power_switch']
-INSIDE = ['pi5', 'cooler', 'battery', 'v4_cam_boards', 'v4_cam_lenses', 'power_board', 'ue300', 'box_spacers']
+INSIDE = ['pi5', 'cooler', 'battery', 'v4_cam_boards', 'v4_cam_lenses', 'power_board', 'ue300', 'box_spacers',
+          'pi_plugs', 'usbc_plug_envelope']
 TOP = ['base_plate', 'standoffs', 'cross', 'mid360s', 'coupler', 'm12_plug']
 GOPRO = ['gopro_adapter', 'gopro_cage', 'gopro_body', 'gopro_lenses']
 POLE = ['monopod']

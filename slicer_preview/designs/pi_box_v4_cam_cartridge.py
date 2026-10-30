@@ -169,6 +169,6 @@ def rig_meshes():
     for name, t, col, lab in (('v4_cartridges', cart, '#3498db', 'camera cartridges (v4 proposal)'),
                               ('v4_cam_boards', board, '#145a32', 'OV9281 boards, pitched 24° (25 × 23.85)'),
                               ('v4_cam_lenses', lens, '#566573', 'lens Ø14 × 18')):
-        tri = np.concatenate([land_to_rig(t, s)[:, ::s] for s in (-1, 1)])    # mirrored side flips winding
+        tri = np.concatenate([land_to_rig(t, s)[:, ::s] for s in (-1, 1)]) * [1, 1, -1]   # z up; mirror flips winding
         out.append((name, tri, col, lab))
     return out

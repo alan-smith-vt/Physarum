@@ -16,6 +16,7 @@ Sketch: designs/sketches/pi_box_v4_core_sketch.png. Viewer: python generate.py p
 How: the v3 source is executed with a few constants patched and three hooks spliced in (see _V3_PATCHES), so the
 v3 file stays untouched and v3 fixes flow through. Every patch must match exactly once (asserted).
 """
+import os
 import sys
 from pathlib import Path
 import numpy as np
@@ -28,9 +29,14 @@ CAM_LENS_D = 35.0                                  # lens axis depth at the land
 LENS_RECESS = 3.0                                  # lens front centre behind the land, along the axis: its top rim
                                                    # (pitched 24°) stays ~0.2 behind the land, the cap is its shroud
 PI_TOP_D_V4, PI_SHIFT_V4, BRD_TOP_V4 = 55.0, 2.0, 95.0   # shift 2: the +X lower post clears the UE300
+# ALTERNATIVE (user, 2026-10-29): PI_BOX_V4_PI=flip turns the Pi end for end (R.PI_FLIP): SD end at the floor
+# (d 174), ports facing the flange (port end d 89), plugs pointing up beside the cartridges; switch to Yr -42.
+FLIP = os.environ.get('PI_BOX_V4_PI') == 'flip'
+if FLIP:
+    PI_TOP_D_V4 = 89.0                             # the port end (R.PI_FLIP_TOP); SD end at 89 + 85 = 174
 BRD_Y0_V4 = -43.0                                  # power board Yr start (v3 -55.5): the -X round pulls the wall in
                                                    # forward of Yr -32; its +Y edge now passes the web (notched)
-SWITCH_YR_V4 = -38.0                               # OPEN: v3's spot, now on the round and in the lowered Pi's RJ45
+SWITCH_YR_V4 = -42.0 if FLIP else -38.0                               # OPEN: v3's spot, now on the round and in the lowered Pi's RJ45
                                                    # plug (d 143..173); Yr -21 on the flat wall hits the well tube
 
 X_OUT, X_IN, Y_MIN, Y_MAX, DEPTH = R.X_OUT, R.X_IN, R.Y_MIN, R.Y_MAX, R.DEPTH
@@ -192,7 +198,8 @@ def _pad_support(s):
 
 # floor interface (home/v4-floor, 2026-10-29 decision home:1997/1998)
 DOOR_RAIL = dict(y0=30.5, d0=175.6, d1=178.4, depth=1.6)   # CLOSED groove: the 1.6 ledge below carries the door
-PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=175.8, hole=(-42.0, 44.0), dia=5.4, L=7.0)
+DOOR_WEB_CLEAR = 1.8
+PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(-42.0, 44.0), dia=5.4, L=7.0)
 FLOOR_BOSSES_V4 = [(sx * 31.0, -51.0) for sx in (-1, 1)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]
 
 
@@ -208,6 +215,8 @@ def _floor_iface():
     p = PLUNGER
     boss = inter(Box(p['x0'], p['x1'], p['y0'], p['y1'], p['d0'] - (p['x1'] - p['x0']), p['d1']),
                  Half(1, 0, -1, -(X_IN + p['d0'] - (p['x1'] - p['x0']))))   # |X| + d >= 206: 45° top (print: underside)
+    cuts += [Box(*sorted((s * (X_IN - DOOR_WEB_CLEAR), s * (X_IN + 0.01))), r['y0'], Y_MAX + 1, 175.5, BOT + 1)
+             for s in (-1, 1)]                     # the door's webs ride up inside each wall face (home:2006)
     cuts.append(Cyl('d', p['hole'], (p['dia'] + R.RESIN_HOLE_COMP) / 2, p['d1'] - p['L'], p['d1'] + 1))
     return boss, union(*cuts)
 
@@ -285,12 +294,25 @@ _V3_PATCHES = [
 ]
 
 
+_FLIP_PATCHES = [
+    ('for bx in (3.5, 61.5)]', 'for bx in (85.0 - 61.5, 85.0 - 3.5)]'),
+    ('PI_PORT_D = PI_TOP_D + 88.0 ', 'PI_PORT_D = PI_TOP_D - 3.0 '),
+    ('PI_PLUGS = [(a + PI_SHIFT - 6.0, b + PI_SHIFT - 6.0, c, e, L) for a, b, c, e, L in PI_PLUGS]',
+     'PI_PLUGS = [(-(b - 6.0) + PI_SHIFT, -(a - 6.0) + PI_SHIFT, c, e, L) for a, b, c, e, L in PI_PLUGS]'),
+    ('-(pm + L), -pm) for x0', '-pm, -(pm - L)) for x0'),
+    ("px = -28.0 + PI_SHIFT ", "px = 28.0 + PI_SHIFT + 18.0 "),
+    ("-(PI_TOP_D + 17.0), -(PI_TOP_D + 6.0))", "-(PI_TOP_D + 85.0 - 6.0), -(PI_TOP_D + 85.0 - 17.0))"),
+    ("'overlays_battery_v4'", "'overlays_battery_v4flip'"),
+]
+
+
 def _load_v3():
     src = (Path(__file__).with_name('pi_box_bat_core_v3.py')).read_text(encoding='utf-8')
-    for a, b in _V3_PATCHES:
+    for a, b in _V3_PATCHES + (_FLIP_PATCHES if FLIP else []):
         assert src.count(a) == 1, f'v3 patch does not match exactly once: {a!r}'
         src = src.replace(a, b)
     R.PI_TOP_D = PI_TOP_D_V4                       # read by the v3 source (import *) and by rig.pi_pt
+    R.PI_FLIP, R.PI_FLIP_TOP = FLIP, PI_TOP_D_V4
     g = {'__name__': __name__ + '._v3', '__file__': __file__, '_V4': sys.modules[__name__]}
     exec(compile(src, 'pi_box_bat_core_v3.py (v4-patched)', 'exec'), g)
     return g
@@ -315,7 +337,7 @@ def core(x, d, z, xp=np):
 
 
 def _v4_overlays():
-    out = [o for o in _g['_v3_overlays']() if not any(k in o['file'] for k in ('v2_floor', 'latches', 'hinge'))]   # the v4 floor is home/v4-floor's
+    out = [o for o in _g['_v3_overlays']() if not any(k in o['file'] for k in ('v2_floor', 'latches', 'hinge', 'pi_flip'))]   # the v4 floor is home/v4-floor's
     if 'designs.pi_box_v4_cam_cartridge' in sys.modules and not hasattr(sys.modules['designs.pi_box_v4_cam_cartridge'], 'ROOT'):
         return out                                 # imported from the cartridge module (circular)
     from designs import pi_box_v4_cam_cartridge as K
