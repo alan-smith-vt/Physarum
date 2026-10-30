@@ -31,6 +31,12 @@ _PATCHES = [
     ('    req |= (np.abs(XX) >= X_OUT - b) | (YY <= Y_MIN + b) | (YY >= Y_MAX - b)\n',
      '    req |= (np.abs(XX) >= X_OUT - b) | (YY <= Y_MIN + b) | (YY >= Y_MAX - b)\n'
      '    req |= ~' + _ROUND.format(x='XX', y='YY', m=' - b') + '\n'),
+    # UE300 swap (user approved, home:2065; home/v4-layout): cradle + RJ45 opening mirrored to -X
+    # (X -45.9..-29.9, Yr -27.6..-1.6); the floor rail on that side opens for it instead of the +X one
+    ('ETH_CRADLE = True ', 'ETH_ADAPTER = dict(ETH_ADAPTER, x=-ETH_ADAPTER["x"])\nETH_CRADLE = True '),
+    ('        rails &= ~((X > 0) & (Yr < 0))', '        rails &= ~((X < 0) & (Yr < 0))'),
+    ("    wall &= (X < a['x']) | (Yr < a['y'])", "    wall &= (X > a['x']) | (Yr < a['y'])"),
+    ('    wall &= (Yr < -WEB_T / 2 - 0.5) & (X < X_IN - 0.5) &', '    wall &= (Yr < -WEB_T / 2 - 0.5) & (X > -X_IN + 0.5) &'),
 ]
 
 
