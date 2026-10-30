@@ -46,13 +46,13 @@ N2 = np.array([np.cos(YAW), -np.sin(YAW)])         # land normal (plan, +X side)
 T2 = np.array([np.sin(YAW), np.cos(YAW)])          # land tangent (toward +Yr)
 LAND = R_FRONT - LAND_OFF                          # land plane, n from RC
 SEAT = 22.9                                        # cap seat plane (the countersink's outer edge)
-CSK = 4.0                                          # 45° countersink depth: ±FL_T at SEAT .. ±OPEN_T at SEAT - CSK
+CSK = 6.5                                          # 45° countersink depth: ±FL_T at SEAT .. ±OPEN_T at SEAT - CSK
 PAD = SEAT - CSK - 1.0                             # pad frame inner face
 OPEN_T, OPEN_D = 13.5, (25.0, 59.5)                # cartridge pod's shadow along n: half-width along the land, d range
 FL_T, FL_D = OPEN_T + CSK, (OPEN_D[0] - CSK, OPEN_D[1] + CSK)
 CART_CL = 0.2                                      # per side, + RESIN_HOLE_COMP / 2 in the core
-CART_SCREWS = [(sc * (OPEN_T + 2.0), d) for sc in (-1, 1) for d in (31.0, 55.0)]   # (t, d) on the countersink side
-# bands; no bottom screw: the ribbon leaves there (user, home:2195; home/v4-core home:2198)
+CART_SCREWS = [(sc * 17.25, d) for sc in (-1, 1) for d in (31.0, 55.0)]   # (t, d) on the widened flange (CSK 6.5;
+# user home:2242): >= 1.6 wall to the opening; no bottom screw (the ribbon leaves there, home:2195)
 STUB_R, STUB_D = 7.1, 12.0
 CART_NUT_L = 2.5                                   # M2 insert, set from the pad's inner face, bottomed (a nut)
 
