@@ -19,7 +19,7 @@ R_FRONT, ROUND_C = 30.0, (20.0, -32.0)       # core v4 R_FRONT and round centres
 FLOOR_BOSSES_V4 = [(-42.0, -18.0), (45.0, 6.5)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]
 DROP_PINS = [(46.0, 5.5)]
 RIB_Y, DOOR_GAP = 30.5, 0.4
-SWITCH_XY, SWITCH_D, SWITCH_SEAT = (-34.0, 13.0), 16.0, 24.0   # hole() adds RESIN_HOLE_COMP: cut Ø16.35 [MEASURE nut]
+SWITCH_XY, SWITCH_D, SWITCH_SEAT = (-33.0, 14.0), 16.0, 24.0   # hole() adds RESIN_HOLE_COMP: cut Ø16.35 [MEASURE nut]
 
 _ROUND = '((np.abs({x}) <= _V4.ROUND_C[0]) | ({y} >= _V4.ROUND_C[1]) | ' \
          '(np.hypot(np.abs({x}) - _V4.ROUND_C[0], {y} - _V4.ROUND_C[1]) <= _V4.R_FRONT{m}))'
