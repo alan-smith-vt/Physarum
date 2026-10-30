@@ -201,7 +201,7 @@ def _pad_support(s):
 DOOR_RAIL = dict(y0=30.5, d0=175.6, d1=178.4, depth=1.6)   # CLOSED groove: the 1.6 ledge below carries the door
 DOOR_WEB_CLEAR = 1.8
 PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(-41.1, 44.0), dia=4.0, L=6.0)   # M3 insert (door thumb screw, user 2026-10-29)
-ETH_ADAPTER_V4 = dict(x=36.0, y=-15.0, wx=20.0, wy=24.0, h=53.0)   # uni USB-A GbE adapter, RJ45 down [MEASURE]
+ETH_ADAPTER_V4 = dict(x=37.9, y=-15.0, wx=16.0, wy=24.0, h=53.0)   # uni USB-A GbE adapter, RJ45 down [MEASURE]
 FLOOR_BUTTON = (-33.0, 14.0)                       # floor power button (home:2092; moved for the 18.8 AC nut, home:2149)
 FLOOR_BOSSES_V4 = [(-42.0, -18.0), (45.0, 6.5)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]   # front pair moved off the
 # rounds (wide front panel, user approved home:2136; floor home/v4-floor); the +X one stays X >= 41.5 (home:2135)
@@ -420,8 +420,8 @@ _V3_PATCHES = [
     # uni USB-A GbE adapter replaces the UE300 (user, home:2158; spec home/v4-layout home:2160): seat ledge + overlay
     ("_a = ETH_ADAPTER\n", "_a = _V4.ETH_ADAPTER_V4\n"),
     ("UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)",
-     "UE300 = dict(x0=26.0, x1=46.0, y0=-27.0, y1=-3.0, d0=DEPTH - 53.0)"),
-    ("'TP-Link UE300 (as v2)'", "'uni USB-A GbE adapter 53x24x20 [MEASURE]'"),
+     "UE300 = dict(x0=29.9, x1=45.9, y0=-27.0, y1=-3.0, d0=DEPTH - 53.0)"),
+    ("'TP-Link UE300 (as v2)'", "'uni USB-A GbE adapter 53x24x16 [MEASURE depth]'"),
     # solid wall (no gyroid) round the wide front panel's hook channels, 3+ mm margin (user, home:2148)
     ("    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n",
      "    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n"
@@ -562,7 +562,7 @@ def _usbc_overlay():
 # Ethernet adapter's USB-A plug (in the flipped Pi's USB3 port, pointing up) and its Ø4 braided cord (R >= 10 bends;
 # ~126 mm needed of 142), home/v4-layout home:2160, [MEASURE]
 ETH_USBA_PLUG = (-10.0, 2.0, -43.3, -38.8, 56.0, 86.0)
-ETH_CORD = [(-4, -41, 56), (-4, -36, 44), (-4, -27, 52), (20, -27, 70), (33, -20, 100), (36, -15, 127)]
+ETH_CORD = [(-4, -41, 56), (-4, -36, 44), (-4, -27, 52), (20, -27, 70), (33, -20, 100), (37.9, -15, 127)]
 
 
 def _eth_overlays():
