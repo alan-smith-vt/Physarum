@@ -33,7 +33,7 @@ PI_TOP_D_V4, PI_SHIFT_V4, BRD_TOP_V4 = 55.0, 2.0, 95.0   # shift 2: the +X lower
 # (d 174), ports facing the flange (port end d 89), plugs pointing up beside the cartridges; switch to Yr -42.
 FLIP = os.environ.get('PI_BOX_V4_PI') == 'flip'
 if FLIP:
-    PI_TOP_D_V4 = 89.0                             # the port end (R.PI_FLIP_TOP); SD end at 89 + 85 = 174
+    PI_TOP_D_V4 = 85.0                             # the port end (R.PI_FLIP_TOP); SD end at 85 + 85 = 170 (user: 4 up, clear of the switch)
 BRD_Y0_V4 = -43.0                                  # power board Yr start (v3 -55.5): the -X round pulls the wall in
                                                    # forward of Yr -32; its +Y edge now passes the web (notched)
 SWITCH_YR_V4 = -42.0 if FLIP else -38.0                               # OPEN: v3's spot, now on the round and in the lowered Pi's RJ45
@@ -289,6 +289,7 @@ _V3_PATCHES = [
     ("ROOT = union(plate, below, fillet)\n", "ROOT = _V4._v4_root(union(plate, below, fillet))\n"),
     ("R.OVERLAY_DIR.parent / 'overlays_battery_v3'", "R.OVERLAY_DIR.parent / 'overlays_battery_v4'"),
     ("OVERLAYS = _v3_overlays()", "OVERLAYS = []"),
+    ("return out + _layout_overlays() + _part_overlays()", "return out + _layout_overlays()"),   # its imports re-run v3
     ("UE300 = dict(", "PI_PLUGS = [(a + PI_SHIFT - 6.0, b + PI_SHIFT - 6.0, c, e, L) for a, b, c, e, L in PI_PLUGS]\nUE300 = dict("),
     ("PCB_YR - 11.0, PCB_YR - 2.0, -31.0, -20.0)", "PCB_YR - 11.0, PCB_YR - 2.0, -(PI_TOP_D + 17.0), -(PI_TOP_D + 6.0))"),
 ]
