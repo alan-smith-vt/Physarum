@@ -421,7 +421,7 @@ _V3_PATCHES = [
     ("_a = ETH_ADAPTER\n", "_a = _V4.ETH_ADAPTER_V4\n"),
     ("UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)",
      "UE300 = dict(x0=29.9, x1=45.9, y0=-27.0, y1=-3.0, d0=DEPTH - 53.0)"),
-    ("'TP-Link UE300 (as v2)'", "'uni USB-A GbE adapter 53x24x16 [MEASURE depth]'"),
+    ("'TP-Link UE300 (as v2)'", "'uni USB-A GbE adapter 53x24x16 [MEASURE depth; if thicker: drop the +X lower Pi post, home:2173]'"),
     # solid wall (no gyroid) round the wide front panel's hook channels, 3+ mm margin (user, home:2148)
     ("    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n",
      "    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n"
