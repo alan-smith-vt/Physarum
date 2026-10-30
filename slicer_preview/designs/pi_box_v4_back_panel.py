@@ -31,6 +31,21 @@ RING_C = (0.0, WIN_HEAD - B3.BRACE / 2 - B3.DISC_R)   # MagSafe disc as low as i
 #                                                (user home:2285: phone clears the cable at the top, overhangs the bottom)
 
 
+SWOOP_GAP = 1.0                                 # swoop apex this far outside the disc rim
+
+
+def _arc(X, d, p0, p1, pm, w=B3.BRACE):
+    """Band of width w along the circle through p0, pm, p1, between p0 and p1 (bounding box of the three)."""
+    (ax, ay), (bx, by), (cx, cy) = p0, pm, p1
+    D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / D
+    uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / D
+    R = np.hypot(ax - ux, ay - uy)
+    xs, ys = (ax, bx, cx), (ay, by, cy)
+    box = (X >= min(xs) - w) & (X <= max(xs) + w) & (d >= min(ys) - w) & (d <= max(ys) + w)
+    return box & (np.abs(np.hypot(X - ux, d - uy) - R) <= w / 2)
+
+
 def frame_mask(X, y, d):
     """v3 frame, MagSafe disc and braces, without the window's vertical bar (user home:2279)."""
     s = PV.panel_mask(X, y, d)
@@ -38,10 +53,15 @@ def frame_mask(X, y, d):
     r = np.hypot(X - cx, d - cd)
     ring = (r <= B3.DISC_R) & (r >= B3.RING_ID / 2 - 1.5)              # solid annulus under the MagSafe ring only;
     keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | ring   # inside it the braces
-    top, bot, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.IN_X                 # run through to the centre (user home:2289)
-    c = (cx, cd)
-    for t in [(0.0, top), (-IN, cd), (IN, cd), (-IN, top), (IN, top), (-IN, bot), (IN, bot)]:
-        keep |= B3._seg(X, d, c, t)
+    top, bot, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.IN_X                 # swoops (user home:2293): four concave arcs
+    R0 = B3.DISC_R                                                     # corner to corner, cradling the disc
+    for p0, p1, pm in [((-IN, top), (IN, top), (0.0, cd - R0 - SWOOP_GAP)),          # top, sagging to the disc
+                       ((-IN, top), (-IN, bot), (cx - R0 - SWOOP_GAP, cd)),          # sides, bowing in to it
+                       ((IN, top), (IN, bot), (cx + R0 + SWOOP_GAP, cd))]:
+        keep |= _arc(X, d, p0, p1, pm)
+    for t in [(0.0, cd - R0), (-R0, cd), (R0, cd), (0.0, cd + R0)] + \
+            [(cx + R0 * np.cos(a), cd + R0 * np.sin(a)) for a in np.radians((45, 135, 225, 315))]:
+        keep |= B3._seg(X, d, (cx, cd), t) & (r <= R0)                 # spokes through the middle, inside the ring
     keep |= B3._seg(X, d, (-IN, bot), (IN, bot))                       # window head
     return s & keep
 
