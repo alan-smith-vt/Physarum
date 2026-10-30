@@ -48,8 +48,11 @@ def _logo_raster():
     v = tp.vertices
     x0, x1, y0, y1 = v[:, 0].min(), v[:, 0].max(), v[:, 1].min(), v[:, 1].max()
     k = LOGO['max_w'] / (x1 - x0)
-    top = PV.D0 + B3.FRAME
-    LOGO['zone'] = (top - LOGO['grip'], top - LOGO['grip'] + (y1 - y0) * k)
+    # box base where the top swoop dips as far as the bottom one (window head -> ring); solid fill above the letters
+    sag = WIN_HEAD - (RING_C[1] + B3.DISC_R - SWOOP_BITE)
+    base = RING_C[1] - B3.DISC_R + SWOOP_BITE - sag
+    z1 = base - B3.BRACE / 2 + LOGO['grip']
+    LOGO['zone'] = (z1 - (y1 - y0) * k, z1)
     xs = np.arange(-LOGO['max_w'] / 2, LOGO['max_w'] / 2, _LOGO_H)
     ds = np.arange(LOGO['zone'][0], LOGO['zone'][1], _LOGO_H)
     U, D = np.meshgrid(xs, ds)
@@ -99,7 +102,8 @@ def frame_mask(X, y, d):
         keep |= _arc(X, d, p0, p1, pm)
     keep |= B3._seg(X, d, (-IN, bot), (IN, bot))                       # window head
     keep |= B3._seg(X, d, (-IN, lt), (IN, lt))                         # logo box base
-    keep |= logo_mask(X, d)                                            # SGH: solid letters bridging frame and bar
+    keep |= logo_mask(X, d)                                            # SGH: solid letters bridging fill and bar
+    keep |= (d >= top) & (d <= LOGO['zone'][0] + LOGO['grip'])           # solid fill above the letters (user)
     return s & keep
 
 
