@@ -227,6 +227,11 @@ def _floor_iface():
                  for y0, y1 in ((r['y0'], Y_MAX + 1),) if s > 0]
         cuts += [Box(*sorted((s * 30.0, s * (X_IN - DOOR_WEB_CLEAR + 0.01))), y0, y1, 175.5, BOT + 1)
                  for y0, y1 in ((r['y0'], PLUNGER['y0']), (PLUNGER['y1'], Y_MAX + 1)) if s < 0]
+        # the rail ends rise at 45° inboard from the web slot (cut d - |X| >= 131.3): brackets off the wall, not slabs
+        x_s = X_IN - DOOR_WEB_CLEAR
+        for y0, y1 in (((r['y0'], Y_MAX + 1),) if s > 0 else ((r['y0'], PLUNGER['y0']), (PLUNGER['y1'], Y_MAX + 1))):
+            cuts.append(inter(Box(*sorted((s * 30.0, s * (x_s + 0.01))), y0, y1, 175.5 - (x_s - 30.0), 175.6),
+                              Half(s, 0, -1, -(175.5 - x_s))))
         # where the groove/web cut passes the back-panel L-channel: a ~0.25 fin and a hook-rib strip (home:2051);
         # the groove ledge only needs Yr 30.5..54.5, so clear the channel corner inboard of its outer skin
         cuts.append(Box(*sorted((s * 44.0, s * 48.9)), 54.0, Y_MAX + 1, 175.5, BOT + 1))
