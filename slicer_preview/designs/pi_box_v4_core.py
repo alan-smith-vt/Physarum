@@ -495,7 +495,7 @@ def core(x, d, z, xp=np):
 
 
 def _v4_overlays():
-    out = [o for o in _g['_v3_overlays']() if not any(k in o['file'] for k in ('v2_floor', 'latches', 'hinge', 'pi_flip', 'power_switch', 'bank_socket'))]   # the v4 floor is home/v4-floor's
+    out = [o for o in _g['_v3_overlays']() if not any(k in o['file'] for k in ('v2_floor', 'latches', 'hinge', 'pi_flip', 'power_switch', 'bank_socket', 'usbc_plug_envelope'))]   # the v4 floor is home/v4-floor's
     if 'designs.pi_box_v4_cam_cartridge' in sys.modules and not hasattr(sys.modules['designs.pi_box_v4_cam_cartridge'], 'ROOT'):
         return out                                 # imported from the cartridge module (circular)
     from designs import pi_box_v4_cam_cartridge as K
@@ -541,7 +541,19 @@ def _cable_route_overlays():
                  label='cable routes (Ø3): ' + '; '.join(n for n, _ in CABLE_ROUTES))]
 
 
-OVERLAYS = _v4_overlays() + _floor_button_overlay() + _cable_route_overlays()
+# Pi power: flat 90° USB-C adapter (user home:2146; home/v4-layout home:2156), rig (X, Yr, d), all [MEASURE]
+USBC_PLUG = [(30.0, 39.0, -41.0, -34.0, 156.0, 169.0),    # plug body, 9 out of the port
+             (32.0, 39.0, -41.0, -34.0, 141.0, 156.0)]    # up-turned cable boot (toward the flange)
+
+
+def _usbc_overlay():
+    path = R.OVERLAY_DIR / 'usbc_plug_envelope.stl'
+    R._write_stl(path, R.to_print(np.concatenate([R._box(x0, x1, y0, y1, -d1, -d0) for x0, x1, y0, y1, d0, d1 in USBC_PLUG])))
+    return [dict(file=path.relative_to(R.ROOT).as_posix(), color='#e74c3c', opacity=0.8,
+                 label='Pi USB-C: flat 90° adapter, plug 9 + up-turned boot 15 [MEASURE]')]
+
+
+OVERLAYS = _v4_overlays() + _floor_button_overlay() + _cable_route_overlays() + _usbc_overlay()
 
 
 # ── v4 front panel (plain; the styling comes later): v3's L-hook edge on the narrow front, |X| <= XE + hook ──
