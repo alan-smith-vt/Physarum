@@ -30,7 +30,7 @@ BOARD_HOLES = [(sy * 10.5, sv * 6.25) for sy in (-1, 1) for sv in (-1, 1)]   # (
 BOARD_CB_C = CAM_BOSS_H + 4.0          # board-screw counterbore floor, along the axis from the board face
 F_PX, WIN_MARGIN, PUPIL_R = 294.0, 15.0, 2.0   # px; margin ~3°; pupil + lens-centring slop (mm)
 SLIT_DOWN, SLIT_UP = -42.0, 86.0                # eye slit planes (deg, n-z plane); rays span -38.8..+82.9
-NUT_AF, NUT_T, NUT_C = 4.0, 1.6, 5.0             # M2 hex nut (captive, slid in from the body side), from the board face
+NUT_AF, NUT_T, NUT_C = 4.0, 1.6, 4.5             # M2 hex nut (captive, slid in from the body side), from the board face
 FC = np.array([F_ND[0], 0.0, F_ND[1]])   # axis in (n, t, d)
 UC = np.array([U_ND[0], 0.0, U_ND[1]])
 TC = np.array([0.0, 1.0, 0.0])
@@ -122,7 +122,7 @@ cap = inter(Box(SEAT - CSK, LAND, -FL_T, FL_T, 0.0, H_TOP),
 # frame: c along the axis from the board's front face, b along the board's up, t across.
 POD_C, POD_B, POD_T = (-3.0, 18.0), (-17.1, 10.75), 13.5
 POCKET_CL = 0.3                                     # board pocket clearance per side
-HOLDER_D, HOLDER_C = 19.0, 7.0                      # lens holder envelope Ø, height off the board [MEASURE]
+HOLDER_SQ, HOLDER_C = 15.6, 7.0                     # square M12 lens-holder pocket, height off the board [MEASURE caliper]
 BARREL_D = 14.0 + 0.5                               # lens barrel Ø14 + clearance
 
 
@@ -139,12 +139,23 @@ board_pocket = inter(Box(0.0, LAND + 12.0, -12.5 - POCKET_CL, 12.5 + POCKET_CL, 
                      bplane(FC, CAM_BOSS_H, 1), bplane(FC, -POD_C[0] + 1.0, -1),
                      bplane(UC, 8.25 + POCKET_CL, 1), bplane(UC, 15.6 + POCKET_CL, -1))   # open back, board + parts room
 bosses = union(*[axis_cyl(B3 + t * TC + v * UC, FC, CAM_BOSS_R, 0.0, CAM_BOSS_H + 0.5) for t, v in BOARD_HOLES])
+NUT_RUN = 1.5                                       # nut slot run outward from the hole (to the pod side)
+# the cap band under the pod opens for the ribbon (user, 2026-10-29: no bottom screw, open that region; the core
+# opens the same region, n 15.9..25.4, t ±13.875, d 59..76)
+under_open = inter(Box(15.9, 25.4, -OPEN_T, OPEN_T, FL_D[1] - 76.0, FL_D[1] - (OPEN_D[1] - 1.0)))
+RIBBON_SLOT = dict(t=8.5, c=(-3.6, 1.0), b=(-24.0, -15.5))   # approved 2026-10-29: 17 wide, through the pod's bottom wall
+ribbon_slot = inter(Box(0.0, LAND + 12.0, -RIBBON_SLOT['t'], RIBBON_SLOT['t'], 0.0, H_TOP),
+                    bplane(FC, RIBBON_SLOT['c'][1], 1), bplane(FC, -RIBBON_SLOT['c'][0], -1),
+                    bplane(UC, RIBBON_SLOT['b'][1], 1), bplane(UC, -RIBBON_SLOT['b'][0], -1))
 cuts = union(
-    axis_cyl(B3, FC, (HOLDER_D + RESIN_HOLE_COMP) / 2, -0.5, HOLDER_C, peak=True),          # lens holder
-    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] + 1.0),     # barrel, out the face
+    ribbon_slot,
+    obox(B3 + (HOLDER_C - 0.5) / 2 * FC, (TC, UC, FC), ((HOLDER_SQ + RESIN_HOLE_COMP) / 2, (HOLDER_SQ + RESIN_HOLE_COMP) / 2,
+         (HOLDER_C + 0.5) / 2)),                                                              # lens holder (square)
+    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] + 1.0, peak=True),   # barrel
     *[axis_cyl(B3 + t * TC + v * UC, FC, (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -1.0, NUT_C + NUT_T + 2.0) for t, v in BOARD_HOLES],
-    *[obox(B3 + (t + np.sign(t) * 3.0) * TC + v * UC + (NUT_C + NUT_T / 2) * FC, (TC, UC, FC),
-           (3.0 + (NUT_AF + 0.4) / 2 / np.cos(np.pi / 6), (NUT_AF + 0.4) / 2, (NUT_T + 0.4) / 2)) for t, v in BOARD_HOLES],
+    *[obox(B3 + (t + np.sign(t) * NUT_RUN) * TC + v * UC + (NUT_C + NUT_T / 2) * FC, (TC, UC, FC),
+           (NUT_RUN + (NUT_AF + 0.4) / 2 / np.cos(np.pi / 6), (NUT_AF + 0.4) / 2, (NUT_T + 0.4) / 2)) for t, v in BOARD_HOLES],
+    under_open,
     *[axis_cyl((SEAT, t, d), (1, 0, 0), (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -10.0, 20.0) for t, d in CART_SCREWS],
     *[axis_cyl((SEAT, t, d), (1, 0, 0), (HEAD_CB + RESIN_HOLE_COMP) / 2, 0.0, 20.0) for t, d in CART_SCREWS])
 
@@ -164,7 +175,25 @@ def mouth_cone(c0=POD_C[1] - 1.5, r0=5.0, half=np.radians(78.0)):
 
 # FLUSH insert (user, 2026-10-29): the outside is the core's R30 curve, nothing protrudes but the lens; the camera
 # pod is clipped to the inside of the curve.
-ROOT = sub(union(cap, inter(pod, Cyl('d', (0.0, 0.0), R_FRONT))), sub(board_pocket, bosses), cuts, mouth_cone())
+
+
+SLOPE_ELEV = float(__import__('os').environ.get('PI_BOX_V4_SLOPE', '77.7'))                                   # deg: the brow slope above the lens (user, 2026-10-29: no ledge)
+SLOPE_RIM = 7.0                                     # lens top rim: Q + 7 U = (26.75, 28.8); the plane ends where the core's
+                                                   # countersink meets the R30 surface, (30.0, 13.9): one line (home:2155)
+
+
+def brow_slope():
+    """Above the lens: one plane along t, from the lens's top rim rising outward at SLOPE_ELEV, everything outside it
+    removed. At t = 0 it meets the R30 surface at d ~21.7, the cartridge's top edge, so it runs straight on into the
+    core's surface (no ledge). Replaces the countersink cone's upper half."""
+    n0, d0 = LENS_Q[0] + SLOPE_RIM * U_ND[0], LENS_Q[1] + SLOPE_RIM * U_ND[1]
+    ta = np.tan(np.radians(SLOPE_ELEV))
+    return inter(Box(n0 - 1.0, LAND + 12.0, -FL_T - 1, FL_T + 1, 0.0, H_TOP),
+                 H(-ta, 0, -1, -(n0 * ta + d0)), H(0, 0, 1, LENS_Q[1]))
+
+
+ROOT = sub(union(cap, inter(pod, Cyl('d', (0.0, 0.0), R_FRONT))), sub(board_pocket, bosses), cuts,
+           inter(mouth_cone(), H(0, 0, -1, -LENS_Q[1])), brow_slope())
 
 N0, N1 = 4.0, LAND + 9.0                               # part extent along n (tree X'): the pod's chin
 T0, T1 = -FL_T - 0.5, FL_T + 0.5
@@ -222,6 +251,81 @@ def meshes(h=0.3):
 LENS_GLASS = 2.0                       # the lens's front taper (render only)
 
 
+def _cyl_tris(o, a, r, c0, c1, n=20):
+    """Cylinder triangles in land coords along unit axis a from o (c0..c1), radius r."""
+    o, a = np.asarray(o, float), np.asarray(a, float) / np.linalg.norm(a)
+    e1 = np.cross(a, [0.0, 1.0, 0.0]) if abs(a[1]) < 0.9 else np.cross(a, [1.0, 0.0, 0.0])
+    e1 /= np.linalg.norm(e1); e2 = np.cross(a, e1)
+    q = np.linspace(0, 2 * np.pi, n + 1)
+    ring = lambda c: [o + c * a + r * (np.cos(x) * e1 + np.sin(x) * e2) for x in q]
+    r0, r1, p0, p1 = ring(c0), ring(c1), o + c0 * a, o + c1 * a
+    return np.array([t for i in range(n) for t in ((r0[i], r0[i + 1], r1[i + 1]), (r0[i], r1[i + 1], r1[i]),
+                                                   (p0, r0[i + 1], r0[i]), (p1, r1[i], r1[i + 1]))])
+
+
+def _box_tris(o, a, b, c):
+    o = np.asarray(o, float)
+    P = [o + i * a + j * b + k * c for i in (0, 1) for j in (0, 1) for k in (0, 1)]
+    F = [(0, 1, 3), (0, 3, 2), (4, 6, 7), (4, 7, 5), (0, 4, 5), (0, 5, 1), (2, 3, 7), (2, 7, 6),
+         (0, 2, 6), (0, 6, 4), (1, 5, 7), (1, 7, 3)]
+    return np.array([[P[i], P[j], P[k]] for i, j, k in F])
+
+
+def hardware():
+    """Board-side parts in land coords (n, t, d): [(name, tris, colour, label)]."""
+    conn = _box_tris(B3 - 8.0 * TC - 15.6 * UC - 1.6 * FC, 16.0 * TC, 4.5 * UC, -2.5 * FC)
+    holder = _box_tris(B3 - 7.5 * TC - 7.5 * UC, 15.0 * TC, 15.0 * UC, 6.5 * FC)
+    screws = np.concatenate([_cyl_tris(B3 + t * TC + v * UC, FC, 1.0, -1.6, NUT_C + NUT_T + 0.5)
+                             for t, v in BOARD_HOLES] +
+                            [_cyl_tris(B3 + t * TC + v * UC, FC, 1.9, -3.2, -1.6) for t, v in BOARD_HOLES])
+    nuts = np.concatenate([_cyl_tris(B3 + t * TC + v * UC, FC, NUT_AF / 2 / np.cos(np.pi / 6), NUT_C, NUT_C + NUT_T, 6)
+                           for t, v in BOARD_HOLES])
+    fl = np.concatenate([_cyl_tris((SEAT, t, d), (1, 0, 0), 1.0, -5.0, 2.0) for t, d in CART_SCREWS] +
+                        [_cyl_tris((SEAT, t, d), (1, 0, 0), 1.9, 2.0, 3.6) for t, d in CART_SCREWS])
+    # ribbon: from the connector down along the board, out through the slot, then straight down (+d) 20 mm
+    e0 = B3 - 15.6 * UC - 2.6 * FC
+    e1 = e0 - 9.0 * UC
+    e2 = e1 + np.array([0.0, 0.0, 20.0])               # straight down at n ~20.8, through the opened region
+    rib = np.concatenate([_box_tris(e0 - 8.0 * TC, 16.0 * TC, (e1 - e0), 0.3 * FC),
+                          _box_tris(e1 - 8.0 * TC, 16.0 * TC, (e2 - e1), 0.3 * FC)])
+    return [('v4_cam_connector', conn, '#f1c40f', 'board FFC connector (back, bottom edge)'),
+            ('v4_cam_holder', holder, '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
+            ('v4_cam_screws', screws, '#bdc3c7', '4 x M2x8 board screws from behind'),
+            ('v4_cam_nuts', nuts, '#2c3e50', '4 x M2 hex nuts in the side slots'),
+            ('v4_flange_screws', fl, '#ecf0f1', '4 x M2 flange screws (sides) into the core pad inserts'),
+            ('v4_cam_ribbon', rib, '#e67e22', 'ribbon out through the 17 x 4 slot (first 30 mm)')]
+
+
+# 200 mm ribbons, routes in the core (rig X, Yr, d), per sketches/pi_box_v4_ribbon_sketch.py (approved 2026-10-29)
+RIBBON_ROUTES = {1: [(34.0, -40.1, 58.2), (38.0, -42.4, 66.0), (38.0, -42.4, 117.0), (31.0, -36.5, 117.0),
+                     (24.0, -36.0, 117.0)],
+                 -1: [(-34.0, -40.1, 58.2), (-38.0, -42.4, 66.0), (-38.0, -42.4, 80.0), (-37.0, -50.0, 100.0), (-30.0, -51.0, 125.0),
+                      (31.0, -51.0, 125.0), (31.0, -36.0, 125.0), (24.0, -34.0, 125.0)]}
+
+
+def ribbon_route_tris():
+    from designs import pi_box_bat_rig as R
+    return np.concatenate([R._strip([(x, y, -d) for x, y, d in RIBBON_ROUTES[s]], 16.0, 0.3, [0, 1.0, 0])
+                           for s in (1, -1)])
+
+
+def _write_overlays():
+    """Overlays for this module's own viewer page: hardware on the second printed piece (tree frame -> print)."""
+    from designs import pi_box_bat_rig as R
+    od = R.ROOT / 'slicer_preview' / 'out' / 'overlays_v4_cartridge'
+    od.mkdir(parents=True, exist_ok=True)
+    board, lens = meshes_board_lens()
+    items = [('board', board, '#1e8449', 'OV9281 board 25 x 23.85'), ('lens', lens, '#34495e', 'lens Ø14 x 18')] +         [(n.replace('v4_', ''), t, c, l) for n, t, c, l in hardware()]
+    out = []
+    x0, z0 = -(N1 - N0) / 2, GAP / 2
+    for name, t, col, lab in items:
+        pr = np.stack([t[..., 0] - N0 + x0, C_FL_D1 - t[..., 2], t[..., 1] - T0 + z0], -1)
+        path = od / f'{name}.stl'
+        R._write_stl(path, pr)
+        out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color=col, opacity=1.0, label=lab))
+    return out
+
+
 def rig_meshes():
     """[(name, rig-frame tris, colour, label)] for the core's viewer overlays (both sides)."""
     cart, board, lens = meshes()
@@ -231,4 +335,32 @@ def rig_meshes():
                               ('v4_cam_lenses', lens, '#566573', 'lens Ø14 × 18')):
         tri = np.concatenate([land_to_rig(t, s)[:, ::s] for s in (-1, 1)]) * [1, 1, -1]   # z up; mirror flips winding
         out.append((name, tri, col, lab))
+    for name, t, col, lab in hardware():
+        out.append((name, np.concatenate([land_to_rig(t, s)[:, ::s] for s in (-1, 1)]) * [1, 1, -1], col, lab))
+    out.append(('v4_cam_ribbon_routes', ribbon_route_tris(), '#e67e22', 'camera ribbons, 200 mm, routes to the Pi CSI'))
     return out
+
+
+def meshes_board_lens():
+    """Board + lens only (no marching cubes)."""
+    q = np.linspace(0, 2 * np.pi, 33)
+    board = _box_tris(B3 - 12.5 * TC - 15.6 * UC - 1.6 * FC, 25 * TC, 23.85 * UC, 1.6 * FC)
+    lens = np.concatenate([_cyl_tris(B3 + 6.5 * FC, FC, 7.0, 0.0, 11.5 - LENS_GLASS),
+                           _cyl_tris(B3 + 6.5 * FC, FC, 5.5, 11.5 - LENS_GLASS, 11.5)])
+    return board, lens
+
+
+C_FL_D1 = FL_D[1]
+_OV_DIR = 'slicer_preview/out/overlays_v4_cartridge'
+OVERLAYS = [dict(file=f'{_OV_DIR}/{n}.stl', color=c, opacity=1.0, label=l) for n, c, l in (
+    ('board', '#1e8449', 'OV9281 board 25 x 23.85'), ('lens', '#34495e', 'lens Ø14 x 18'),
+    ('cam_connector', '#f1c40f', 'board FFC connector (back, bottom edge)'),
+    ('cam_holder', '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
+    ('cam_screws', '#bdc3c7', '4 x M2x8 board screws from behind'), ('cam_nuts', '#2c3e50', '4 x M2 hex nuts in the side slots'),
+    ('flange_screws', '#ecf0f1', '4 x M2 flange screws (sides) into the core pad inserts'),
+    ('cam_ribbon', '#e67e22', 'ribbon out through the 17 x 4 slot (first 30 mm)'))]
+# (no file writes at import: python -m designs.pi_box_v4_cam_cartridge writes these overlay STLs)
+
+
+if __name__ == '__main__':
+    print(len(_write_overlays()), 'overlay STLs written')
