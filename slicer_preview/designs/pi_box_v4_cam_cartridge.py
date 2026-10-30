@@ -134,8 +134,7 @@ def bplane(a, k, sign):
 pod = inter(Box(0.0, LAND + 12.0, -POD_T, POD_T, 0.0, H_TOP),
             bplane(FC, POD_C[1], 1), bplane(FC, -POD_C[0], -1), bplane(UC, POD_B[1], 1), bplane(UC, -POD_B[0], -1),
             H(0, 1, 0, POD_T), H(0, -1, 0, POD_T))
-pod = union(pod, inter(Box(0.0, LAND + 12.0, -POD_T, POD_T, 0.0, H_TOP), bplane(FC, CAM_BOSS_H, 1), bplane(FC, -POD_C[0], -1),
-                       bplane(UC, 17.1, 1), bplane(UC, -POD_B[0], -1), H(0, 1, 0, POD_T), H(0, -1, 0, POD_T)))   # back block for the up pose
+# (no back block: the board's top end is open behind the boss tops; connector-up, the connector sticks out free. User)
 face = bplane(FC, POD_C[1], 1)                      # nothing of the cartridge in front of the face plane
 board_pocket = inter(Box(0.0, LAND + 12.0, -12.5 - POCKET_CL, 12.5 + POCKET_CL, 0.0, H_TOP),
                      bplane(FC, CAM_BOSS_H, 1), bplane(FC, -POD_C[0] + 1.0, -1),
