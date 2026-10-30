@@ -36,13 +36,13 @@ def frame_mask(X, y, d):
     s = PV.panel_mask(X, y, d)
     cx, cd = RING_C
     r = np.hypot(X - cx, d - cd)
-    keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | (r <= B3.DISC_R)
-    top, bot, R0, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.DISC_R, B3.IN_X
-    for a, b in [((0.0, cd - R0 + 1), (0.0, top)), ((-R0 + 1, cd), (-IN, cd)), ((R0 - 1, cd), (IN, cd)),
-                 ((-0.7 * R0, cd - 0.7 * R0), (-IN, top)), ((0.7 * R0, cd - 0.7 * R0), (IN, top)),
-                 ((-0.7 * R0, cd + 0.7 * R0), (-IN, bot)), ((0.7 * R0, cd + 0.7 * R0), (IN, bot)),
-                 ((-IN, bot), (IN, bot))]:
-        keep |= B3._seg(X, d, a, b)
+    ring = (r <= B3.DISC_R) & (r >= B3.RING_ID / 2 - 1.5)              # solid annulus under the MagSafe ring only;
+    keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | ring   # inside it the braces
+    top, bot, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.IN_X                 # run through to the centre (user home:2289)
+    c = (cx, cd)
+    for t in [(0.0, top), (-IN, cd), (IN, cd), (-IN, top), (IN, top), (-IN, bot), (IN, bot)]:
+        keep |= B3._seg(X, d, c, t)
+    keep |= B3._seg(X, d, (-IN, bot), (IN, bot))                       # window head
     return s & keep
 
 
