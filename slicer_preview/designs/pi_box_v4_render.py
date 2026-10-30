@@ -36,11 +36,12 @@ POLE = ['monopod']
 def main():
     import bpy
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    PR.setup_scene()
+    ground = PR.setup_scene()
     objs = PR.load_parts()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     every = BOX + INSIDE + TOP + POLE
     for view in VIEWS:
+        ground.hide_render = view in ('rear34_below', 'door_half')   # these cameras sit below the ground plane
         for c in [o for o in bpy.data.objects if o.type == 'CAMERA']:
             bpy.data.objects.remove(c)
         if view == 'front34':                       # from the front (-Y), +X side, above
