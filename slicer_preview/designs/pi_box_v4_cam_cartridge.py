@@ -17,7 +17,7 @@ Tree frame: (X', Y', d') = (n, t, h) in the +X camera's land frame, h = FL_D[1] 
 """
 import numpy as np
 from sdf import Box, Cyl, Half, Fn, union, inter, sub, sdf_piece, solid, INF
-from designs.pi_box_bat_rig import RESIN_HOLE_COMP, CAM_BOSS_R, CAM_BOSS_H, CAM_WINDOW
+from designs.pi_box_bat_rig import RESIN_HOLE_COMP, CAM_BOSS_R, CAM_BOSS_H, CAM_WINDOW, CAM_INSERT_D, CAM_INSERT_L
 from designs.pi_box_v4_core import (R_FRONT, LAND, SEAT, CSK, OPEN_T, OPEN_D, FL_T, FL_D, CART_SCREWS, F_ND, U_ND,
                                     LENS_Q, BOARD_B, RC, N2, T2, X_OUT, Y_MIN)
 
@@ -141,6 +141,7 @@ board_pocket = inter(Box(0.0, LAND + 12.0, -12.5 - POCKET_CL, 12.5 + POCKET_CL, 
                      bplane(UC, 15.6 + POCKET_CL, 1), bplane(UC, 15.6 + POCKET_CL, -1))   # REVERSIBLE (proposal, home:2221):
 #                                                    board fits connector-down or connector-up (u ±15.6 about the lens)   # open back, board + parts room
 bosses = union(*[axis_cyl(B3 + t * TC + v * UC, FC, CAM_BOSS_R, 0.0, CAM_BOSS_H + 0.5) for t, v in BOARD_HOLES])
+BOARD_SCREW_L = 5.0                                 # M2x5: 1.6 board + 2.5 insert + 0.9 tip room
 NUT_RUN = 1.5                                       # nut slot run outward from the hole (to the pod side)
 # the cap band under the pod opens for the ribbon (user, 2026-10-29: no bottom screw, open that region; the core
 # opens the same region, n 15.9..25.4, t ±13.875, d 59..76)
@@ -156,9 +157,10 @@ cuts = union(
          (HOLDER_C + 0.5) / 2)),                                                              # lens holder (square)
     axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] - 6.0, peak=True),   # barrel: peaked
     axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, POD_C[1] - 6.01, POD_C[1] + 1.0),   # ...round for the last 6 (no notch in the eye)
-    *[axis_cyl(B3 + t * TC + v * UC, FC, (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -1.0, NUT_C + NUT_T + 2.0) for t, v in BOARD_HOLES],
-    *[obox(B3 + (t + np.sign(t) * NUT_RUN) * TC + v * UC + (NUT_C + NUT_T / 2) * FC, (TC, UC, FC),
-           (NUT_RUN + (NUT_AF + 0.4) / 2 / np.cos(np.pi / 6), (NUT_AF + 0.4) / 2, (NUT_T + 0.4) / 2)) for t, v in BOARD_HOLES],
+    # M2 threaded inserts (user, 2026-10-30: inserts everywhere, no nuts), pressed into each boss from the board face,
+    # bore = CAM_INSERT_D + comp, depth CAM_INSERT_L + 1 (screw tip); M2x5 from behind through the 1.6 board
+    *[axis_cyl(B3 + t * TC + v * UC, FC, (CAM_INSERT_D + RESIN_HOLE_COMP) / 2, -1.0, CAM_INSERT_L + 1.0, peak=True)
+      for t, v in BOARD_HOLES],
     under_open,
     *[axis_cyl((SEAT, t, d), (1, 0, 0), (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -10.0, 20.0) for t, d in CART_SCREWS],
     *[axis_cyl((SEAT, t, d), (1, 0, 0), (HEAD_CB + RESIN_HOLE_COMP) / 2, 0.0, 20.0) for t, d in CART_SCREWS])
@@ -291,11 +293,11 @@ def hardware():
     """Board-side parts in land coords (n, t, d): [(name, tris, colour, label)]."""
     conn = _box_tris(B3 - 8.0 * TC - 15.6 * UC - 1.6 * FC, 16.0 * TC, 4.5 * UC, -2.5 * FC)
     holder = _box_tris(B3 - 7.5 * TC - 7.5 * UC, 15.0 * TC, 15.0 * UC, 6.5 * FC)
-    screws = np.concatenate([_cyl_tris(B3 + t * TC + v * UC, FC, 1.0, -1.6, NUT_C + NUT_T + 0.5)
+    screws = np.concatenate([_cyl_tris(B3 + t * TC + v * UC, FC, 1.0, -1.6, BOARD_SCREW_L - 1.6)
                              for t, v in BOARD_HOLES] +
                             [_cyl_tris(B3 + t * TC + v * UC, FC, 1.9, -3.2, -1.6) for t, v in BOARD_HOLES])
-    nuts = np.concatenate([_cyl_tris(B3 + t * TC + v * UC, FC, NUT_AF / 2 / np.cos(np.pi / 6), NUT_C, NUT_C + NUT_T, 6)
-                           for t, v in BOARD_HOLES])
+    nuts = np.concatenate([_cyl_tris(B3 + t * TC + v * UC, FC, CAM_INSERT_D / 2, 0.0, CAM_INSERT_L, 12)
+                           for t, v in BOARD_HOLES])                       # M2 inserts in the bosses
     fl = np.concatenate([_cyl_tris((SEAT, t, d), (1, 0, 0), 1.0, -5.0, 2.0) for t, d in CART_SCREWS] +
                         [_cyl_tris((SEAT, t, d), (1, 0, 0), 1.9, 2.0, 3.6) for t, d in CART_SCREWS])
     # ribbon: from the connector down along the board, out through the slot, then straight down (+d) 20 mm
@@ -314,8 +316,8 @@ def hardware():
             ('v4_cam_board_up', board_up, '#a9dfbf', 'ALTERNATIVE pose: board turned 180° (connector up), proposal'),
             ('v4_cam_connector_up', conn_up, '#f9e79f', 'ALTERNATIVE pose: connector at the top edge'),
             ('v4_cam_holder', holder, '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
-            ('v4_cam_screws', screws, '#bdc3c7', '4 x M2x8 board screws from behind'),
-            ('v4_cam_nuts', nuts, '#2c3e50', '4 x M2 hex nuts in the side slots'),
+            ('v4_cam_screws', screws, '#bdc3c7', '4 x M2x5 board screws from behind'),
+            ('v4_cam_nuts', nuts, '#2c3e50', '4 x M2 threaded inserts in the bosses (CAM_INSERT_D x L)'),
             ('v4_flange_screws', fl, '#ecf0f1', '4 x M2 flange screws (sides) into the core pad inserts'),
             ('v4_cam_ribbon', rib, '#e67e22', 'ribbon out through the 17 x 4 slot, jog inward, down (first ~30 mm)')]
 
@@ -383,7 +385,7 @@ OVERLAYS = [dict(file=f'{_OV_DIR}/{n}.stl', color=c, opacity=1.0, label=l) for n
     ('cam_board_up', '#a9dfbf', 'ALTERNATIVE pose: board turned 180° (connector up), proposal'),
     ('cam_connector_up', '#f9e79f', 'ALTERNATIVE pose: connector at the top edge'),
     ('cam_holder', '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
-    ('cam_screws', '#bdc3c7', '4 x M2x8 board screws from behind'), ('cam_nuts', '#2c3e50', '4 x M2 hex nuts in the side slots'),
+    ('cam_screws', '#bdc3c7', '4 x M2x5 board screws from behind'), ('cam_nuts', '#2c3e50', '4 x M2 threaded inserts in the bosses (CAM_INSERT_D x L)'),
     ('flange_screws', '#ecf0f1', '4 x M2 flange screws (sides) into the core pad inserts'),
     ('cam_ribbon', '#e67e22', 'ribbon out through the 17 x 4 slot (first 30 mm)'))]
 # (no file writes at import: python -m designs.pi_box_v4_cam_cartridge writes these overlay STLs)
