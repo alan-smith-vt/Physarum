@@ -64,6 +64,10 @@ def _parts():
     if hasattr(C, 'PV'):                                           # v3: L-hook panels
         PV = C.PV
         for tag, face, sg in (('-Y', C._lo0 + PV.CL, 1), ('+Y', C._hi1 - PV.CL, -1)):
+            if sg > 0 and hasattr(C, 'front_panel_rig'):          # v4: wide front panel (rig-frame solid)
+                out.append(('panel -Y (v4 wide)', lambda X, Y, d: C.front_panel_rig(X, Y, d), (-C.X_OUT - 1, C.X_OUT + 1),
+                            (C.Y_MIN - 1, C.RC[1] + C.NECK_L + C.HOOK_W + 1), (C.FRONT_PANEL_D0 + 0.05, C.DEPTH - 0.05)))
+                continue
             fn = PV.panel_mask if sg > 0 else importlib.import_module('designs.pi_box_bat_back_panel_v3').back_mask
             hw, d0 = PV.HALF_W, PV.D0
             if sg > 0 and hasattr(C, 'front_panel_mask'):         # v4: narrow front panel

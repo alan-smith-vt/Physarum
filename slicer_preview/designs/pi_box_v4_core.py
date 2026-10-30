@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 import numpy as np
 from sdf import Box, Cyl, Half, Fn, union, inter, sub, sdf_piece, INF
+from geometry import implicit_piece
 from designs import pi_box_bat_rig as R
 
 R_FRONT, LAND_OFF = 30.0, 0.0                    # no flat land: the cartridge is flush with the R30 curve
@@ -200,7 +201,9 @@ def _pad_support(s):
 DOOR_RAIL = dict(y0=30.5, d0=175.6, d1=178.4, depth=1.6)   # CLOSED groove: the 1.6 ledge below carries the door
 DOOR_WEB_CLEAR = 1.8
 PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(-41.1, 44.0), dia=4.0, L=6.0)   # M3 insert (door thumb screw, user 2026-10-29)
-FLOOR_BOSSES_V4 = [(sx * 31.0, -51.0) for sx in (-1, 1)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]
+FLOOR_BUTTON = (-34.0, 13.0)                       # floor power button (home:2092)
+FLOOR_BOSSES_V4 = [(-42.0, -18.0), (45.0, 6.5)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]   # front pair moved off the
+# rounds (wide front panel, user approved home:2136; floor home/v4-floor); the +X one stays X >= 41.5 (home:2135)
 
 
 def _floor_iface():
@@ -263,10 +266,12 @@ def _web_notch():
 
 # Panel top-edge tongue groove under the back panel-stop rim (user approved home:2130; sketch
 # designs/sketches/pi_box_v4_panel_tongue_sketch.py): 2.35 wide (tongue 1.6 + CL per side), 3.4 deep, 45° roof.
-# The front panel's groove follows with the wide front panel decision (home:2131).
+# Front: the centre strip's top edge (|X| <= FRONT_TONGUE_X) the same way.
 TONGUE_T, TONGUE_H, TONGUE_GAP = 1.6, 3.0, 0.4
 BACK_TONGUE_X = (6.2, X_IN - 2.5)                  # |X| range: gap at the lidar-cable notch
 BACK_PANEL_YC = Y_MAX - R.PANEL_LIP - PV.CL - R.PANEL_T / 2
+FRONT_TONGUE_X = XE - 2.5
+FRONT_PANEL_YC = Y_MIN + R.PANEL_LIP + PV.CL + R.PANEL_T / 2
 
 
 def _rim_grooves():
@@ -274,7 +279,105 @@ def _rim_grooves():
     yc, top = BACK_PANEL_YC, R.RIM_D - TONGUE_H - TONGUE_GAP
     roof = [Half(0, 1, -1, yc - (top - g)), Half(0, -1, -1, -yc - (top - g))]
     x0, x1 = BACK_TONGUE_X[0] - PV.CL, BACK_TONGUE_X[1] + PV.CL
-    return union(*[inter(Box(*sorted((s * x0, s * x1)), yc - g, yc + g, top - g, R.RIM_D + 0.01), *roof) for s in (-1, 1)])
+    back = [inter(Box(*sorted((s * x0, s * x1)), yc - g, yc + g, top - g, R.RIM_D + 0.01), *roof) for s in (-1, 1)]
+    yc = FRONT_PANEL_YC
+    roof = [Half(0, 1, -1, yc - (top - g)), Half(0, -1, -1, -yc - (top - g))]
+    xf = FRONT_TONGUE_X + PV.CL
+    return union(*back, inter(Box(-xf, xf, yc - g, yc + g, top - g, R.RIM_D + 0.01), *roof))
+
+
+# ── wide front panel (user approved home:2136; sketch designs/sketches/pi_box_v4_front_panel_wide_sketch.py) ──
+# Below STEP everything in front of the round/side-wall tangent (Yr < RC[1]) is the removable panel: front flat + both
+# R30 rounds, wall PT, outer face on the envelope; L-hook edges (neck along each side wall's inner face, hook turning
+# out into a channel in the wall); its top edge tongues into a groove in the fixed round shell at the step. Above
+# STEP the centre strip (|X| <= XE, as before) runs up to the rim. It slides in from the floor end.
+STEP = 72.0                                        # 6 below the cartridge pad frame (FL_D[1] + 2.5 = 66)
+PT = 3.2
+NECK_T, NECK_L, HOOK_W, HOOK_T = 1.6, 5.0, 2.0, 1.6
+STEP_TONGUE_X0 = 26.0                              # step tongue on the rounds' |X| >= this (clear of the XE pillars)
+R_MID = R_FRONT - PT + TONGUE_T / 2                # step tongue on the panel's inner half (R 26.8..28.4)
+STEP_RIB = (24.0, 8.0)                             # fixed shell thickened inward above the step: to R 24, 8 deep
+
+
+def _front_rad(X, Y, xp):
+    """Distance from the front stadium's centre line (|X| <= XE at Yr RC[1]), for Yr <= RC[1]."""
+    return xp.sqrt(xp.maximum(xp.abs(X) - XE, 0.0) ** 2 + xp.maximum(RC[1] - Y, 0.0) ** 2)
+
+
+def _front_cuts():
+    cl = PV.CL
+    y_hook = RC[1] + NECK_L
+    out = [Box(-X_OUT - 1, X_OUT + 1, Y_MIN - 1, RC[1], STEP, BOT + 1)]      # the panel's zone
+    for s in (-1, 1):
+        out.append(Box(*sorted((s * (X_IN - NECK_T - 2 * cl - 0.5), s * (X_IN + 0.01))), RC[1] - 1, y_hook + HOOK_W + cl,
+                       STEP, BOT + 1))                                       # neck + hook clearance inside the wall
+        out.append(Box(*sorted((s * (X_IN - 0.01), s * (X_IN + HOOK_T + cl))), y_hook - cl, y_hook + HOOK_W + cl,
+                       STEP, BOT + 1))                                       # hook channel in the wall
+    g = TONGUE_T / 2 + cl
+    top = STEP - TONGUE_H - TONGUE_GAP
+
+    def groove(X, Y, d, xp):                                                 # 45° roof (print +d up)
+        e = xp.abs(_front_rad(X, Y, xp) - R_MID)
+        f = xp.maximum(e - g, (top - g + e) - d)
+        f = xp.maximum(f, d - (STEP + 0.01))
+        f = xp.maximum(f, (STEP_TONGUE_X0 - cl) - xp.abs(X))
+        return xp.maximum(f, Y - (RC[1] - 1.0))
+    out.append(Fn(groove, (-X_OUT, X_OUT, Y_MIN, RC[1], top - g - 1, STEP + 1)))
+    # floor switch nut (18.8 AC, r 9.4 + 0.35) clears the -X web foot corner (home:2144)
+    out.append(Cyl('d', FLOOR_BUTTON, 9.75, 175.0, BOT + 0.01))
+    # +X front floor boss (45, 6.5): kept at X >= 41.5 (the floor's +X rail end, home:2135)
+    bx, by = FLOOR_BOSSES_V4[1]
+    out.append(inter(Cyl('d', (bx, by), R.BOSS_R + 0.5, STEP, BOT + 1), Box(0.0, 41.5, by - 6, by + 6, STEP, BOT + 1)))
+    return union(*out)
+
+
+def _step_rib():
+    """Inner rib on the fixed rounds just above the step (the groove leaves >= 1.2 outer skin); 45° top (print +d up)."""
+    r0, h = STEP_RIB
+
+    def f(X, Y, d, xp):
+        rad = _front_rad(X, Y, xp)
+        g = xp.maximum(r0 - rad, rad - (R_FRONT - 3.0))
+        g = xp.maximum(g, (STEP - h + (R_FRONT - 4.0 - rad)) - d)   # 45° from the wall face
+        g = xp.maximum(g, d - STEP)
+        g = xp.maximum(g, (STEP_TONGUE_X0 - 2.0) - xp.abs(X))
+        return xp.maximum(g, Y - (RC[1] - 1.0))
+    return Fn(f, (-X_OUT, X_OUT, Y_MIN, RC[1], STEP - h - 3, STEP))
+
+
+def front_panel_rig(X, Y, d):
+    """The removable front panel, rig frame: X, Y arrays (broadcast), d scalar -> bool. Nominal size minus
+    PRINT_GROW on its faces; the clearance is in the core's channels and grooves (CL)."""
+    xp, G, cl = np, PV.PRINT_GROW, PV.CL
+    X, Y = np.asarray(X, float), np.asarray(Y, float)
+    ax = np.abs(X)
+    rad = _front_rad(X, Y, xp)
+    front = Y <= RC[1] - 0.2                                                # 0.2 gap at the wall ends
+    s = np.zeros(np.broadcast_shapes(X.shape, Y.shape), bool)
+    if STEP + 0.1 <= d <= DEPTH - 0.1:
+        x0, x1 = X_IN - cl - NECK_T + G, X_IN - cl - G                     # neck
+        y_hook = RC[1] + NECK_L
+        shell = front & (rad >= R_FRONT - PT + G) & (rad <= R_FRONT - G)
+        lip = (ax >= x0) & (ax <= X_IN + 1.0) & (Y >= RC[1] - 4.0) & front & (rad <= R_FRONT - G)
+        neck = (ax >= x0) & (ax <= x1) & (Y >= RC[1] - 0.01) & (Y <= y_hook + HOOK_W - G)
+        hook = (ax >= x0) & (ax <= X_IN + HOOK_T - G) & (Y >= y_hook + G) & (Y <= y_hook + HOOK_W - G)
+        s |= shell | lip | neck | hook
+    e = np.abs(rad - R_MID)                                                  # step tongue, 45° tip
+    tt = STEP + 0.1 - TONGUE_H
+    if tt <= d < STEP + 0.2:
+        s |= front & (Y <= RC[1] - 2.0) & (ax >= STEP_TONGUE_X0) & (e <= TONGUE_T / 2 - G) & (d >= tt + e)
+    face = Y_MIN + R.PANEL_LIP + cl                                          # centre strip (+ 10 into the wide part)
+    if d <= STEP + 10.0:
+        y = Y - face
+        s |= front_panel_mask(np.broadcast_to(X, s.shape), y, d)
+        ty = np.abs(y - R.PANEL_T / 2)
+        dt = PV.D0 - TONGUE_H                                                # its top tongue into the rim
+        if dt <= d < PV.D0 + 1.0:
+            s |= (ty <= TONGUE_T / 2 - G) & (d >= dt + ty) & (ax <= FRONT_TONGUE_X)
+    return s
+
+
+FRONT_PANEL_D0 = PV.D0 - TONGUE_H
 
 
 def _driver_paths():
@@ -290,7 +393,7 @@ def _stubs():
 def _v4_below(below, v3_cuts):
     pads, cam_cuts = _cam_core()
     boss, floor_cuts = _floor_iface()
-    body = union(below, _shells(), pads, *[_pad_support(s) for s in (-1, 1)], boss, _stubs(), _front_bosses())
+    body = union(below, _shells(), pads, *[_pad_support(s) for s in (-1, 1)], boss, _stubs(), _step_rib())   # front bosses: v3 cones
     return sub(inter(body, ENVELOPE), v3_cuts, _front_channels(), cam_cuts, floor_cuts, _driver_paths(), _web_notch(),
                *[Cyl('d', (bx, by), (R.INSERT_D + R.RESIN_HOLE_COMP) / 2, DEPTH - R.INSERT_DEPTH, BOT + 1)
                  for bx, by in FLOOR_BOSSES_V4[:2]])
@@ -299,7 +402,7 @@ def _v4_below(below, v3_cuts):
 def _v4_root(root):
     pads, cam_cuts = _cam_core()
     _, floor_cuts = _floor_iface()
-    return sub(inter(root, ENVELOPE), cam_cuts, _front_channels(), floor_cuts, _driver_paths(), _rim_grooves())
+    return sub(inter(root, ENVELOPE), cam_cuts, _front_channels(), floor_cuts, _driver_paths(), _rim_grooves(), _front_cuts())
 
 
 _V3_PATCHES = [
@@ -398,19 +501,18 @@ def _v4_overlays():
 # Power button on the fixed floor (user approved, home:2092; home/v4-power-button): Ø16 latching switch at (-34, +13),
 # pointing down, bezel on the floor's outer face, body (40 incl. its plug [MEASURE]) up into the -X side bay. Overlay
 # only: the Ø16.35 hole and nut seat are in the floor (home/v4-floor).
-FLOOR_BUTTON = (-34.0, 13.0)
 
 
 def _floor_button_overlay():
     from designs.pi_box_bat_lids import FLOOR_T
     x, y = FLOOR_BUTTON
     face = DEPTH + FLOOR_T                         # floor outer face (d); its top face is DEPTH
-    tris = np.concatenate([R._cyl((x, y, 0.0), 'z', 8.0, -DEPTH, -(DEPTH - 46.0), 32),        # body + plug, d 134..180 (listing: 46 overall)
+    tris = np.concatenate([R._cyl((x, y, 0.0), 'z', 8.0, -DEPTH, -(DEPTH - 40.0), 32),        # body + plug, d 140..180 (measured ~40)
                            R._cyl((x, y, 0.0), 'z', 9.4, -(face + 2.5), -(face + 0.05), 32)])  # bezel Ø18.8 x 2.5 [MEASURE height]
-    nut = R._cyl((x, y, 0.0), 'z', 11.0, -DEPTH + 0.05, -(DEPTH - 2.5), 32)                   # M16 nut ~Ø22 AC [MEASURE]
+    nut = R._cyl((x, y, 0.0), 'z', 9.4, -DEPTH + 0.05, -(DEPTH - 2.5), 32)                    # M16 nut 18.8 AC (measured)
     out = []
     for name, t, op, label in (('power_switch', tris, 0.8, 'power switch, 16 mm latching (15 V line), floor (-34, 13)'),
-                               ('power_switch_nut', nut, 0.35, 'M16 nut, ~22 AC conservative [MEASURE]')):
+                               ('power_switch_nut', nut, 0.35, 'nut 18.8 AC (measured)')):
         path = R.OVERLAY_DIR / f'{name}.stl'
         R._write_stl(path, R.to_print(t))
         out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color='#e74c3c', opacity=op, label=label))
@@ -419,7 +521,7 @@ def _floor_button_overlay():
 
 # Cable route (Ø3, rig (X, Yr, d)); overlay only. J4 -> floor button: PROVISIONAL (home/v4-power-button owns it)
 CABLE_ROUTES = [
-    ('J4 -> floor button', [(-29, -40, 141), (-40, -40, 141), (-40, 8, 140), (-34, 13, 134)]),
+    ('J4 -> floor button', [(-29, -40, 141), (-40, -40, 141), (-40, 8, 140), (-34, 13, 140)]),
 ]
 
 
@@ -446,3 +548,9 @@ def front_panel_mask(X, y, d):
     hook = (y <= R.PANEL_T + PV.HOOK - PV.PRINT_GROW) & (np.abs(X) >= _FRONT_NECK_X)
     s &= (np.abs(X) <= FRONT_HALF_W) & (body | hook) & (y >= 0) & (d >= PV.D0) & (d <= PV.D1)
     return s
+
+
+# the wide front panel as a printable piece (print up = toward the flange: floor edge on the plate, tongues up)
+FRONT_PANEL_PIECES = [implicit_piece(2 * X_OUT, DEPTH - FRONT_PANEL_D0, RC[1] + NECK_L + HOOK_W + 1.0 - Y_MIN,
+                                     lambda x, y, z: front_panel_rig(x - X_OUT, z + Y_MIN, DEPTH - y),
+                                     x0=-X_OUT, z0=Y_MIN)]
