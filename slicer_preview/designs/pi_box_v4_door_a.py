@@ -42,7 +42,7 @@ BOSS_R, BOSS_D1 = 9.0, PLATE_D[1] + 8.0  # boss under the plate: plunger body th
 def door(x, y, z):
     X, d, Yr = x - PLATE_X, y + D_TOP, z + Y_LO
     aX = np.abs(X)
-    inY = Yr <= Y_MAX
+    inY = (Yr <= Y_MAX) & (Yr >= Y_LO) & (d >= D_TOP)
     if d < PLATE_D[0]:                    # inside the walls: webs + hooks
         s = (aX >= HX - WEB_T) & (aX <= HX) & inY
         if TONGUE_D[0] <= d <= TONGUE_D[1]:

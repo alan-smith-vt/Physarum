@@ -54,6 +54,13 @@ def _parts():
         F = importlib.import_module('designs.pi_box_bat_floor_v3')
         out.append(('floor (v3 sliding)', lambda X, Y, d: F.floor(Y - C.Y_MIN, C.DEPTH + F.FLOOR_T3 - d, X + F.TONGUE_X),
                     (-F.TONGUE_X - 1, F.TONGUE_X + 1), (C.Y_MIN, C.Y_MAX), (C.DEPTH + 0.05, C.DEPTH + F.FLOOR_T3 - 0.05)))
+    elif name == 'pi_box_v4_core':                                 # v4 (UNAPPROVED): fixed floor + battery door A
+        F = importlib.import_module('designs.pi_box_v4_floor')
+        D = importlib.import_module('designs.pi_box_v4_door_a')
+        out.append(('floor (v4 fixed)', lambda X, Y, d: F.floor_fixed(Y - C.Y_MIN, C.DEPTH + L.FLOOR_T - d, X + C.X_OUT),
+                    (-C.X_OUT, C.X_OUT), (C.Y_MIN, F.RIB_Y), (C.DEPTH - 5.0, C.DEPTH - 0.05)))
+        out.append(('door A (v4)', lambda X, Y, d: D.door(X + D.PLATE_X, d - D.D_TOP, Y - D.Y_LO),
+                    (-D.PLATE_X, D.PLATE_X), (D.Y_LO, C.Y_MAX), (D.D_TOP + 0.05, C.DEPTH + 0.05)))
     if hasattr(C, 'PV'):                                           # v3: L-hook panels
         PV = C.PV
         for tag, face, sg in (('-Y', C._lo0 + PV.CL, 1), ('+Y', C._hi1 - PV.CL, -1)):

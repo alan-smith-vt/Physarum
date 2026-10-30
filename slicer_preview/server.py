@@ -24,6 +24,10 @@ ALIASES = {
     'v3floor': 'pi_box_bat_floor_v3',
     'v3panel': 'pi_box_bat_panel_v3',          # front panel, L-hook edges
     'v3back': 'pi_box_bat_back_panel_v3',      # back panel: MagSafe recess, braces, window
+    'bumper': 'bumper_coupon',                 # gyroid crush-pad coupon (generated at PREVIEW_SCALE 8)
+    'v4floor': 'pi_box_v4_floor',              # v4 fixed floor (UNAPPROVED)
+    'v4door': 'pi_box_v4_door_a',              # v4 battery door, option A (UNAPPROVED)
+    'v4fit': 'pi_box_v4_door_fit',             # door rail + plunger fit strip (UNAPPROVED)
 }
 
 app = Flask(__name__)
