@@ -11,9 +11,12 @@ when pi_box_v4_core is imported), not on the model functions, so a placement or 
   3. the lens front must not be inside the cartridge either (a mesh-in-mesh test along the axis).
 Prints % of rays blocked per camera and FAILS (exit 1) if anything is blocked.
 """
+import os
 import sys
 from pathlib import Path
 import numpy as np
+
+os.environ.setdefault('PI_BOX_V4_PI', 'flip')        # the flipped Pi is the baseline (user, 2026-10-29: non-flip parked)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from stl_slicer import load_stl                       # noqa: E402
