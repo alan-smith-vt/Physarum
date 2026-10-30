@@ -201,6 +201,7 @@ def _pad_support(s):
 DOOR_RAIL = dict(y0=30.5, d0=175.6, d1=178.4, depth=1.6)   # CLOSED groove: the 1.6 ledge below carries the door
 DOOR_WEB_CLEAR = 1.8
 PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(-41.1, 44.0), dia=4.0, L=6.0)   # M3 insert (door thumb screw, user 2026-10-29)
+ETH_ADAPTER_V4 = dict(x=36.0, y=-15.0, wx=20.0, wy=24.0, h=53.0)   # uni USB-A GbE adapter, RJ45 down [MEASURE]
 FLOOR_BUTTON = (-33.0, 14.0)                       # floor power button (home:2092; moved for the 18.8 AC nut, home:2149)
 FLOOR_BOSSES_V4 = [(-42.0, -18.0), (45.0, 6.5)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]   # front pair moved off the
 # rounds (wide front panel, user approved home:2136; floor home/v4-floor); the +X one stays X >= 41.5 (home:2135)
@@ -416,6 +417,11 @@ _V3_PATCHES = [
      "        _sw['d'] - SWITCH_PAD_R, _sw['d'] + SWITCH_PAD_R),\n", ""),
     ("    hhole('x', _sw['y'], _sw['d'], _sw['hole'], *sorted((_sw['side'] * (X_IN - 0.01), _sw['side'] * X_OUT))),\n", ""),
     ("y0=-55.5, top=80.0,", f"y0={BRD_Y0_V4}, top={BRD_TOP_V4},"),
+    # uni USB-A GbE adapter replaces the UE300 (user, home:2158; spec home/v4-layout home:2160): seat ledge + overlay
+    ("_a = ETH_ADAPTER\n", "_a = _V4.ETH_ADAPTER_V4\n"),
+    ("UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)",
+     "UE300 = dict(x0=26.0, x1=46.0, y0=-27.0, y1=-3.0, d0=DEPTH - 53.0)"),
+    ("'TP-Link UE300 (as v2)'", "'uni USB-A GbE adapter 53x24x20 [MEASURE]'"),
     # solid wall (no gyroid) round the wide front panel's hook channels, 3+ mm margin (user, home:2148)
     ("    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n",
      "    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n"
@@ -553,7 +559,25 @@ def _usbc_overlay():
                  label='Pi USB-C: flat 90° adapter, plug 9 + up-turned boot 15 [MEASURE]')]
 
 
-OVERLAYS = _v4_overlays() + _floor_button_overlay() + _cable_route_overlays() + _usbc_overlay()
+# Ethernet adapter's USB-A plug (in the flipped Pi's USB3 port, pointing up) and its Ø4 braided cord (R >= 10 bends;
+# ~126 mm needed of 142), home/v4-layout home:2160, [MEASURE]
+ETH_USBA_PLUG = (-10.0, 2.0, -43.3, -38.8, 56.0, 86.0)
+ETH_CORD = [(-4, -41, 56), (-4, -36, 44), (-4, -27, 52), (20, -27, 70), (33, -20, 100), (36, -15, 127)]
+
+
+def _eth_overlays():
+    x0, x1, y0, y1, d0, d1 = ETH_USBA_PLUG
+    out = []
+    for name, tris, color, label in (
+            ('eth_usba_plug', R._box(x0, x1, y0, y1, -d1, -d0), '#7f8c8d', 'GbE adapter USB-A plug in the USB3 port [MEASURE]'),
+            ('eth_cord', R._tube([(x, y, -d) for x, y, d in ETH_CORD], 2.0), '#2c3e50', 'GbE adapter cord Ø4, ~126 of 142 mm')):
+        path = R.OVERLAY_DIR / f'{name}.stl'
+        R._write_stl(path, R.to_print(tris))
+        out.append(dict(file=path.relative_to(R.ROOT).as_posix(), color=color, opacity=0.9, label=label))
+    return out
+
+
+OVERLAYS = _v4_overlays() + _floor_button_overlay() + _cable_route_overlays() + _usbc_overlay() + _eth_overlays()
 
 
 # ── v4 front panel (plain; the styling comes later): v3's L-hook edge on the narrow front, |X| <= XE + hook ──
