@@ -6,9 +6,9 @@ camera lands (designs/pi_box_v4_core.py). Two identical parts (the -X one is the
     normal (no undercut) and centres itself in the core's countersink. 3 × M2 through the cap (counterbored) into
     M2 inserts set in the core's pad from inside (nuts) -> M2×5 [MEASURE].
   - BODY: the opening's prism, from the seat to a back face parallel to the board: the OV9281 board is pitched 24°
-    up inside it (yaw 30° comes from the land). Board on 4 bosses (2 tall) at its holes, M2 screws from outside
-    (counterbores in the cap) through the body and the board into an M2 insert threaded on behind it as a nut
-    (as v3) -> ~M2×25 [MEASURE]. Lens Ø14 × 18 in a Ø19 bore, lens front LENS_RECESS behind the land; a 76°
+    up inside it (yaw 30° comes from the land). Board on 4 bosses (2 tall) at its holes, M2 screws from BEHIND the
+    board into captive M2 hex nuts slid into slots from the body's sides (nothing on the face) -> M2×8 [MEASURE].
+    Window: a straight-edged eye slit (window_slit) that contains the exact field of view (window_fov). Lens Ø14 × 18 in a Ø19 bore, lens front LENS_RECESS behind the land; a 76°
     window cone in front of it (the 125° × 78° fisheye's corners are at ≤ 74.4° off axis).
   - Ribbon connector edge DOWN, behind the board: the back is open.
 Print: standing on the cap's bottom face (rig d max) with rig 'up' as print up: every face is ≤ 45° off vertical or
@@ -29,6 +29,8 @@ SCREW_CLEAR, HEAD_CB = 2.2, 4.2        # M2 socket cap (head Ø3.8)
 BOARD_HOLES = [(sy * 10.5, sv * 6.25) for sy in (-1, 1) for sv in (-1, 1)]   # (t, along u from the lens axis)
 BOARD_CB_C = CAM_BOSS_H + 4.0          # board-screw counterbore floor, along the axis from the board face
 F_PX, WIN_MARGIN, PUPIL_R = 294.0, 15.0, 2.0   # px; margin ~3°; pupil + lens-centring slop (mm)
+SLIT_DOWN, SLIT_UP = -42.0, 86.0                # eye slit planes (deg, n-z plane); rays span -38.8..+82.9
+NUT_AF, NUT_T, NUT_C = 4.0, 1.6, 5.0             # M2 hex nut (captive, slid in from the body side), from the board face
 FC = np.array([F_ND[0], 0.0, F_ND[1]])   # axis in (n, t, d)
 UC = np.array([U_ND[0], 0.0, U_ND[1]])
 TC = np.array([0.0, 1.0, 0.0])
@@ -88,6 +90,29 @@ def window_fov():
     return Fn(f, (SEAT - CSK - 1, LAND + 30, -60, 60, -10, H_TOP + 30))
 
 
+def window_slit():
+    """Clean eye slit: the wedge between two planes along t through a point PUPIL_R behind the lens front, from
+    SLIT_DOWN below to SLIT_UP above horizontal (in the n-z plane the fisheye's rays span -38.8..+82.9°), only in
+    front of that point. Contains window_fov() (ray test), but reads as one straight-edged slit."""
+    qn, qd = LENS_Q[0] - PUPIL_R, LENS_Q[1]
+    tb, tt = np.tan(np.radians(SLIT_DOWN)), np.tan(np.radians(SLIT_UP))
+    return inter(Box(qn, LAND + 5, -FL_T - 1, FL_T + 1, -1, H_TOP + 1),
+                 H(tb, 0, 1, qd + qn * tb), H(-tt, 0, -1, -qd - qn * tt))   # z >= below plane, z <= above plane
+
+
+def obox(c, axes, half):
+    """Oriented box in land coords (n, t, d): centre c, unit axes (3 x 3), half extents."""
+    c, axes = np.asarray(c, float), np.asarray(axes, float)
+    pts = np.array([c + sum(k[i] * half[i] * axes[i] for i in range(3)) for k in np.ndindex(2, 2, 2) for k in [np.array(k) * 2 - 1]])
+    lo, hi = pts.min(0) - 0.5, pts.max(0) + 0.5
+
+    def f(X, Y, h, xp):
+        v = (X - c[0], Y - c[1], (FL_D[1] - h) - c[2])
+        e = [xp.abs(v[0] * a[0] + v[1] * a[1] + v[2] * a[2]) - hh for a, hh in zip(axes, half)]
+        return xp.maximum(xp.maximum(e[0], e[1]), e[2])
+    return Fn(f, (lo[0], hi[0], lo[1], hi[1], FL_D[1] - hi[2], FL_D[1] - lo[2]))
+
+
 # cap: the countersunk frustum, cut to the core's outside (R30 round, the land, the side wall X <= X_OUT, front Yr)
 cap = inter(Box(SEAT - CSK, LAND, -FL_T, FL_T, 0.0, H_TOP),
             H(-1, 1, 0, FL_T - SEAT), H(-1, -1, 0, FL_T - SEAT), H(-1, 0, -1, -FL_D[0] - SEAT), H(-1, 0, 1, FL_D[1] - SEAT),
@@ -99,11 +124,12 @@ body = inter(Box(BOARD_B[0] - 20, SEAT, -OPEN_T, OPEN_T, FL_D[1] - OPEN_D[1], FL
 bosses = union(*[axis_cyl(B3 + t * TC + v * UC, FC, CAM_BOSS_R, 0.0, CAM_BOSS_H + 0.5) for t, v in BOARD_HOLES])
 cuts = union(
     axis_cyl(Q3, FC, (CAM_WINDOW + RESIN_HOLE_COMP) / 2, -20.0, 0.01, peak=True),          # lens bore back to the board
-    window_fov(),
-    *[axis_cyl(B3 + t * TC + v * UC, FC, (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -1.0, 40.0) for t, v in BOARD_HOLES],
-    *[axis_cyl(B3 + t * TC + v * UC, FC, (HEAD_CB + RESIN_HOLE_COMP) / 2, BOARD_CB_C, 40.0, peak=True) for t, v in BOARD_HOLES],
+    window_slit(),
+    *[axis_cyl(B3 + t * TC + v * UC, FC, (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -1.0, NUT_C + NUT_T + 2.0) for t, v in BOARD_HOLES],
+    *[obox(B3 + (t + np.sign(t) * 3.0) * TC + v * UC + (NUT_C + NUT_T / 2) * FC, (TC, UC, FC),
+           (3.0 + (NUT_AF + 0.4) / 2 / np.cos(np.pi / 6), (NUT_AF + 0.4) / 2, (NUT_T + 0.4) / 2)) for t, v in BOARD_HOLES],
     *[axis_cyl((SEAT, t, d), (1, 0, 0), (SCREW_CLEAR + RESIN_HOLE_COMP) / 2, -10.0, 20.0) for t, d in CART_SCREWS],
-    *[axis_cyl((SEAT, t, d), (1, 0, 0), (HEAD_CB + RESIN_HOLE_COMP) / 2, 0.0, 20.0, peak=True) for t, d in CART_SCREWS])
+    *[axis_cyl((SEAT, t, d), (1, 0, 0), (HEAD_CB + RESIN_HOLE_COMP) / 2, 0.0, 20.0) for t, d in CART_SCREWS])
 ROOT = sub(union(cap, body, bosses), cuts)
 
 N0, N1 = BOARD_B[0] - 4.0, LAND + 0.5                  # part extent along n (tree X')
