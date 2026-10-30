@@ -291,16 +291,31 @@
       // drawn afterwards, are depth-tested against them instead of painting over them
       const opacity = ov.opacity ?? 0.35;
       const solid = opacity >= 0.999;
-      const mat = new THREE.MeshLambertMaterial({
-        color: new THREE.Color(ov.color || '#4488cc'), transparent: !solid,
-        opacity, side: THREE.DoubleSide, depthWrite: solid
+      // z-order (2026-10-29): three.js sorts translucent meshes back-to-front by their object position, which was
+      // the origin for every overlay (STLs are in design mm), so the order was arbitrary. Centre each geometry on
+      // its bounding box and place the mesh there, so the sort uses the part's real depth. Translucent parts draw
+      // as two passes (back faces, then front faces: same position, back created first, so it sorts first),
+      // which r128 doesn't do for DoubleSide by itself; polygonOffset keeps faces coplanar with the voxels behind.
+      geometry.computeBoundingBox();
+      const c = geometry.boundingBox.getCenter(new THREE.Vector3());
+      geometry.translate(-c.x, -c.y, -c.z);
+      const color = new THREE.Color(ov.color || '#4488cc');
+      const sides = solid ? [THREE.DoubleSide] : [THREE.BackSide, THREE.FrontSide];
+      const parts = sides.map((side) => {
+        const m = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({
+          color, transparent: !solid, opacity, side, depthWrite: solid,
+          polygonOffset: !solid, polygonOffsetFactor: -1, polygonOffsetUnits: -1
+        }));
+        m.position.copy(c);
+        m.updateMatrix();
+        m.matrixAutoUpdate = false;
+        overlayGroup.add(m);
+        return m;
       });
-      const m = new THREE.Mesh(geometry, mat);
-      m.matrixAutoUpdate = false;
-      overlayGroup.add(m);
       row.onclick = () => {
-        m.visible = !m.visible;
-        row.style.opacity = m.visible ? 1 : 0.35;
+        const vis = !parts[0].visible;
+        for (const m of parts) m.visible = vis;
+        row.style.opacity = vis ? 1 : 0.35;
         requestRender();
       };
       requestRender();
