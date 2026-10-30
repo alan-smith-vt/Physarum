@@ -201,7 +201,7 @@ def _pad_support(s):
 DOOR_RAIL = dict(y0=30.5, d0=175.6, d1=178.4, depth=1.6)   # CLOSED groove: the 1.6 ledge below carries the door
 DOOR_WEB_CLEAR = 1.8
 PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(-41.1, 44.0), dia=4.0, L=6.0)   # M3 insert (door thumb screw, user 2026-10-29)
-FLOOR_BUTTON = (-34.0, 13.0)                       # floor power button (home:2092)
+FLOOR_BUTTON = (-33.0, 14.0)                       # floor power button (home:2092; moved for the 18.8 AC nut, home:2149)
 FLOOR_BOSSES_V4 = [(-42.0, -18.0), (45.0, 6.5)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]   # front pair moved off the
 # rounds (wide front panel, user approved home:2136; floor home/v4-floor); the +X one stays X >= 41.5 (home:2135)
 
@@ -313,6 +313,12 @@ def _front_cuts():
                        STEP, BOT + 1))                                       # neck + hook clearance inside the wall
         out.append(Box(*sorted((s * (X_IN - 0.01), s * (X_IN + HOOK_T + cl))), y_hook - cl, y_hook + HOOK_W + cl,
                        STEP, BOT + 1))                                       # hook channel in the wall
+
+        def flare(X, Y, d, xp, s=s, y0=y_hook - cl, y1=y_hook + HOOK_W + cl, x1=X_IN + HOOK_T + cl):
+            out_d = xp.maximum(xp.maximum(y0 - Y, Y - y1), s * X - x1)       # 45° lead-in at the floor end, 1 mm
+            return xp.maximum(out_d - (d - (BOT - 1.0)), (BOT - 1.0) - d)
+        out.append(Fn(flare, (*sorted((s * (X_IN - 0.5), s * (X_IN + HOOK_T + cl + 1.5))), y_hook - cl - 1.5,
+                              y_hook + HOOK_W + cl + 1.5, BOT - 1.5, BOT + 1)))
     g = TONGUE_T / 2 + cl
     top = STEP - TONGUE_H - TONGUE_GAP
 
@@ -323,8 +329,6 @@ def _front_cuts():
         f = xp.maximum(f, (STEP_TONGUE_X0 - cl) - xp.abs(X))
         return xp.maximum(f, Y - (RC[1] - 1.0))
     out.append(Fn(groove, (-X_OUT, X_OUT, Y_MIN, RC[1], top - g - 1, STEP + 1)))
-    # floor switch nut (18.8 AC, r 9.4 + 0.35) clears the -X web foot corner (home:2144)
-    out.append(Cyl('d', FLOOR_BUTTON, 9.75, 175.0, BOT + 0.01))
     # +X front floor boss (45, 6.5): kept at X >= 41.5 (the floor's +X rail end, home:2135)
     bx, by = FLOOR_BOSSES_V4[1]
     out.append(inter(Cyl('d', (bx, by), R.BOSS_R + 0.5, STEP, BOT + 1), Box(0.0, 41.5, by - 6, by + 6, STEP, BOT + 1)))
@@ -412,6 +416,10 @@ _V3_PATCHES = [
      "        _sw['d'] - SWITCH_PAD_R, _sw['d'] + SWITCH_PAD_R),\n", ""),
     ("    hhole('x', _sw['y'], _sw['d'], _sw['hole'], *sorted((_sw['side'] * (X_IN - 0.01), _sw['side'] * X_OUT))),\n", ""),
     ("y0=-55.5, top=80.0,", f"y0={BRD_Y0_V4}, top={BRD_TOP_V4},"),
+    # solid wall (no gyroid) round the wide front panel's hook channels, 3+ mm margin (user, home:2148)
+    ("    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n",
+     "    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n"
+     f"    Box(-X_OUT, X_OUT, {RC[1] - 3.0}, {RC[1] + 5.0 + 2.0 + 4.0}, {72.0 - 4.0}, BOT),\n"),
     ("        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 22.0),                                    # J3 + plug + wires",
      "        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 11.0), bbox(42.0, 48.0, 52.0, 60.0, 0.0, 6.0),   # J3 plug; wires leave +Y (home:2127)"),
     # -X trunk turn lifted to d 136: clears the floor button (home:2105)
@@ -487,7 +495,7 @@ def core(x, d, z, xp=np):
 
 
 def _v4_overlays():
-    out = [o for o in _g['_v3_overlays']() if not any(k in o['file'] for k in ('v2_floor', 'latches', 'hinge', 'pi_flip', 'power_switch'))]   # the v4 floor is home/v4-floor's
+    out = [o for o in _g['_v3_overlays']() if not any(k in o['file'] for k in ('v2_floor', 'latches', 'hinge', 'pi_flip', 'power_switch', 'bank_socket'))]   # the v4 floor is home/v4-floor's
     if 'designs.pi_box_v4_cam_cartridge' in sys.modules and not hasattr(sys.modules['designs.pi_box_v4_cam_cartridge'], 'ROOT'):
         return out                                 # imported from the cartridge module (circular)
     from designs import pi_box_v4_cam_cartridge as K
@@ -498,7 +506,7 @@ def _v4_overlays():
     return out
 
 
-# Power button on the fixed floor (user approved, home:2092; home/v4-power-button): Ø16 latching switch at (-34, +13),
+# Power button on the fixed floor (user approved, home:2092; home/v4-power-button): Ø16 latching switch at FLOOR_BUTTON,
 # pointing down, bezel on the floor's outer face, body (40 incl. its plug [MEASURE]) up into the -X side bay. Overlay
 # only: the Ø16.35 hole and nut seat are in the floor (home/v4-floor).
 
@@ -511,7 +519,7 @@ def _floor_button_overlay():
                            R._cyl((x, y, 0.0), 'z', 9.4, -(face + 2.5), -(face + 0.05), 32)])  # bezel Ø18.8 x 2.5 [MEASURE height]
     nut = R._cyl((x, y, 0.0), 'z', 9.4, -DEPTH + 0.05, -(DEPTH - 2.5), 32)                    # M16 nut 18.8 AC (measured)
     out = []
-    for name, t, op, label in (('power_switch', tris, 0.8, 'power switch, 16 mm latching (15 V line), floor (-34, 13)'),
+    for name, t, op, label in (('power_switch', tris, 0.8, 'power switch, 16 mm latching (15 V line), floor (-33, 14)'),
                                ('power_switch_nut', nut, 0.35, 'nut 18.8 AC (measured)')):
         path = R.OVERLAY_DIR / f'{name}.stl'
         R._write_stl(path, R.to_print(t))
@@ -521,7 +529,7 @@ def _floor_button_overlay():
 
 # Cable route (Ø3, rig (X, Yr, d)); overlay only. J4 -> floor button: PROVISIONAL (home/v4-power-button owns it)
 CABLE_ROUTES = [
-    ('J4 -> floor button', [(-29, -40, 141), (-40, -40, 141), (-40, 8, 140), (-34, 13, 140)]),
+    ('J4 -> floor button', [(-29, -40, 141), (-40, -40, 141), (-40, 8, 140), (-33, 14, 140)]),
 ]
 
 
