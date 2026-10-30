@@ -142,7 +142,9 @@ def _envelope(r_in=0.0):
 ENVELOPE = _envelope()
 TOP, BOT = R.FLANGE_PLATE, DEPTH
 GW = R.GROOVE_W + R.RESIN_HOLE_COMP
-_lo0 = Y_MIN + R.PANEL_LIP
+from designs import pi_box_bat_panel_v3 as PV      # noqa: E402
+FRONT_FACE = Y_MIN + PV.PRINT_GROW                 # centre strip outer face: flush with the envelope like the wide
+_lo0 = FRONT_FACE - PV.CL                          # part (no lip, no thickness step at the step, user home:2276)
 _lo1 = _lo0 + GW
 XE = RC[0]                                         # front panel edge |X| (where the rounds start)
 
@@ -285,7 +287,7 @@ TONGUE_T, TONGUE_H, TONGUE_GAP = 1.6, 3.0, 0.4
 BACK_TONGUE_X = (6.2, X_IN - 2.5)                  # |X| range: gap at the lidar-cable notch
 BACK_PANEL_YC = Y_MAX - R.PANEL_LIP - PV.CL - R.PANEL_T / 2
 FRONT_TONGUE_X = XE - 2.5
-FRONT_PANEL_YC = Y_MIN + R.PANEL_LIP + PV.CL + R.PANEL_T / 2
+FRONT_PANEL_YC = FRONT_FACE + R.PANEL_T - TONGUE_T / 2   # tongue on the strip's inner half: groove keeps a 1.4 outer skin
 
 
 def _rim_grooves():
@@ -402,11 +404,11 @@ def front_panel_rig(X, Y, d):
     tt = STEP + 0.1 - TONGUE_H
     if tt <= d < STEP + 0.2:
         s |= front & (Y <= RC[1] - 2.0) & (ax >= STEP_TONGUE_X0) & (e <= TONGUE_T / 2 - G) & (d >= tt + e)
-    face = Y_MIN + R.PANEL_LIP + cl                                          # centre strip (+ 10 into the wide part)
+    face = FRONT_FACE                                                        # centre strip (+ 10 into the wide part)
     if d <= STEP + 10.0:
         y = Y - face
         s |= front_panel_mask(np.broadcast_to(X, s.shape), y, d)
-        ty = np.abs(y - R.PANEL_T / 2)
+        ty = np.abs(y - (R.PANEL_T - TONGUE_T / 2))
         dt = PV.D0 - TONGUE_H                                                # its top tongue into the rim
         if dt <= d < PV.D0 + 1.0:
             s |= (ty <= TONGUE_T / 2 - G) & (d >= dt + ty) & (ax <= FRONT_TONGUE_X)
