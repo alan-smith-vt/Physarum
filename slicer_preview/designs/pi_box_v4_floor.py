@@ -16,6 +16,7 @@ import numpy as np                                                     # noqa: F
 R_FRONT, ROUND_C = 30.0, (20.0, -32.0)       # core v4 R_FRONT and round centres (|X|, Yr)
 FLOOR_BOSSES_V4 = [(sx * 31.0, -51.0) for sx in (-1, 1)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]   # = core
 RIB_Y, DOOR_GAP = 30.5, 0.4
+SWITCH_XY, SWITCH_D, SWITCH_SEAT = (-34.0, 13.0), 16.0, 24.0   # hole() adds RESIN_HOLE_COMP: cut Ø16.35 [MEASURE nut]
 
 _ROUND = '((np.abs({x}) <= _V4.ROUND_C[0]) | ({y} >= _V4.ROUND_C[1]) | ' \
          '(np.hypot(np.abs({x}) - _V4.ROUND_C[0], {y} - _V4.ROUND_C[1]) <= _V4.R_FRONT{m}))'
@@ -35,6 +36,14 @@ _PATCHES = [
     # (X -45.9..-29.9, Yr -27.6..-1.6); the floor rail on that side opens for it instead of the +X one
     ('ETH_CRADLE = True ', 'ETH_ADAPTER = dict(ETH_ADAPTER, x=-ETH_ADAPTER["x"])\nETH_CRADLE = True '),
     ('        rails &= ~((X > 0) & (Yr < 0))', '        rails &= ~((X < 0) & (Yr < 0))'),
+    # floor power button (user approved, home:2092; home/v4-power-button): Ø16 switch down through the plate at
+    # BUTTON_XY, nut on the top face: plate solid (no gyroid) over a Ø24 seat
+    ('                s &= ~hole(bx, by, SCREW_CLEAR, X, Yr)\n',
+     '                s &= ~hole(bx, by, SCREW_CLEAR, X, Yr)\n'
+     '        s &= ~hole(*_V4.SWITCH_XY, _V4.SWITCH_D, X, Yr)\n'),
+    ('    for bx, by in FLOOR_BOSSES + HINGE_HOLES:\n',
+     '    req |= np.hypot(XX - _V4.SWITCH_XY[0], YY - _V4.SWITCH_XY[1]) <= _V4.SWITCH_SEAT / 2\n'
+     '    for bx, by in FLOOR_BOSSES + HINGE_HOLES:\n'),
     ("    wall &= (X < a['x']) | (Yr < a['y'])", "    wall &= (X > a['x']) | (Yr < a['y'])"),
     ('    wall &= (Yr < -WEB_T / 2 - 0.5) & (X < X_IN - 0.5) &', '    wall &= (Yr < -WEB_T / 2 - 0.5) & (X > -X_IN + 0.5) &'),
 ]
