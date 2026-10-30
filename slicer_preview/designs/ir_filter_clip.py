@@ -5,12 +5,14 @@ Lens rear face (from filterClip STEP + calipers): 5.6 mm square core (rear eleme
 1 mm thick (4 on-axis, 4 diagonal), barrel inner wall taken as Ø9.6 (conservative; the STEP's Ø11.0 disagrees
 with the ~2 mm square-to-wall caliper reading). Pockets are wedges between the fins.
 
-Clip, lens → sensor:  8 pins down into the pockets, gripping the core's flat faces (2 per face, either side of
-the on-axis fin) | ring with the glass pocket (glass rests on the fin tops / core rim) | 0.3 mm lip toward the
-sensor with a Ø5.6 aperture (sensor diagonal ~4.5). Protrudes ~1.3 mm past the rear face.
+Clip, lens → sensor:  8 wedge keys down into the pockets, each gripping the SIDES of its two fins | ring with the
+glass pocket (glass rests on the fin tops / core rim) | 0.3 mm lip toward the sensor with a Ø5.6 aperture (sensor
+diagonal ~4.5). Protrudes ~1.3 mm past the rear face.
+v2 (2026-10-29): v1's round pins pressed on the core faces from r 2.8, inside the glass (r 3.25), so the glass
+couldn't pass them, and they were loose. Keys now start at KEY_R0 (outside the glass pocket) and grip the fins.
 
 Printed lip-down (Y up = toward the lens): lip, ring, then pins pointing up, no supports.
-  columns: pin grip offset T_LIST = distance from the axis to the pins' inner tangent (core half-width 2.8)
+  columns: key fit C_LIST = gap per side between a key and each fin face (negative = interference)
   rows:    glass pocket Ø D_LIST
 ID tabs on the first layers: holes on the -Z tab = row, on the +X tab = column. Snip the tabs off after choosing.
 """
@@ -19,29 +21,31 @@ from geometry import implicit_piece
 
 SUPPORTS = False
 
-T_LIST = [2.85, 2.80, 2.77]          # cols: 0.05 clearance / line / 0.03 interference per side
+C_LIST = [0.0, -0.03, -0.06]          # cols: per-side gap to the fin faces (fins 1.0 thick, radial, every 45°)
 D_LIST = [6.55, 6.60, 6.65, 6.70]    # rows: glass pocket Ø (glass 6.5; resin holes print a little undersize)
 
 LIP_H, POCKET_H = 0.3, 1.0           # lip, then glass pocket depth (= glass thickness)
 RING_R = 4.6                         # ring OD 9.2: stays inside the Ø9.6 barrel wall
 APERTURE_R = 2.8                     # lip opening Ø5.6
-PIN_R, PIN_L, PIN_TIP = 0.55, 1.5, 0.3   # pin radius, length into the pocket, tip taper (lead-in)
+KEY_R0, KEY_R1, PIN_L, PIN_TIP = 3.45, 4.6, 1.5, 0.3   # key radial span (glass pocket ≤ 3.35, wall 4.8), length, lead-in
+FIN_HALF = 0.5
 TAB_H, TAB_L, TAB_W, ID_R = 0.5, 3.5, 2.4, 0.35
 
 PITCH = 16.0
-NX, NZ = len(T_LIST), len(D_LIST)
+NX, NZ = len(C_LIST), len(D_LIST)
 SIZE_X, SIZE_Z = NX * PITCH, NZ * PITCH
 RING_TOP = LIP_H + POCKET_H
 TOP = RING_TOP + PIN_L
 
-_BIS = np.deg2rad(22.5 + 45.0 * np.arange(8))   # pocket bisectors
-
-
-def _pin_centres(t):
-    """Pin centres for grip offset t: each pin touches the core face nearest its bisector."""
-    xc = t + PIN_R                                   # along that face's normal
-    d = xc / np.cos(np.deg2rad(22.5))
-    return [(d * np.cos(a), d * np.sin(a)) for a in _BIS]
+def _keys(u, v, c, taper=0.0):
+    """8 wedge keys: between each pair of adjacent fins (radial, every 45°), clear of the fin faces by c (+ taper
+    for the lead-in), radially KEY_R0..KEY_R1."""
+    rr = np.hypot(u, v)
+    th = np.mod(np.arctan2(v, u), np.pi / 4)                   # angle inside the 45° pocket
+    d0 = rr * np.sin(th)                                       # distance to the fin on the pocket's 0° side
+    d1 = rr * np.sin(np.pi / 4 - th)                           # ... and to the one on its 45° side
+    g = FIN_HALF + c + taper
+    return (rr >= KEY_R0) & (rr <= KEY_R1) & (d0 >= g) & (d1 >= g)
 
 
 def solid(x, y, z):
@@ -72,10 +76,9 @@ def solid(x, y, z):
                     s &= ~((col + 1 == n) & ((u - cx) ** 2 + v ** 2 <= ID_R ** 2))
     elif y < TOP:
         h = y - RING_TOP
-        pr = PIN_R if h < PIN_L - PIN_TIP else PIN_R * (0.5 + 0.5 * (PIN_L - h) / PIN_TIP)
-        for j, t in enumerate(T_LIST):
-            for (pu, pv) in _pin_centres(t):
-                s |= (col == j) & ((u - pu) ** 2 + (v - pv) ** 2 <= pr ** 2)
+        taper = 0.0 if h < PIN_L - PIN_TIP else 0.15 * (h - (PIN_L - PIN_TIP)) / PIN_TIP
+        for j, c in enumerate(C_LIST):
+            s |= (col == j) & _keys(u, v, c, taper)
 
     return s & (col >= 0) & (col < NX) & (row >= 0) & (row < NZ)
 
