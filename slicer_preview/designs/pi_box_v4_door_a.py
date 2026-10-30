@@ -4,9 +4,11 @@ Option A of sketches/pi_box_v4_floor_options_sketch.py, slide direction changed 
 plate sits UNDER the wall ends (d 180.2..183.2, so the bank keeps the v3 height under the core's seat at d 22). Along
 each ±X wall a thin web stands up inside the wall and turns out into a hook in the wall's closed groove (core
 DOOR_RAIL, d 175.6..178.4, 1.6 deep): the door hangs from the 1.6 mm wall ledges under the grooves, which carry the
-bank in shear. It slides in from +Y (under the back panel) until the webs butt the battery rib, and an off-the-shelf
-M8 pull-ring index plunger [VERIFY: M8x1.25 body, Ø5 pin, ~6 throw, 13 AF nut] in a boss under the plate shoots its
-pin up into the core's PLUNGER hole at (-42, 44) (boss bottom at d 180). Pull the ring, slide the door out by its lip.
+bank in shear. It slides in from +Y (under the back panel) until the webs butt the battery rib, and is locked by a
+thumb screw (user, 2026-10-29): a stock M3 x 12 socket cap with a printed knurled knob CA-glued on its head
+(designs/pi_box_v4_thumb_knob.py) goes up through the plate into an M3 brass insert (Ø4 x 4, glued) in the core's
+lock boss at SCREW_XY. The plate's hole is undersize (CAPTIVE_D): the thread is screwed through it once, so the screw
+cannot drop out when undone. The screw only stops sliding; the bank load stays in the rails. Undo, slide out by the lip.
 The plate also closes the bottom of the back-panel channels (Yr 56..60.5), so it holds the panel in.
 Fixed floor: designs/pi_box_v4_floor.py. Fit strip: designs/pi_box_v4_door_fit.py.
 
@@ -34,9 +36,9 @@ D_TOP = TONGUE_D[0]
 TONGUE_LEAD = 2.0                        # hook tip (-Y, the leading end) tapers in over 2 mm
 Y_LO = RIB_Y + CLEAR + OVERSIZE
 GRIP = dict(x=25.0, y0=Y_MAX - 4.0, d1=PLATE_D[1] + 5.0)   # finger lip under the +Y end, |X| <= x
-PLUNGER_XY = (-42.0, 44.0)               # core PLUNGER hole
-NUT_AF, NUT_H, M8_CLEAR = 13.0, 6.5, 8.5
-BOSS_R, BOSS_D1 = 9.0, PLATE_D[1] + 8.0  # boss under the plate: plunger body through, nut pocket from below
+SCREW_XY = (-41.1, 44.0)                 # core lock boss X -44.2..-38: Ø4 insert hole centred, ~0.9 walls
+CAPTIVE_D = 2.6                          # M3 thread cuts its way through once (hole() adds the resin comp)
+KNOB_H = 6.0                             # printed knob under the plate (pi_box_v4_thumb_knob)
 
 
 def door(x, y, z):
@@ -50,20 +52,12 @@ def door(x, y, z):
             s |= (aX >= HX - WEB_T) & (aX <= TONGUE_X - lead) & inY
     elif d <= PLATE_D[1]:
         s = (aX <= PLATE_X) & inY
-    else:                                 # below: grip lip + plunger boss
+    else:                                 # below: grip lip
         s = (aX <= GRIP['x']) & (Yr >= GRIP['y0']) & inY & (d <= GRIP['d1'])
-        s |= hole(*PLUNGER_XY, 2 * BOSS_R - RESIN_HOLE_COMP, X, Yr) & (d <= BOSS_D1)
     wx0, wx1, wy0, wy1 = PORT_WINDOW
     s &= ~((X >= wx0) & (X <= wx1) & (Yr >= wy0) & (Yr <= wy1))
-    s &= ~hole(*PLUNGER_XY, M8_CLEAR, X, Yr)
-    if d >= BOSS_D1 - NUT_H:                                     # hex nut pocket from below
-        px, py = X - PLUNGER_XY[0], Yr - PLUNGER_XY[1]
-        r = NUT_AF / 2 + RESIN_HOLE_COMP / 2
-        hexin = np.ones_like(s)
-        for a in (0.0, np.pi / 3, 2 * np.pi / 3):
-            hexin &= np.abs(px * np.cos(a) + py * np.sin(a)) <= r
-        s &= ~hexin
+    s &= ~hole(*SCREW_XY, CAPTIVE_D, X, Yr)
     return s
 
 
-PIECES = [implicit_piece(2 * PLATE_X, BOSS_D1 - D_TOP, Y_MAX - Y_LO, door, x0=-PLATE_X, z0=0.0)]
+PIECES = [implicit_piece(2 * PLATE_X, GRIP['d1'] - D_TOP, Y_MAX - Y_LO, door, x0=-PLATE_X, z0=0.0)]

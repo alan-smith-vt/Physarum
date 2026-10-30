@@ -1,13 +1,12 @@
 """v4 PROPOSAL, UNAPPROVED (2026-10-29, v4-floor): fit strip for the option-A battery door. Do not print yet.
 
-Print this before the core/door: it tests the door's rail and plunger clearances at the real sizes.
+Print this before the core/door: it tests the door's rail clearances and the thumb-screw lock at the real sizes.
   1. WALL: a -X wall stub (X -50..-46, Yr 28.5..52, d 165..180) with the battery rib stub, the closed door groove
      (core DOOR_RAIL: d 175.6..178.4, 1.6 deep, +comp) with its 45° mouth flare at +Y, the 1.8 web clearance, and
-     the plunger boss (X -46..-38, Yr 38..50, d 168..180) with its Ø5.4 × 7 pin hole (+comp).
-  2. DOOR: the -X corner of designs/pi_box_v4_door_a.py (X <= -30, Yr <= 52): plate, web + hook, M8 plunger
-     through-hole and nut pocket.
-Check: the door corner slides in from +Y with no force and no rattle, butts the rib, and the plunger pin drops
-into the boss hole. Clearances: 0.4 per side + RESIN_HOLE_COMP/2 on holes; external faces are pulled in by
+     the lock boss (X -46..-38, Yr 38..50, d 168..180) with its M3 insert hole Ø4 × 6 (+comp) at SCREW_XY.
+  2. DOOR: the -X corner of designs/pi_box_v4_door_a.py (X <= -30, Yr <= 52): plate, web + hook, captive M3 hole.
+Check: the door corner slides in from +Y with no force and no rattle, butts the rib, and the thumb screw
+runs into the insert by hand. Clearances: 0.4 per side + RESIN_HOLE_COMP/2 on holes; external faces are pulled in by
 OVERSIZE (= EXT_COMP/2 of ir_filter_clip).
 Rig -> print (both pieces, top down): y = d - 165 (wall) or the door's own mapping.
 """
@@ -21,7 +20,7 @@ C = RESIN_HOLE_COMP / 2
 WALL = dict(x0=-50.0, x1=-46.0, y0=28.5, y1=52.0, d0=165.0, d1=180.0)
 RIB = (28.5, 30.5)
 BOSS = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0)
-PIN = dict(x=-42.0, y=44.0, dia=5.4, L=7.0)
+PIN = dict(x=D.SCREW_XY[0], y=D.SCREW_XY[1], dia=4.0, L=6.0)   # M3 insert Ø4 x 4 + 2 for the screw tip
 FLARE = 1.0
 WEB_CLEAR = (1.8, 175.5)                         # core: 1.8 clear inside the wall face below d 175.5
 
@@ -50,5 +49,5 @@ def door_corner(x, y, z):
 _W = 20.0                                                                     # X -50..-30
 PIECES = [
     implicit_piece(_W, WALL['d1'] - WALL['d0'], WALL['y1'] - WALL['y0'], wall, x0=-_W - 2.0, z0=0.0),
-    implicit_piece(2 * D.PLATE_X, D.BOSS_D1 - D.D_TOP, WALL['y1'] - D.Y_LO, door_corner, x0=2.0 - (50 - D.PLATE_X), z0=0.0),
+    implicit_piece(2 * D.PLATE_X, D.GRIP['d1'] - D.D_TOP, WALL['y1'] - D.Y_LO, door_corner, x0=2.0 - (50 - D.PLATE_X), z0=0.0),
 ]

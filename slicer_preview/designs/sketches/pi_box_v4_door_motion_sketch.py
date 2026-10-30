@@ -1,7 +1,7 @@
 """Explanatory sketch (UNAPPROVED proposal): how the option-A battery door opens and closes, 2026-10-29 (v4-floor).
 
-Left: section along Yr at X = -42 (through the plunger). Right: section across X at Yr 44 (-X rail: web + hook in the
-wall groove, plunger pin in the core boss). Numbers from designs/pi_box_v4_door_a.py and pi_box_v4_core.py.
+Left: section along Yr at X = -41 (through the lock screw). Right: section across X at Yr 44 (-X rail: web + hook in
+the wall groove; M3 thumb screw into the brass insert in the core's lock boss). Numbers from designs/pi_box_v4_door_a.py and pi_box_v4_core.py.
 
     python pi_box_v4_door_motion_sketch.py    -> pi_box_v4_door_motion_sketch.png (storyboard) + .gif (animation)
 """
@@ -14,7 +14,7 @@ from matplotlib.patches import Rectangle, Polygon
 from matplotlib.animation import FuncAnimation, PillowWriter
 
 WALL, DOOR, PART, BANK, PANEL = '#bbb', '#e67e22', '#7f8c8d', '#9ecae1', '#c39bd3'
-THROW = 6.0                                   # plunger pin travel [VERIFY]
+THROW = 6.0                                   # screw engagement: insert 4 + 2 (M3 x 12 + printed knob)
 SLIDE = 40.0                                  # door travel shown
 
 
@@ -22,7 +22,7 @@ def side(ax, s, p, bank_dy, bank_in=True):
     """s: door slide (+Y), p: pin up 0..1, bank_dy: bank drop below its seat."""
     ax.cla(); ax.set_aspect('equal'); ax.set_xlim(20, 108); ax.set_ylim(205, 140)
     ax.set_xlabel('Yr  (back of the box → right)', fontsize=8); ax.set_ylabel('d (down)', fontsize=8); ax.tick_params(labelsize=7)
-    ax.set_title('Section along the door at X -42 (through the plunger)', fontsize=9)
+    ax.set_title('Section along the door at X -41 (through the lock screw)', fontsize=9)
     if bank_in:                               # the bank is not in this plane (|X| < 37): drawn dashed, behind
         ax.add_patch(Rectangle((32, 150 + bank_dy), 24, 30, fc=BANK, ec='k', ls='--', alpha=.5))
         ax.text(33, 156 + bank_dy, 'bank (behind,\n|X| < 37)', fontsize=7)
@@ -33,13 +33,12 @@ def side(ax, s, p, bank_dy, bank_in=True):
     y0 = 30.9 + s
     ax.add_patch(Rectangle((y0, 180.2), 62 - 30.9, 3.0, fc=DOOR, ec='k'))
     ax.add_patch(Rectangle((58 + s, 183.2), 4, 5, fc=DOOR, ec='k')); ax.text(62.5 + s, 187.5, 'grip lip', fontsize=7)
-    ax.add_patch(Rectangle((35 + s, 183.2), 18, 8, fc=DOOR, ec='k', alpha=.8))
     pin_top = 180.2 - THROW * p
-    ax.add_patch(Rectangle((41.5 + s, pin_top), 5, 191.2 - pin_top, fc=PART, ec='k'))          # pin + body
-    ax.add_patch(Rectangle((40 + s, 191.2 + THROW * (1 - p)), 8, 2, fc=PART, ec='k'))           # knob / ring stem
-    ring_d = 193.2 + THROW * (1 - p)
-    ax.add_patch(matplotlib.patches.Circle((44 + s, ring_d + 3.5), 3.5, fc='none', ec='k', lw=2))
-    ax.text(49 + s, ring_d + 4, 'pull ring', fontsize=7)
+    ax.add_patch(Rectangle((40.5 + s, 174), 7, 6, fc='#d4ac0d', ec='k'))                       # brass insert (core)
+    kd = 183.2 + THROW * (1 - p)                                                               # knob top
+    ax.add_patch(Rectangle((42.5 + s, pin_top), 3, kd + 3 - pin_top, fc=PART, ec='k'))          # M3 screw
+    ax.add_patch(Rectangle((37 + s, kd), 14, 6, fc='#5d6d7e', ec='k'))                          # printed knob
+    ax.text(52 + s, kd + 4, 'thumb knob', fontsize=7)
 
 
 def front(ax, p):
@@ -50,30 +49,29 @@ def front(ax, p):
                           (-50, 180)], fc=WALL, ec='k')); ax.text(-49.6, 167, 'wall', fontsize=7)
     ax.add_patch(Polygon([(-44.2, 168), (-38, 168), (-38, 180), (-39.3, 180), (-39.3, 173), (-44.2, 173)],
                          fc=WALL, ec='k')); ax.text(-42, 166.5, 'core boss', fontsize=7)
-    ax.annotate('pin hole opens into\nthe web slot (0.5)', (-44.4, 175), (-57, 171), fontsize=6,
-                arrowprops=dict(arrowstyle='->', lw=.6))
+    ax.add_patch(Rectangle((-43.1, 174), 4, 6, fc='#d4ac0d', ec='k')); ax.text(-38.5, 171, 'M3 brass\ninsert', fontsize=6)
     ax.add_patch(Polygon([(-49.8, 180.2), (-28, 180.2), (-28, 183.2), (-49.8, 183.2)], fc=DOOR, ec='k'))
     ax.add_patch(Polygon([(-45.6, 180.2), (-45.6, 178.0), (-47.2, 178.0), (-47.2, 176.0), (-44.2, 176.0), (-44.2, 180.2)],
                          fc=DOOR, ec='k')); ax.text(-57.5, 177, 'hook in\ngroove', fontsize=7)
-    ax.add_patch(Rectangle((-51, 183.2), 18, 8, fc=DOOR, ec='k', alpha=.8))
     pin_top = 180.2 - THROW * p
-    ax.add_patch(Rectangle((-44.5 + 0.0, pin_top), 5, 191.2 - pin_top, fc=PART, ec='k'))
-    ax.text(-37, 177, 'pin ' + ('IN (locked)' if p > .95 else 'OUT' if p < .05 else 'moving'), fontsize=8,
+    kd = 183.2 + THROW * (1 - p)
+    ax.add_patch(Rectangle((-42.6, pin_top), 3, kd + 3 - pin_top, fc=PART, ec='k'))
+    ax.add_patch(Rectangle((-48.1, kd), 14, 6, fc='#5d6d7e', ec='k'))
+    ax.text(-37, 177, 'screw ' + ('IN (locked)' if p > .95 else 'OUT' if p < .05 else 'moving'), fontsize=8,
             color='#c0392b' if p > .95 else 'k')
 
 
 # key frames: (s, p, bank_dy, bank_in, caption)
 STEPS = [
     (0, 1, 0, True, '1. Closed. The bank stands on the door; the door hangs on the wall ledges.\n'
-                    'The plunger pin sits in the core boss, so the door cannot slide.'),
-    (0, 0, 0, True, '2. Pull the ring down (~6 mm) and hold it: the pin leaves the boss.'),
+                    'The thumb screw is in the brass insert, so the door cannot slide.'),
+    (0, 0, 0, True, '2. Unscrew the knob (~8 turns) until it spins free of the insert. It stays in the door (captive hole).'),
     (12, 0, 0, True, '3. Slide the door out toward the back (+Y) by the grip lip.\n'
                      'Keep the rig upright; the back panel and rib keep the bank in place.'),
     (SLIDE, 0, 25, True, '4. The door clears the chamber: tip the bank out into your hand.\n'
                          'Note: the door also holds the back panel in its slots; with the door out, it can slide down.'),
-    (SLIDE, 0, 0, True, '5. New bank in. Slide the door back in (ring pulled, or let the pin ride:\n'
-                        'it drags on the boss underside until the hole).'),
-    (0, 1, 0, True, '6. At the stop (rib) the spring snaps the pin into the boss: click = locked.\n'
+    (SLIDE, 0, 0, True, '5. New bank in. Slide the door back in, screw tip below the plate top, until it butts the rib.'),
+    (0, 1, 0, True, '6. Screw the knob up finger-tight into the insert: locked.\n'
                     'Tug the grip lip to check.'),
 ]
 
@@ -93,13 +91,13 @@ def storyboard():
 def animation():
     # timeline: hold, pull pin, slide out, drop bank, raise bank, slide in, pin snaps, hold
     seq = []
-    seq += [(0, 1, 0, 'closed: pin locked')] * 8
-    seq += [(0, 1 - t, 0, 'pull the ring') for t in np.linspace(0, 1, 10)]
+    seq += [(0, 1, 0, 'closed: screw locked')] * 8
+    seq += [(0, 1 - t, 0, 'unscrew the knob') for t in np.linspace(0, 1, 10)]
     seq += [(SLIDE * t, 0, 0, 'slide the door out (+Y)') for t in np.linspace(0, 1, 20)]
     seq += [(SLIDE, 0, 25 * t, 'bank out into the hand') for t in np.linspace(0, 1, 12)]
     seq += [(SLIDE, 0, 25 * (1 - t), 'new bank in') for t in np.linspace(0, 1, 12)]
-    seq += [(SLIDE * (1 - t), 0, 0, 'slide the door in, ring held') for t in np.linspace(0, 1, 20)]
-    seq += [(0, t, 0, 'release: pin snaps in') for t in np.linspace(0, 1, 4)]
+    seq += [(SLIDE * (1 - t), 0, 0, 'slide the door in') for t in np.linspace(0, 1, 20)]
+    seq += [(0, t, 0, 'screw the knob in') for t in np.linspace(0, 1, 10)]
     seq += [(0, 1, 0, 'locked')] * 12
     fig = plt.figure(figsize=(12, 5))
     a = fig.add_axes([0.05, 0.12, 0.55, 0.75]); b = fig.add_axes([0.66, 0.12, 0.31, 0.75])
