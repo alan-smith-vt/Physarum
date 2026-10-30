@@ -30,6 +30,9 @@ python sdcp.py print my_part.goo --yes      # start it (ask the user first)
 **Getting a print to the printer:** always `sdcp.py` (SDCP V3 over the LAN; full command list in its docstring:
 status, files, watch, camera, ...). The printer's USB port is dead and we don't use the Elegoo software, so the
 network is the only path. Printer last seen at 192.168.0.4; `sdcp.py discover` finds it.
+Check the upload printed "Uploaded ..." before `print`: `print` starts whatever file of that name is already on
+the printer, so a failed upload silently reprints the old version. Give each revision its own file name (e.g.
+`part_v3.goo`), and check `status` shows the expected `TotalLayer`.
 
 Coordinates are mm; X/Z = plate plane, Y = up.
 
