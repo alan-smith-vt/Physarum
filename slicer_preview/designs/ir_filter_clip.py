@@ -8,13 +8,15 @@ with the ~2 mm square-to-wall caliper reading). Pockets are wedges between the f
 Clip, lens → sensor:  8 wedge keys down into the pockets, each gripping the SIDES of its two fins | ring with the
 glass pocket (glass rests on the fin tops / core rim) | 0.3 mm lip toward the sensor with a Ø5.6 aperture (sensor
 diagonal ~4.5). Protrudes ~1.3 mm past the rear face.
+v3 (2026-10-29, user): keys 4.0 long with a crush rib on each face, body fit -0.06..-0.10; recess Ø6.40-6.50 with
+a 0.25 lead-in chamfer; no crush bumps on the glass (debris under the glass would tilt it).
 v2 (2026-10-29): v1 ignored resin shrink: its Ø6.55-6.70 pockets printed ~0.35 undersize (below the 6.5 glass) and
 the pins grew ~0.35, reaching the glass edge; they pressed on the core faces and were loose. v2 draws every size
 compensated (RESIN_HOLE_COMP holes, EXT_COMP externals; the pocket also sits near the plate, where holes close
 ~0.25 more) and grips the fin sides with wedge keys outside the glass.
 
 Printed lip-down (Y up = toward the lens): lip, ring, then pins pointing up, no supports.
-  columns: key fit C_LIST = gap per side between a key and each fin face (negative = interference)
+  columns: key body fit C_LIST per side to each fin face (negative = interference), + a crush rib RIB_PROUD further
   rows:    glass pocket Ø D_LIST
 ID tabs on the first layers: holes on the -Z tab = row, on the +X tab = column. Snip the tabs off after choosing.
 """
@@ -25,15 +27,16 @@ EXT_COMP = 0.35                                       # external features print 
 
 SUPPORTS = False
 
-C_LIST = [0.0, -0.03, -0.06]          # cols: per-side gap to the fin faces (fins 1.0 thick, radial, every 45°)
-D_LIST = [6.55, 6.65, 6.75, 6.85]    # rows: glass pocket Ø AS PRINTED (glass 6.5): drawn + RESIN_HOLE_COMP; the
-                                     # upper rows cover the extra near-plate closing (~0.25, PI_BOX_HANDOFF resin rules)
+C_LIST = [-0.06, -0.08, -0.10]       # cols: key body fit per side to the fin faces (v2: -0.06 left ~0.03 play)
+D_LIST = [6.40, 6.45, 6.50]          # rows: glass pocket Ø AS PRINTED (v2: 6.55 left a little play round the glass)
+RIB_R, RIB_PROUD, RIB_AT = 0.25, 0.08, 4.0   # crush rib on each key face: radius, proud of the key face, at radius
 
 LIP_H, POCKET_H = 0.3, 1.0           # lip, then glass pocket depth (= glass thickness)
 RING_R = 4.6 - EXT_COMP / 2           # ring OD 9.2 as printed
 APERTURE_R = (5.6 + RESIN_HOLE_COMP) / 2   # lip opening Ø5.6 as printed
-KEY_R0, KEY_R1, PIN_L, PIN_TIP = 3.65, 4.4, 1.5, 0.3   # key span as drawn (grows ~0.175: 3.48..4.58; pocket ≤ 3.43, wall 4.8)
+KEY_R0, KEY_R1, PIN_L, PIN_TIP = 3.65, 4.4, 4.0, 0.4   # key span as drawn (grows ~0.175: 3.48..4.58; pocket ≤ 3.43, wall 4.8)
 FIN_HALF = 0.5
+GUIDE = 0.25                         # 45° lead-in chamfer at the recess mouth (lens side), seats the glass square
 TAB_H, TAB_L, TAB_W, ID_R = 0.5, 3.5, 2.4, 0.35
 
 PITCH = 16.0
@@ -50,7 +53,12 @@ def _keys(u, v, c, taper=0.0):
     d0 = rr * np.sin(th)                                       # distance to the fin on the pocket's 0° side
     d1 = rr * np.sin(np.pi / 4 - th)                           # ... and to the one on its 45° side
     g = FIN_HALF + c + EXT_COMP / 2 + taper                   # drawn narrower: the key grows EXT_COMP/2 per side
-    return (rr >= KEY_R0) & (rr <= KEY_R1) & (d0 >= g) & (d1 >= g)
+    body = (rr >= KEY_R0) & (rr <= KEY_R1) & (d0 >= g) & (d1 >= g)
+    gc = g - RIB_PROUD + RIB_R                                 # rib axis: RIB_PROUD past the key face toward the fin
+    ac = np.sqrt(RIB_AT ** 2 - gc ** 2)
+    rib = (((rr * np.cos(th) - ac) ** 2 + (d0 - gc) ** 2 <= RIB_R ** 2) |
+           ((rr * np.cos(np.pi / 4 - th) - ac) ** 2 + (d1 - gc) ** 2 <= RIB_R ** 2))
+    return body | rib
 
 
 def solid(x, y, z):
@@ -66,6 +74,7 @@ def solid(x, y, z):
         if y >= LIP_H:
             for i, d in enumerate(D_LIST):
                 inner = np.where(row == i, (d + RESIN_HOLE_COMP) / 2, inner)
+            inner = inner + max(0.0, y - (RING_TOP - GUIDE))     # lead-in chamfer at the mouth
         s = (r2 <= RING_R ** 2) & (r2 >= inner ** 2)
         if y < TAB_H:
             tab_z = (np.abs(u) <= TAB_W / 2) & (v < 0) & (v >= -RING_R - TAB_L)
@@ -81,7 +90,7 @@ def solid(x, y, z):
                     s &= ~((col + 1 == n) & ((u - cx) ** 2 + v ** 2 <= ID_R ** 2))
     elif y < TOP:
         h = y - RING_TOP
-        taper = 0.0 if h < PIN_L - PIN_TIP else 0.15 * (h - (PIN_L - PIN_TIP)) / PIN_TIP
+        taper = 0.0 if h < PIN_L - PIN_TIP else 0.25 * (h - (PIN_L - PIN_TIP)) / PIN_TIP
         for j, c in enumerate(C_LIST):
             s |= (col == j) & _keys(u, v, c, taper)
 
