@@ -54,7 +54,7 @@ def _parts():
         F = importlib.import_module('designs.pi_box_bat_floor_v3')
         out.append(('floor (v3 sliding)', lambda X, Y, d: F.floor(Y - C.Y_MIN, C.DEPTH + F.FLOOR_T3 - d, X + F.TONGUE_X),
                     (-F.TONGUE_X - 1, F.TONGUE_X + 1), (C.Y_MIN, C.Y_MAX), (C.DEPTH + 0.05, C.DEPTH + F.FLOOR_T3 - 0.05)))
-    elif name == 'pi_box_v4_core':                                 # v4 (UNAPPROVED): fixed floor + battery door A
+    elif name in ('pi_box_v4_core', 'pi_box_v4_core_flip'):        # v4 (APPROVED 2026-10-29): fixed floor + door A
         F = importlib.import_module('designs.pi_box_v4_floor')
         D = importlib.import_module('designs.pi_box_v4_door_a')
         out.append(('floor (v4 fixed)', lambda X, Y, d: F.floor_fixed(Y - C.Y_MIN, C.DEPTH + L.FLOOR_T - d, X + C.X_OUT),

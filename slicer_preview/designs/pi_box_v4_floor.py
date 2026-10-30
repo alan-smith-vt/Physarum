@@ -1,4 +1,4 @@
-"""v4 PROPOSAL, UNAPPROVED (2026-10-29, v4-floor): fixed floor for designs/pi_box_v4_core.py. Do not print.
+"""v4 fixed floor, APPROVED by the user 2026-10-29 (with door A), for designs/pi_box_v4_core.py (flip variant is the main one).
 
 The v3 fixed floor (pi_box_bat_lids FLOOR_SPLIT: stick hole, collar, web rails, nubs, UE300 cradle + RJ45 opening,
 sheet-gyroid plate), patched for v4:
