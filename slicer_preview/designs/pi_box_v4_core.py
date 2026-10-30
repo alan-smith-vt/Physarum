@@ -33,7 +33,7 @@ PI_TOP_D_V4, PI_SHIFT_V4, BRD_TOP_V4 = 55.0, 2.0, 95.0   # shift 2: the +X lower
 # (d 174), ports facing the flange (port end d 89), plugs pointing up beside the cartridges; switch to Yr -42.
 FLIP = os.environ.get('PI_BOX_V4_PI') == 'flip'
 if FLIP:
-    PI_TOP_D_V4 = 85.0                             # the port end (R.PI_FLIP_TOP); SD end at 85 + 85 = 170 (user: 4 up, clear of the switch)
+    PI_TOP_D_V4 = 72.0                             # the port end (R.PI_FLIP_TOP); SD end at 72 + 85 = 157: clear of the switch body (d 158.5+)
 BRD_Y0_V4 = -43.0                                  # power board Yr start (v3 -55.5): the -X round pulls the wall in
                                                    # forward of Yr -32; its +Y edge now passes the web (notched)
 SWITCH_YR_V4 = -42.0 if FLIP else -38.0                               # OPEN: v3's spot, now on the round and in the lowered Pi's RJ45
