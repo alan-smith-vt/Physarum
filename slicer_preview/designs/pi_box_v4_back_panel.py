@@ -1,4 +1,4 @@
-﻿"""v4 back (+Y) panel: the v3 back panel (pi_box_bat_back_panel_v3: L-hook edges, MagSafe disc, braced window) with
+"""v4 back (+Y) panel: the v3 back panel (gyroid panes above the window, no window bar; user home:2279) (pi_box_bat_back_panel_v3: L-hook edges, MagSafe disc, braced window) with
 a TONGUE on its top edge into the groove under the core's back rim (user approved home:2130; sketch
 designs/sketches/pi_box_v4_panel_tongue_sketch.py): 1.6 thick, 3.0 tall, centred on the panel, 45° pointed tip (the
 lead-in), |X| 6.2..43.5 (gap at the lidar-cable notch). It still slides in from the floor end and stops on the rim face.
@@ -25,8 +25,31 @@ def tongue_mask(X, y, d):
             & (ax >= BACK_TONGUE_X[0]) & (ax <= BACK_TONGUE_X[1]))
 
 
+_FACE = B3._FACE                                 # outer face Yr (interior toward -Y)
+WIN_HEAD = B3.WIN[2] - B3.BRACE / 2             # above this: panes gyroid-filled; below: the open window (user home:2279)
+
+
+def frame_mask(X, y, d):
+    """v3 frame, MagSafe disc and braces, without the window's vertical bar (user home:2279)."""
+    s = PV.panel_mask(X, y, d)
+    cx, cd = B3.RING_C
+    r = np.hypot(X - cx, d - cd)
+    keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | (r <= B3.DISC_R)
+    top, bot, R0, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.DISC_R, B3.IN_X
+    for a, b in [((0.0, cd - R0 + 1), (0.0, top)), ((-R0 + 1, cd), (-IN, cd)), ((R0 - 1, cd), (IN, cd)),
+                 ((-0.7 * R0, cd - 0.7 * R0), (-IN, top)), ((0.7 * R0, cd - 0.7 * R0), (IN, top)),
+                 ((-0.7 * R0, cd + 0.7 * R0), (-IN, bot)), ((0.7 * R0, cd + 0.7 * R0), (IN, bot)),
+                 ((-IN, bot), (IN, bot))]:
+        keep |= B3._seg(X, d, a, b)
+    return s & keep
+
+
 def back_mask(X, y, d):
-    return B3.back_mask(X, y, d) | tongue_mask(X, y, d)
+    s = frame_mask(X, y, d) | (PV.panel_mask(X, y, d, gyroid_face=(_FACE, -1)) & (d <= WIN_HEAD))   # gyroid panes
+    if y < B3.RING_DEPTH:                                                  # MagSafe recess in the outer face
+        r = np.hypot(X - B3.RING_C[0], d - B3.RING_C[1])
+        s &= ~((r >= B3.RING_ID / 2) & (r <= B3.RING_OD / 2 + PV.RESIN_HOLE_COMP / 2))
+    return s | tongue_mask(X, y, d)
 
 
 PIECES = [implicit_piece(PV.D1 - D_TIP, PANEL_T + PV.HOOK, 2 * PV.HALF_W,
