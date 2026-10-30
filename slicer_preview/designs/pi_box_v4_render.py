@@ -25,7 +25,8 @@ PR.PART_MAT.update(core='smoke', cart_near='turquoise', cart_far='turquoise', fl
                    v4_cam_lenses='gloss', power_board='pcb', ue300='white', bank_socket='black',
                    pi_plugs='plug', usbc_plug_envelope='plug', door_screw='steel')
 PR.MATS['plug'] = dict(color=(0.95, 0.45, 0.1), rough=0.5, alpha=0.55)   # [MEASURE] envelopes, translucent
-BOX = ['core', 'cart_near', 'cart_far', 'power_switch', 'floor', 'door', 'door_screw', 'panel_front', 'panel_back']
+BOX = ['core', 'cart_near', 'cart_far', 'power_switch', 'floor', 'door', 'door_screw', 'panel_front', 'panel_back',
+       'sgh_insert']
 INSIDE = ['pi5', 'cooler', 'battery', 'v4_cam_boards', 'v4_cam_lenses', 'power_board', 'ue300', 'box_spacers',
           'pi_plugs', 'usbc_plug_envelope']
 TOP = ['base_plate', 'standoffs', 'cross', 'mid360s', 'coupler', 'm12_plug']
@@ -33,15 +34,60 @@ GOPRO = ['gopro_adapter', 'gopro_cage', 'gopro_body', 'gopro_lenses']
 POLE = ['monopod']
 
 
+LOGO = dict(text='SGH', h_mm=31.5, d=128.0, face_y=-61.65, depth=2.85)   # home/v4-cart2 home:2284: placeholder font
+
+
+def add_logo(objs):
+    """'SGH' full-depth inlay in the wide front panel (clear blue insert, flush both faces; letters ~63 x 22 at X 0,
+    d 128), from home/v4-cart2's render_logo.py. Render only: the printable panel/insert split comes with real artwork."""
+    import bpy
+    import math
+    L = LOGO
+    bpy.ops.object.text_add()
+    t = bpy.context.object
+    t.data.body = L['text']
+    t.data.align_x, t.data.align_y = 'CENTER', 'CENTER'
+    t.data.size = L['h_mm'] * 1.35 * PR.MM
+    t.data.extrude = L['depth'] / 2 * PR.MM
+    t.data.space_character = 1.05
+    for fp in (r'C:\Windows\Fonts\arialbd.ttf', r'C:\Windows\Fonts\segoeuib.ttf'):
+        if os.path.exists(fp):
+            t.data.font = bpy.data.fonts.load(fp)
+            break
+    t.rotation_euler = (math.radians(90), 0, 0)                      # text faces -Y
+    t.location = (0, (L['face_y'] + L['depth'] / 2) * PR.MM, -L['d'] * PR.MM)
+    PR.MATS['sgh_blue'] = dict(color=(0.35, 0.62, 0.95), rough=0.3, transmission=0.55, ior=1.5)
+    bpy.context.view_layer.objects.active = t
+    bpy.ops.object.convert(target='MESH')
+    t.scale = (1.0, 1.0, 20.0 / L['depth'])                          # a prism through the whole wall
+    t.hide_render = True
+    pf = objs['panel_front']
+    ins = pf.copy()
+    ins.data = pf.data.copy()
+    ins.name = 'sgh_insert'
+    bpy.context.collection.objects.link(ins)
+    ins.data.materials.clear()
+    ins.data.materials.append(PR.material('sgh_blue'))
+    for ob, op in ((ins, 'INTERSECT'), (pf, 'DIFFERENCE')):
+        m = ob.modifiers.new('sgh', 'BOOLEAN')
+        m.operation, m.object, m.solver = op, t, 'EXACT'
+    objs['sgh_insert'] = ins
+
+
 def main():
     import bpy
+    import math
     bpy.ops.wm.read_factory_settings(use_empty=True)
     ground = PR.setup_scene()
     objs = PR.load_parts()
+    add_logo(objs)
+    for n in GOPRO:                                                  # GoPro turned 90° about rig Z (user, home:2284)
+        if n in objs:
+            objs[n].rotation_euler[2] += math.radians(90)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     every = BOX + INSIDE + TOP + POLE
     for view in VIEWS:
-        ground.hide_render = view in ('rear34_below', 'door_half')   # these cameras sit below the ground plane
+        ground.hide_render = view in ('rear34_below', 'door_half', 'lock_closed', 'lock_open')   # these cameras sit below the ground plane
         for c in [o for o in bpy.data.objects if o.type == 'CAMERA']:
             bpy.data.objects.remove(c)
         if view == 'front34':                       # from the front (-Y), +X side, above
@@ -68,6 +114,10 @@ def main():
         elif view == 'door_half':                   # door slid half out toward +Y
             PR.show(objs, every, {'door': (0, 16, 0), 'door_screw': (0, 16, 0)})
             PR.camera('cam', (0, 0.03, -0.16), (-0.75, 1.0, -0.45), 0.7)
+        elif view in ('lock_closed', 'lock_open'):  # close-up under the -X back corner: the door's M3 lock screw
+            shift = {'door': (0, 25, 0), 'door_screw': (0, 25, 0)} if view == 'lock_open' else None
+            PR.show(objs, BOX + INSIDE, shift)      # in its insert boss; lock_open: door slid 25 out toward +Y
+            PR.camera('cam', (-0.036, 0.046, -0.18), (-0.55, 0.75, -0.75), 0.17)
         else:
             print('unknown view', view)
             continue

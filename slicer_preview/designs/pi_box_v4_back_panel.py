@@ -27,12 +27,14 @@ def tongue_mask(X, y, d):
 
 _FACE = B3._FACE                                 # outer face Yr (interior toward -Y)
 WIN_HEAD = B3.WIN[2] - B3.BRACE / 2             # above this: panes gyroid-filled; below: the open window (user home:2279)
+RING_C = (0.0, WIN_HEAD - B3.BRACE / 2 - B3.DISC_R)   # MagSafe disc as low as it goes: its edge on the window head bar
+#                                                (user home:2285: phone clears the cable at the top, overhangs the bottom)
 
 
 def frame_mask(X, y, d):
     """v3 frame, MagSafe disc and braces, without the window's vertical bar (user home:2279)."""
     s = PV.panel_mask(X, y, d)
-    cx, cd = B3.RING_C
+    cx, cd = RING_C
     r = np.hypot(X - cx, d - cd)
     keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | (r <= B3.DISC_R)
     top, bot, R0, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.DISC_R, B3.IN_X
@@ -47,7 +49,7 @@ def frame_mask(X, y, d):
 def back_mask(X, y, d):
     s = frame_mask(X, y, d) | (PV.panel_mask(X, y, d, gyroid_face=(_FACE, -1)) & (d <= WIN_HEAD))   # gyroid panes
     if y < B3.RING_DEPTH:                                                  # MagSafe recess in the outer face
-        r = np.hypot(X - B3.RING_C[0], d - B3.RING_C[1])
+        r = np.hypot(X - RING_C[0], d - RING_C[1])
         s &= ~((r >= B3.RING_ID / 2) & (r <= B3.RING_OD / 2 + PV.RESIN_HOLE_COMP / 2))
     return s | tongue_mask(X, y, d)
 
