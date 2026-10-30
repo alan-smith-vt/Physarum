@@ -8,8 +8,10 @@ with the ~2 mm square-to-wall caliper reading). Pockets are wedges between the f
 Clip, lens → sensor:  8 wedge keys down into the pockets, each gripping the SIDES of its two fins | ring with the
 glass pocket (glass rests on the fin tops / core rim) | 0.3 mm lip toward the sensor with a Ø5.6 aperture (sensor
 diagonal ~4.5). Protrudes ~1.3 mm past the rear face.
-v2 (2026-10-29): v1's round pins pressed on the core faces from r 2.8, inside the glass (r 3.25), so the glass
-couldn't pass them, and they were loose. Keys now start at KEY_R0 (outside the glass pocket) and grip the fins.
+v2 (2026-10-29): v1 ignored resin shrink: its Ø6.55-6.70 pockets printed ~0.35 undersize (below the 6.5 glass) and
+the pins grew ~0.35, reaching the glass edge; they pressed on the core faces and were loose. v2 draws every size
+compensated (RESIN_HOLE_COMP holes, EXT_COMP externals; the pocket also sits near the plate, where holes close
+~0.25 more) and grips the fin sides with wedge keys outside the glass.
 
 Printed lip-down (Y up = toward the lens): lip, ring, then pins pointing up, no supports.
   columns: key fit C_LIST = gap per side between a key and each fin face (negative = interference)
@@ -18,16 +20,19 @@ ID tabs on the first layers: holes on the -Z tab = row, on the +X tab = column. 
 """
 import numpy as np
 from geometry import implicit_piece
+from designs.pi_box_bat_rig import RESIN_HOLE_COMP    # holes print ~0.35 undersize on Ø (cage v1 fit strip)
+EXT_COMP = 0.35                                       # external features print ~0.35 oversize (cage_v2 NUB_D note)
 
 SUPPORTS = False
 
 C_LIST = [0.0, -0.03, -0.06]          # cols: per-side gap to the fin faces (fins 1.0 thick, radial, every 45°)
-D_LIST = [6.55, 6.60, 6.65, 6.70]    # rows: glass pocket Ø (glass 6.5; resin holes print a little undersize)
+D_LIST = [6.55, 6.65, 6.75, 6.85]    # rows: glass pocket Ø AS PRINTED (glass 6.5): drawn + RESIN_HOLE_COMP; the
+                                     # upper rows cover the extra near-plate closing (~0.25, PI_BOX_HANDOFF resin rules)
 
 LIP_H, POCKET_H = 0.3, 1.0           # lip, then glass pocket depth (= glass thickness)
-RING_R = 4.6                         # ring OD 9.2: stays inside the Ø9.6 barrel wall
-APERTURE_R = 2.8                     # lip opening Ø5.6
-KEY_R0, KEY_R1, PIN_L, PIN_TIP = 3.45, 4.6, 1.5, 0.3   # key radial span (glass pocket ≤ 3.35, wall 4.8), length, lead-in
+RING_R = 4.6 - EXT_COMP / 2           # ring OD 9.2 as printed
+APERTURE_R = (5.6 + RESIN_HOLE_COMP) / 2   # lip opening Ø5.6 as printed
+KEY_R0, KEY_R1, PIN_L, PIN_TIP = 3.65, 4.4, 1.5, 0.3   # key span as drawn (grows ~0.175: 3.48..4.58; pocket ≤ 3.43, wall 4.8)
 FIN_HALF = 0.5
 TAB_H, TAB_L, TAB_W, ID_R = 0.5, 3.5, 2.4, 0.35
 
@@ -44,7 +49,7 @@ def _keys(u, v, c, taper=0.0):
     th = np.mod(np.arctan2(v, u), np.pi / 4)                   # angle inside the 45° pocket
     d0 = rr * np.sin(th)                                       # distance to the fin on the pocket's 0° side
     d1 = rr * np.sin(np.pi / 4 - th)                           # ... and to the one on its 45° side
-    g = FIN_HALF + c + taper
+    g = FIN_HALF + c + EXT_COMP / 2 + taper                   # drawn narrower: the key grows EXT_COMP/2 per side
     return (rr >= KEY_R0) & (rr <= KEY_R1) & (d0 >= g) & (d1 >= g)
 
 
@@ -60,7 +65,7 @@ def solid(x, y, z):
         inner = np.full(s.shape, APERTURE_R)
         if y >= LIP_H:
             for i, d in enumerate(D_LIST):
-                inner = np.where(row == i, d / 2, inner)
+                inner = np.where(row == i, (d + RESIN_HOLE_COMP) / 2, inner)
         s = (r2 <= RING_R ** 2) & (r2 >= inner ** 2)
         if y < TAB_H:
             tab_z = (np.abs(u) <= TAB_W / 2) & (v < 0) & (v >= -RING_R - TAB_L)
