@@ -144,6 +144,7 @@ bosses = union(*[axis_cyl(B3 + t * TC + v * UC, FC, CAM_BOSS_R, 0.0, CAM_BOSS_H 
 INS_C0 = 1.0                                        # insert's board-side face behind the board face (the shoulder)
 INS_R = (CAM_INSERT_D + RESIN_HOLE_COMP) / 2         # slot half-width = insert OD + comp
 INS_RUN = 13.5 - 10.5 + 0.5                         # from the hole axis out through the pod side (t 13.5)
+FLANGE_SCREW_L = 10.0                               # M2x10: head on the seat (n 22.9), through the core insert (n 13.9..16.4)
 BOARD_SCREW_L = 5.0                                 # M2x5: 1.6 board + 2.5 insert + 0.9 tip room
 NUT_RUN = 1.5                                       # nut slot run outward from the hole (to the pod side)
 # the cap band under the pod opens for the ribbon (user, 2026-10-29: no bottom screw, open that region; the core
@@ -303,8 +304,8 @@ def hardware():
                             [_cyl_tris(B3 + t * TC + v * UC, FC, 1.9, -3.2, -1.6) for t, v in BOARD_HOLES])
     nuts = np.concatenate([_cyl_tris(B3 + t * TC + v * UC, FC, CAM_INSERT_D / 2, INS_C0, INS_C0 + CAM_INSERT_L, 12)
                            for t, v in BOARD_HOLES])                       # M2 inserts, captive in the side slots
-    fl = np.concatenate([_cyl_tris((SEAT, t, d), (1, 0, 0), 1.0, -5.0, 2.0) for t, d in CART_SCREWS] +
-                        [_cyl_tris((SEAT, t, d), (1, 0, 0), 1.9, 2.0, 3.6) for t, d in CART_SCREWS])
+    fl = np.concatenate([_cyl_tris((SEAT, t, d), (1, 0, 0), 1.0, -FLANGE_SCREW_L, 0.0) for t, d in CART_SCREWS] +
+                        [_cyl_tris((SEAT, t, d), (1, 0, 0), 1.9, 0.0, 2.0) for t, d in CART_SCREWS])   # head on the seat
     # ribbon: from the connector down along the board, out through the slot, then straight down (+d) 20 mm
     e0 = B3 - 15.6 * UC - 2.6 * FC
     e1 = e0 - 9.0 * UC
@@ -323,7 +324,7 @@ def hardware():
             ('v4_cam_holder', holder, '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
             ('v4_cam_screws', screws, '#bdc3c7', '4 x M2x5 board screws from behind'),
             ('v4_cam_nuts', nuts, '#2c3e50', '4 x M2 threaded inserts, captive in side slots'),
-            ('v4_flange_screws', fl, '#ecf0f1', '4 x M2 flange screws (sides) into the core pad inserts'),
+            ('v4_flange_screws', fl, '#ecf0f1', '4 x M2x10 flange screws (sides) into the core pad inserts'),
             ('v4_cam_ribbon', rib, '#e67e22', 'ribbon out through the 17 x 4 slot, jog inward, down (first ~30 mm)')]
 
 
@@ -391,7 +392,7 @@ OVERLAYS = [dict(file=f'{_OV_DIR}/{n}.stl', color=c, opacity=1.0, label=l) for n
     ('cam_connector_up', '#f9e79f', 'ALTERNATIVE pose: connector at the top edge'),
     ('cam_holder', '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
     ('cam_screws', '#bdc3c7', '4 x M2x5 board screws from behind'), ('cam_nuts', '#2c3e50', '4 x M2 threaded inserts, captive in side slots'),
-    ('flange_screws', '#ecf0f1', '4 x M2 flange screws (sides) into the core pad inserts'),
+    ('flange_screws', '#ecf0f1', '4 x M2x10 flange screws (sides) into the core pad inserts'),
     ('cam_ribbon', '#e67e22', 'ribbon out through the 17 x 4 slot (first 30 mm)'))]
 # (no file writes at import: python -m designs.pi_box_v4_cam_cartridge writes these overlay STLs)
 
