@@ -36,3 +36,12 @@ the switch latched, so gpio-shutdown would never see the switch-off edge. With n
 holds it low off.
 First readings (board A, bank, Pi idle, red on): INA226 at 0x40 (TI, die 0x2260), bus 15.10 V, shunt 2.48 mV = 0.25 A;
 EXT5V 5.00 V; throttled 0x0; KEEP_ALIVE (GPIO22) high; BUCK_PG high; PD_PG low (good); LIDAR_EN low.
+
+## Bring-up results, board A (2026-10-31)
+- Soft power: 4 of 4 switch-off cycles logged a clean shutdown (logind "System is powering down" -> sync -> board
+  cuts 5 V after halt). An unlatch in the first ~8 s of boot (before the kernel's shutdown_button input, ~3.4 s
+  kernel time, plus firmware) is a hard cut, by design. Boot to multi-user ~12 s.
+- Buck under load: `stress-ng --cpu 4` for 5 min: throttled 0x0 throughout; bank side 15.06 V, 0.48 A, ~7.2 W;
+  Pi EXT5V 4.91 V under load (5.00 V idle); SoC 60 °C. The ~90 mV droop is worth splitting into buck vs cable with a
+  meter on J2 VBUS before adding heavy USB loads (Pi under-voltage warns below ~4.63 V).
+- Tools on lidarpi: i2c-tools, stress-ng; logger ~/pb_log.py (INA226 + EXT5V + throttled + temp every 10 s).
