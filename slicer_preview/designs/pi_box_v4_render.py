@@ -25,6 +25,9 @@ PR.PART_MAT.update(core='smoke', cart_near='turquoise', cart_far='turquoise', fl
                    v4_cam_lenses='gloss', power_board='pcb', ue300='white', bank_socket='black',
                    pi_plugs='plug', usbc_plug_envelope='plug', door_screw='steel')
 PR.MATS['clear_blue'] = dict(color=(0.35, 0.62, 0.95), rough=0.3, transmission=0.55, ior=1.5)   # back panel (user home:2302)
+# printed black resin (user 2026-10-31): Tenacious lava black + smoky black, an opaque glossy black (was 'smoke')
+PR.MATS['resin_black'] = dict(color=(0.012, 0.012, 0.013), rough=0.28)
+PR.PART_MAT.update(core='resin_black', panel_front='resin_black', panel_back='resin_black')
 PR.MATS['plug'] = dict(color=(0.95, 0.45, 0.1), rough=0.5, alpha=0.55)   # [MEASURE] envelopes, translucent
 BOX = ['core', 'cart_near', 'cart_far', 'power_switch', 'floor', 'door', 'door_screw', 'panel_front', 'panel_back',
        'sgh_insert', 'magsafe_ring']
@@ -81,7 +84,7 @@ def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     ground = PR.setup_scene()
     objs = PR.load_parts()
-    add_logo(objs)                                                   # SGH cut + clear-blue inlay in the front panel
+    # SGH logo scrapped (user 2026-10-31: a sticker instead); add_logo() kept for reference
     for n in GOPRO:                                                  # GoPro turned 90° about rig Z (user, home:2284)
         if n in objs:
             objs[n].rotation_euler[2] += math.radians(90)

@@ -560,7 +560,7 @@ def _floor_button_overlay():
     x, y = FLOOR_BUTTON
     face = DEPTH + FLOOR_T                         # floor outer face (d); its top face is DEPTH
     tris = np.concatenate([R._cyl((x, y, 0.0), 'z', 8.0, -DEPTH, -(DEPTH - 40.0), 32),        # body + plug, d 140..180 (measured ~40)
-                           R._cyl((x, y, 0.0), 'z', 9.4, -(face + 2.5), -(face + 0.05), 32)])  # bezel Ø18.8 x 2.5 [MEASURE height]
+                           R._cyl((x, y, 0.0), 'z', 8.75, -(face + 1.8), -(face + 0.05), 32)])  # bezel Ø17.5 x 1.8 (measured)
     nut = R._cyl((x, y, 0.0), 'z', 9.4, -DEPTH + 0.05, -(DEPTH - 2.5), 32)                    # M16 nut 18.8 AC (measured)
     out = []
     for name, t, op, label in (('power_switch', tris, 0.8, 'power switch, 16 mm latching (15 V line), floor (-33, 14)'),

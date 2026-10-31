@@ -127,8 +127,10 @@ cap = inter(Box(SEAT - CSK, LAND, -FL_T, FL_T, 0.0, H_TOP),
 # frame: c along the axis from the board's front face, b along the board's up, t across.
 POD_C, POD_B, POD_T = (-3.0, 18.0), (-17.1, 10.75), 13.5
 POCKET_CL = 0.3                                     # board pocket clearance per side
-HOLDER_SQ, HOLDER_C = 15.6, 7.0                     # square M12 lens-holder pocket, height off the board [MEASURE caliper]
-BARREL_D = 14.0 + 0.5                               # lens barrel Ø14 + clearance
+HOLDER_SQ, HOLDER_C = 13.0, 3.5                     # square M12 lens holder, height off the board (measured, user 2026-10-31)
+HOLDER_EAR_C, HOLDER_EAR_D = (21.7 - 3.8) / 2, 3.8  # its two screw housings: 21.7 outer to outer, Ø3.8 (measured)
+LENS_L = 19.0                                       # board face to the lens tip, focused (measured; was 18)
+BARREL_D = 15.0 + 0.5                               # largest barrel part: the cap Ø15 (measured) + clearance
 
 
 def bplane(a, k, sign):
@@ -164,6 +166,8 @@ cuts = union(
     ribbon_slot,
     obox(B3 + (HOLDER_C - 0.5) / 2 * FC, (TC, UC, FC), ((HOLDER_SQ + RESIN_HOLE_COMP) / 2, (HOLDER_SQ + RESIN_HOLE_COMP) / 2,
          (HOLDER_C + 0.5) / 2)),                                                              # lens holder (square)
+    *[axis_cyl(B3 + e * TC, FC, (HOLDER_EAR_D + RESIN_HOLE_COMP) / 2, -0.5, HOLDER_C)      # its screw housings, along
+      for e in (-HOLDER_EAR_C, HOLDER_EAR_C)],                                               # the board's 25 (user)
     axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] - 6.0, peak=True),   # barrel: peaked
     axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, POD_C[1] - 6.01, POD_C[1] + 1.0),   # ...round for the last 6 (no notch in the eye)
     # M2 threaded inserts, CAPTIVE in side slots (user, 2026-10-30): each slides in sideways from the pod side and sits
@@ -267,10 +271,10 @@ def meshes(h=0.3):
         return np.array([[P[i], P[j], P[k]] for i, j, k in F])
     board = quad_box(B3 - 12.5 * TC - 15.6 * UC - 1.6 * FC, 25 * TC, 23.85 * UC, 1.6 * FC)
     q = np.linspace(0, 2 * np.pi, 33)
-    ring = lambda c: [B3 + c * FC + 7 * (np.cos(a) * TC + np.sin(a) * UC) for a in q]
-    r0, r1 = ring(0.0), ring(18.0 - LENS_GLASS)
-    g0, g1 = ring(18.0 - LENS_GLASS), [B3 + 18.0 * FC + 5.5 * (np.cos(a) * TC + np.sin(a) * UC) for a in q]
-    tip = B3 + 18.0 * FC
+    ring = lambda c: [B3 + c * FC + 7.5 * (np.cos(a) * TC + np.sin(a) * UC) for a in q]
+    r0, r1 = ring(0.0), ring(LENS_L - LENS_GLASS)
+    g0, g1 = ring(LENS_L - LENS_GLASS), [B3 + LENS_L * FC + 5.5 * (np.cos(a) * TC + np.sin(a) * UC) for a in q]
+    tip = B3 + LENS_L * FC
     lens = np.array([t for i in range(32) for t in ((r0[i], r0[i + 1], r1[i + 1]), (r0[i], r1[i + 1], r1[i]),
                                                    (g0[i], g0[i + 1], g1[i + 1]), (g0[i], g1[i + 1], g1[i]),
                                                    (g1[i], g1[i + 1], tip))])
@@ -303,7 +307,9 @@ def _box_tris(o, a, b, c):
 def hardware():
     """Board-side parts in land coords (n, t, d): [(name, tris, colour, label)]."""
     conn = _box_tris(B3 - 8.0 * TC - 15.6 * UC - 1.6 * FC, 16.0 * TC, 4.5 * UC, -2.5 * FC)
-    holder = _box_tris(B3 - 7.5 * TC - 7.5 * UC, 15.0 * TC, 15.0 * UC, 6.5 * FC)
+    h2 = HOLDER_SQ / 2
+    holder = np.concatenate([_box_tris(B3 - h2 * TC - h2 * UC, HOLDER_SQ * TC, HOLDER_SQ * UC, HOLDER_C * FC)] +
+                            [_cyl_tris(B3 + e * TC, FC, HOLDER_EAR_D / 2, 0.0, HOLDER_C) for e in (-HOLDER_EAR_C, HOLDER_EAR_C)])
     screws = np.concatenate([_cyl_tris(B3 + t * TC + v * UC, FC, 1.0, -1.6, BOARD_SCREW_L - 1.6)
                              for t, v in BOARD_HOLES] +
                             [_cyl_tris(B3 + t * TC + v * UC, FC, 1.9, -3.2, -1.6) for t, v in BOARD_HOLES])
@@ -326,7 +332,7 @@ def hardware():
     return [('v4_cam_connector', conn, '#f1c40f', 'board FFC connector (back, bottom edge)'),
             ('v4_cam_board_up', board_up, '#a9dfbf', 'ALTERNATIVE pose: board turned 180° (connector up), proposal'),
             ('v4_cam_connector_up', conn_up, '#f9e79f', 'ALTERNATIVE pose: connector at the top edge'),
-            ('v4_cam_holder', holder, '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
+            ('v4_cam_holder', holder, '#566573', 'lens holder 13 sq x 3.5, ears 21.7 (measured; ears along the 25 side)'),
             ('v4_cam_screws', screws, '#bdc3c7', '4 x M2x5 board screws from behind'),
             ('v4_cam_nuts', nuts, '#2c3e50', '4 x M2 threaded inserts, captive in side slots'),
             ('v4_flange_screws', fl, '#ecf0f1', '4 x M2x8 flange screws (sides) into the core pad inserts'),
@@ -353,7 +359,7 @@ def _write_overlays():
     od = R.ROOT / 'slicer_preview' / 'out' / 'overlays_v4_cartridge'
     od.mkdir(parents=True, exist_ok=True)
     board, lens = meshes_board_lens()
-    items = [('board', board, '#1e8449', 'OV9281 board 25 x 23.85'), ('lens', lens, '#34495e', 'lens Ø14 x 18')] +         [(n.replace('v4_', ''), t, c, l) for n, t, c, l in hardware()]
+    items = [('board', board, '#1e8449', 'OV9281 board 25 x 23.85'), ('lens', lens, '#34495e', 'lens Ø15 (cap) x 19')] +         [(n.replace('v4_', ''), t, c, l) for n, t, c, l in hardware()]
     out = []
     x0, z0 = -(N1 - N0) / 2, GAP / 2
     for name, t, col, lab in items:
@@ -370,7 +376,7 @@ def rig_meshes():
     out = []
     for name, t, col, lab in (('v4_cartridges', cart, '#3498db', 'camera cartridges (v4 proposal)'),
                               ('v4_cam_boards', board, '#145a32', 'OV9281 boards, pitched 24° (25 × 23.85)'),
-                              ('v4_cam_lenses', lens, '#566573', 'lens Ø14 × 18')):
+                              ('v4_cam_lenses', lens, '#566573', 'lens Ø15 (cap) × 19')):
         tri = np.concatenate([land_to_rig(t, s)[:, ::s] for s in (-1, 1)]) * [1, 1, -1]   # z up; mirror flips winding
         out.append((name, tri, col, lab))
     for name, t, col, lab in hardware():
@@ -383,19 +389,19 @@ def meshes_board_lens():
     """Board + lens only (no marching cubes)."""
     q = np.linspace(0, 2 * np.pi, 33)
     board = _box_tris(B3 - 12.5 * TC - 15.6 * UC - 1.6 * FC, 25 * TC, 23.85 * UC, 1.6 * FC)
-    lens = np.concatenate([_cyl_tris(B3 + 6.5 * FC, FC, 7.0, 0.0, 11.5 - LENS_GLASS),
-                           _cyl_tris(B3 + 6.5 * FC, FC, 5.5, 11.5 - LENS_GLASS, 11.5)])
+    lens = np.concatenate([_cyl_tris(B3 + HOLDER_C * FC, FC, 7.5, 0.0, LENS_L - HOLDER_C - LENS_GLASS),
+                           _cyl_tris(B3 + HOLDER_C * FC, FC, 5.5, LENS_L - HOLDER_C - LENS_GLASS, LENS_L - HOLDER_C)])
     return board, lens
 
 
 C_FL_D1 = FL_D[1]
 _OV_DIR = 'slicer_preview/out/overlays_v4_cartridge'
 OVERLAYS = [dict(file=f'{_OV_DIR}/{n}.stl', color=c, opacity=1.0, label=l) for n, c, l in (
-    ('board', '#1e8449', 'OV9281 board 25 x 23.85'), ('lens', '#34495e', 'lens Ø14 x 18'),
+    ('board', '#1e8449', 'OV9281 board 25 x 23.85'), ('lens', '#34495e', 'lens Ø15 (cap) x 19'),
     ('cam_connector', '#f1c40f', 'board FFC connector (back, bottom edge)'),
     ('cam_board_up', '#a9dfbf', 'ALTERNATIVE pose: board turned 180° (connector up), proposal'),
     ('cam_connector_up', '#f9e79f', 'ALTERNATIVE pose: connector at the top edge'),
-    ('cam_holder', '#566573', 'lens holder (15 x 15 x 6.5 envelope) [MEASURE]'),
+    ('cam_holder', '#566573', 'lens holder 13 sq x 3.5, ears 21.7 (measured; ears along the 25 side)'),
     ('cam_screws', '#bdc3c7', '4 x M2x5 board screws from behind'), ('cam_nuts', '#2c3e50', '4 x M2 threaded inserts, captive in side slots'),
     ('flange_screws', '#ecf0f1', '4 x M2x8 flange screws (sides) into the core pad inserts'),
     ('cam_ribbon', '#e67e22', 'ribbon out through the 17 x 4 slot (first 30 mm)'))]
