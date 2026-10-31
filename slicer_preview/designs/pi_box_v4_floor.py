@@ -37,7 +37,7 @@ _PATCHES = [
      '    req |= ~' + _ROUND.format(x='XX', y='YY', m=' - b') + '\n'),
     # uni USB-A Gigabit adapter replaces the UE300 (user, home:2158; spec home/v4-layout home:2161) [MEASURE]: body
     # 16 (X) x 24 (Yr), centred (37.9, -15) (16 deep clears the flip Pi's +X post, home:2169), RJ45 down through the floor opening; cradle walls + opening follow it
-    ('ETH_CRADLE = True ', 'ETH_ADAPTER = dict(x=37.9, y=-15.0, wx=16.0, wy=24.0, h=53.0)\nETH_CRADLE = True '),
+    ('ETH_CRADLE = True ', 'ETH_ADAPTER = dict(x=37.9, y=-15.0, wx=15.4, wy=23.7, h=53.0)\nETH_CRADLE = True '),
     # floor power button (user approved, home:2092; home/v4-power-button): Ø16 switch down through the plate at
     # BUTTON_XY, nut on the top face: plate solid (no gyroid) over a Ø24 seat
     ('                s &= ~hole(bx, by, SCREW_CLEAR, X, Yr)\n',

@@ -120,7 +120,7 @@ BUTTON = dict(x=-22.0, d=DEPTH - 22.0, hole=10.0)   # bank's display button, thr
 # (ETH_SEAT) caps its top end so it can't slide off the floor with the rig upside down.
 ETH_ADAPTER = dict(x=38.15, y=-14.6, wx=16.0, wy=26.0, h=71.0)  # centre X, Yr; footprint along X / Yr (measured 71 × 26 × 16, 2026-10-16)
 ETH_SEAT = dict(clear=1.4, reach=5.0)         # gap over the adapter's top (0.4 + 1 unmeasured margin), ledge reach off the web (Yr) [MEASURE] height
-ADAPTER_JACK = (13.5, 16.0)                   # RJ45 opening in its end face, along X / Yr [MEASURE]
+ADAPTER_JACK = (13.5, 16.0)                   # floor opening for the RJ45 plug, along X / Yr (standard plug 11.7 wide + latch; no measuring, user 2026-10-31)
 USB3_PORT = (12.0, -41.0, -102.5)             # blue port mouth: Pi top 14 + 88.5 (+X stack assumed) [MEASURE]
 CRADLE_H, CRADLE_WALL, CRADLE_CLEAR = 12.0, 2.0, 0.3
 # LIDAR CABLE ENTRY (2026-10-13): the M12 plug sticks straight out along +Yr (X 0, ~23 above the plate

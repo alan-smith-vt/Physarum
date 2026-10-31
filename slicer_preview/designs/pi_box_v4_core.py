@@ -216,7 +216,7 @@ def _pad_support(s):
 DOOR_RAIL = dict(y0=30.5, d0=175.6, d1=178.4, depth=1.6)   # CLOSED groove: the 1.6 ledge below carries the door
 DOOR_WEB_CLEAR = 1.8
 PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(-41.1, 44.0), dia=4.0, L=6.0)   # M3 insert (door thumb screw, user 2026-10-29)
-ETH_ADAPTER_V4 = dict(x=37.9, y=-15.0, wx=16.0, wy=24.0, h=53.0)   # uni USB-A GbE adapter, RJ45 down [MEASURE]
+ETH_ADAPTER_V4 = dict(x=37.9, y=-15.0, wx=15.4, wy=23.7, h=53.0)   # uni USB-A GbE adapter, RJ45 down (measured 2026-10-31)
 FLOOR_BUTTON = (-33.0, 14.0)                       # floor power button (home:2092; moved for the 18.8 AC nut, home:2149)
 FLOOR_BOSSES_V4 = [(-42.0, -18.0), (45.0, 6.5)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]   # front pair moved off the
 # rounds (wide front panel, user approved home:2136; floor home/v4-floor); the +X one stays X >= 41.5 (home:2135)
@@ -458,7 +458,7 @@ _V3_PATCHES = [
     ("_a = ETH_ADAPTER\n", "_a = _V4.ETH_ADAPTER_V4\n"),
     ("UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)",
      "UE300 = dict(x0=29.9, x1=45.9, y0=-27.0, y1=-3.0, d0=DEPTH - 53.0)"),
-    ("'TP-Link UE300 (as v2)'", "'uni USB-A GbE adapter 53x24x16 [MEASURE depth; if thicker: drop the +X lower Pi post, home:2173]'"),
+    ("'TP-Link UE300 (as v2)'", "'uni USB-A GbE adapter 53 x 23.7 x 15.4 (measured)'"),
     # solid wall (no gyroid) round the wide front panel's hook channels, 3+ mm margin (user, home:2148), and on up
     # past the camera cartridges to the flange (home:2179)
     ("    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n",
