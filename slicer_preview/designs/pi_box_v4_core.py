@@ -418,10 +418,13 @@ def front_panel_rig(X, Y, d):
 FRONT_PANEL_D0 = PV.D0 - TONGUE_H
 
 
+DRIVER_D1 = 26.0                                   # driver bore runs down past the cartridge pad frame (d 13..24)
+
+
 def _driver_paths():
-    """The front M4 head pockets open through the stub only (user, home:2181: no bore through the cartridge slot
-    floor; a thin driver reaches the head from inside with the cartridge out)."""
-    return union(*[Cyl('d', (s * R.POST, -R.POST), (R.HEAD_D + R.RESIN_HOLE_COMP) / 2, R.SPACER_SEAT, STUB_D + 0.5)
+    """Clear Ø HEAD_D path to each front M4 head (user 2026-10-31: the cartridge pad frame's top, d 13..24, blocked
+    the screw; was stub-only per home:2181). Screw first, then the cartridge; the bore ends inside its slot."""
+    return union(*[Cyl('d', (s * R.POST, -R.POST), (R.HEAD_D + R.RESIN_HOLE_COMP) / 2, R.SPACER_SEAT, DRIVER_D1)
                    for s in (-1, 1)])
 
 
