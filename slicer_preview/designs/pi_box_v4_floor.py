@@ -47,7 +47,7 @@ _PATCHES = [
      '    req |= np.hypot(XX - _V4.SWITCH_XY[0], YY - _V4.SWITCH_XY[1]) <= _V4.SWITCH_SEAT / 2\n'
      '    for bx, by in FLOOR_BOSSES + HINGE_HOLES:\n'),
     # stray gyroid slivers between the keep bands (user 2026-10-31: one by the -X rear boss): fill any open
-    # patch smaller than _V4.MIN_PANE mm2
+    # patch smaller than _V4.MIN_PANE mm2 (2026-10-31: 150, the rear strips too)
     ('    return step, gaussian_filter(req.astype(float), 2.0 / step) > 0.3\n',
      '    keep = gaussian_filter(req.astype(float), 2.0 / step) > 0.3\n'
      '    from scipy.ndimage import label\n'
@@ -56,7 +56,7 @@ _PATCHES = [
      '    keep |= (lab > 0) & (area[lab] < _V4.MIN_PANE)\n'
      '    return step, keep\n'),
 ]
-MIN_PANE = 40.0
+MIN_PANE = 150.0                            # also the two thin strips by the rear boss: solid for looks (user)
 # UE300 side swap (home:2065) REVERTED by the user (home:2102): cradle + RJ45 back on +X, as in v3. The mirror
 # patches, if ever needed again: a90a30b.
 
