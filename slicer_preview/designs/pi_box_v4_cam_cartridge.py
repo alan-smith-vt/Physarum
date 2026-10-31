@@ -175,7 +175,7 @@ ribbon_slot = inter(Box(0.0, LAND + 12.0, -RIBBON_SLOT['t'], RIBBON_SLOT['t'], 0
 cuts = union(
     ribbon_slot,
     holder_cut(-0.5, HOLDER_C, RESIN_HOLE_COMP / 2),         # lens holder: square + housing tabs along the 25 side
-    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] - 6.0),   # barrel: round (user 2026-10-31: bridge the arch, no V roof)
+    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, -0.5, POD_C[1] - 6.0),   # barrel: round, from the board face (the Ø15 cap passes the holder zone; user 2026-10-31)
     axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, POD_C[1] - 6.01, POD_C[1] + 1.0),   # ...round for the last 6 (no notch in the eye)
     # M2 threaded inserts, CAPTIVE in side slots (user, 2026-10-30): each slides in sideways from the pod side and sits
     # INS_C0 behind the board face; that resin shoulder takes the lens-cap push. M2x5 from behind engages 2.4 of 2.5.

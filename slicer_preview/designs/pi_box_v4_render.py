@@ -25,9 +25,10 @@ PR.PART_MAT.update(core='smoke', cart_near='turquoise', cart_far='turquoise', fl
                    v4_cam_lenses='gloss', power_board='pcb', ue300='white', bank_socket='black',
                    pi_plugs='plug', usbc_plug_envelope='plug', door_screw='steel')
 PR.MATS['clear_blue'] = dict(color=(0.35, 0.62, 0.95), rough=0.3, transmission=0.55, ior=1.5)   # back panel (user home:2302)
-# printed black resin (user 2026-10-31): Tenacious lava black + smoky black, an opaque glossy black (was 'smoke')
+# printed dark resin (user 2026-10-31, after colour pucks): smoky black Fast + clear Tenacious 75/25, a see-through
+# smoky tint (wires visible: engineering prototype); 'smoke' as before. 'resin_black' = the lava black option.
 PR.MATS['resin_black'] = dict(color=(0.012, 0.012, 0.013), rough=0.28)
-PR.PART_MAT.update(core='resin_black', panel_front='resin_black', panel_back='resin_black')
+PR.PART_MAT.update(core='smoke', panel_front='smoke', panel_back='smoke')
 PR.MATS['plug'] = dict(color=(0.95, 0.45, 0.1), rough=0.5, alpha=0.55)   # [MEASURE] envelopes, translucent
 BOX = ['core', 'cart_near', 'cart_far', 'power_switch', 'floor', 'door', 'door_screw', 'panel_front', 'panel_back',
        'sgh_insert', 'magsafe_ring']
