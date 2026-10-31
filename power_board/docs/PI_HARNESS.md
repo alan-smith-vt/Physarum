@@ -45,3 +45,8 @@ EXT5V 5.00 V; throttled 0x0; KEEP_ALIVE (GPIO22) high; BUCK_PG high; PD_PG low (
   Pi EXT5V 4.91 V under load (5.00 V idle); SoC 60 °C. The ~90 mV droop is worth splitting into buck vs cable with a
   meter on J2 VBUS before adding heavy USB loads (Pi under-voltage warns below ~4.63 V).
 - Tools on lidarpi: i2c-tools, stress-ng; logger ~/pb_log.py (INA226 + EXT5V + throttled + temp every 10 s).
+- Lidar eFuse, no load: LIDAR_EN (GPIO17) high -> J3 15.14 V (meter), D3 white on, FLT (GPIO23, Pi pull-up) high,
+  +15 mA on the bank side; LIDAR_EN low -> back to the 0.18 V off-state leakage, D3 off. **J3 polarity: left pin +15 V,
+  right pin GND (USB-C up): lidar red left, black right.** INA226 bus 15.10 V vs J3 meter 15.14 V.
+- Still to do (needs the lidar, office): J3 with the lidar, start peak + no FLT: `python3 ~/lidar_on.py 20` on lidarpi
+  (INA226 fast mode, switches GPIO17 on, logs peak / min bus / FLT). The 6.8 ohm current-limit test is optional.
