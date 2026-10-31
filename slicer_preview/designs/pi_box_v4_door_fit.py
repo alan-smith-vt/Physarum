@@ -8,12 +8,13 @@ Print this before the core/door: it tests the door's rail clearances and the thu
 Check: the door corner slides in from +Y with no force and no rattle, butts the rib, and an M3 x 8 socket cap
 runs through the captive hole into the insert with a hex key. Clearances: 0.4 per side + RESIN_HOLE_COMP/2 on holes; external faces are pulled in by
 OVERSIZE (= EXT_COMP/2 of ir_filter_clip).
-Rig -> print (both pieces, top down): y = d - 165 (wall) or the door's own mapping.
+Rig -> print: wall top down, y = d - 165; door corner standing on its grip end (y = Y_MAX - Yr).
 """
 import numpy as np
 from geometry import implicit_piece
 from designs.pi_box_bat_rig import RESIN_HOLE_COMP, hole
 from designs import pi_box_v4_door_a as D
+from designs import pi_box_bat_rig as R
 
 SUPPORTS, EXPOSURE_S, BOTTOM_EXPOSURE_S = False, 2.3, 20.0
 C = RESIN_HOLE_COMP / 2
@@ -24,6 +25,9 @@ PIN = dict(x=D.SCREW_XY[0], y=D.SCREW_XY[1], dia=4.0, L=6.0)   # M3 insert Ø4 x
 FLARE = 1.0
 WEB_CLEAR = (1.8, 175.5)                         # core: 1.8 clear inside the wall face below d 175.5
 
+# the lock boss hangs 8 mm off the wall from d 168 (3 mm up in print): snap-off spikes from the plate under it
+SPIKES = [(x, y) for x in (BOSS['x0'] + 4.0, BOSS['x1'] - 1.0) for y in (BOSS['y0'] + 1.5, BOSS['y1'] - 1.5)]   # 2 x 2 (user: 4 x 5 was overkill)
+SPIKE_R, SPIKE_DIG = (0.6, 0.25), 0.25          # base radius on the plate -> tip radius, tip sunk into the boss
 
 def wall(x, y, z):
     X, d, Yr = x + WALL['x0'], y + WALL['d0'], z + WALL['y0']
@@ -37,17 +41,23 @@ def wall(x, y, z):
         s &= ~((X > WALL['x1']) & (X <= WALL['x1'] + WEB_CLEAR[0]) & (Yr >= RIB[1]))
     if d >= WALL['d1'] - PIN['L']:
         s &= ~hole(PIN['x'], PIN['y'], PIN['dia'], X, Yr)
+    if d < BOSS['d0'] + SPIKE_DIG:                                             # spikes under the boss overhang (print
+        h = d - WALL['d0']                                                     # only; user 2026-10-31)
+        r = SPIKE_R[0] + (SPIKE_R[1] - SPIKE_R[0]) * h / (BOSS['d0'] + SPIKE_DIG - WALL['d0'])
+        for sx, sy in SPIKES:
+            s |= (X - sx) ** 2 + (Yr - sy) ** 2 <= r * r
     return s
 
 
 def door_corner(x, y, z):
-    s = D.door(x, y, z)
-    X, Yr = x - D.PLATE_X, z + D.Y_LO
-    return s & (X <= -30.0) & (Yr <= WALL['y1'])
+    """The door's -X corner STANDING on its grip end, as the door prints on pi_box_v4_blue_plate (user 2026-10-31)."""
+    from designs.pi_box_v4_blue_plate import door_stand
+    return door_stand(x, y, z) & (x - D.PLATE_X <= CORNER_X)           # stops before the port window (X -32) + trees
 
 
 _W = 20.0                                                                     # X -50..-30
+CORNER_X = -33.0
 PIECES = [
     implicit_piece(_W, WALL['d1'] - WALL['d0'], WALL['y1'] - WALL['y0'], wall, x0=-_W - 2.0, z0=0.0),
-    implicit_piece(2 * D.PLATE_X, D.GRIP['d1'] - D.D_TOP, WALL['y1'] - D.Y_LO, door_corner, x0=2.0 - (50 - D.PLATE_X), z0=0.0),
+    implicit_piece(20.0, R.Y_MAX - D.Y_LO, D.GRIP['d1'] - D.D_TOP, door_corner, x0=2.0, z0=0.0),
 ]

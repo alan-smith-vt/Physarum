@@ -133,6 +133,16 @@ LENS_L = 19.0                                       # board face to the lens tip
 BARREL_D = 15.0 + 0.5                               # largest barrel part: the cap Ø15 (measured) + clearance
 
 
+def holder_cut(c0, c1, grow):
+    """Lens holder cut: the 13 square plus its two screw housings along the board's 25 side, each a round-ended tab
+    (Ø3.8 end, straight parallel edges into the square; user 2026-10-31), grow per side, from c0 to c1 along FC."""
+    h, r, e = HOLDER_SQ / 2 + grow, HOLDER_EAR_D / 2 + grow, HOLDER_EAR_C
+    cc = B3 + (c0 + c1) / 2 * FC
+    return union(obox(cc, (TC, UC, FC), (h, h, (c1 - c0) / 2)),
+                 obox(cc, (TC, UC, FC), (e, r, (c1 - c0) / 2)),
+                 *[axis_cyl(B3 + k * e * TC, FC, r, c0, c1) for k in (-1, 1)])
+
+
 def bplane(a, k, sign):
     """sign * (a . (x - B3)) <= k, in the tree frame."""
     return H(sign * a[0], sign * a[1], sign * a[2], k + sign * (a @ B3))
@@ -150,7 +160,7 @@ board_pocket = inter(Box(0.0, LAND + 12.0, -12.5 - POCKET_CL, 12.5 + POCKET_CL, 
 bosses = union(*[axis_cyl(B3 + t * TC + v * UC, FC, CAM_BOSS_R, 0.0, CAM_BOSS_H + 0.5) for t, v in BOARD_HOLES])
 INS_C0 = 1.0                                        # insert's board-side face behind the board face (the shoulder)
 INS_R = (CAM_INSERT_D + RESIN_HOLE_COMP) / 2         # slot half-width = insert OD + comp
-INS_RUN = 13.5 - 10.5 + 0.5                         # from the hole axis out through the pod side (t 13.5)
+INS_RUN = 17.5 - 10.5                               # hole axis out past the pod side AND the cap flare (lower slots blocked to t 16.8, user 2026-10-31)
 FLANGE_SCREW_L = 8.0                                # M2x8 (on hand): head on the seat (n 22.9), through the core insert (n 15.4..17.9)
 BOARD_SCREW_L = 5.0                                 # M2x5: 1.6 board + 2.5 insert + 0.9 tip room
 NUT_RUN = 1.5                                       # nut slot run outward from the hole (to the pod side)
@@ -164,11 +174,8 @@ ribbon_slot = inter(Box(0.0, LAND + 12.0, -RIBBON_SLOT['t'], RIBBON_SLOT['t'], 0
                     bplane(UC, RIBBON_SLOT['b'][1], 1), bplane(UC, -RIBBON_SLOT['b'][0], -1))
 cuts = union(
     ribbon_slot,
-    obox(B3 + (HOLDER_C - 0.5) / 2 * FC, (TC, UC, FC), ((HOLDER_SQ + RESIN_HOLE_COMP) / 2, (HOLDER_SQ + RESIN_HOLE_COMP) / 2,
-         (HOLDER_C + 0.5) / 2)),                                                              # lens holder (square)
-    *[axis_cyl(B3 + e * TC, FC, (HOLDER_EAR_D + RESIN_HOLE_COMP) / 2, -0.5, HOLDER_C)      # its screw housings, along
-      for e in (-HOLDER_EAR_C, HOLDER_EAR_C)],                                               # the board's 25 (user)
-    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] - 6.0, peak=True),   # barrel: peaked
+    holder_cut(-0.5, HOLDER_C, RESIN_HOLE_COMP / 2),         # lens holder: square + housing tabs along the 25 side
+    axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, HOLDER_C - 0.01, POD_C[1] - 6.0),   # barrel: round (user 2026-10-31: bridge the arch, no V roof)
     axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, POD_C[1] - 6.01, POD_C[1] + 1.0),   # ...round for the last 6 (no notch in the eye)
     # M2 threaded inserts, CAPTIVE in side slots (user, 2026-10-30): each slides in sideways from the pod side and sits
     # INS_C0 behind the board face; that resin shoulder takes the lens-cap push. M2x5 from behind engages 2.4 of 2.5.
@@ -307,9 +314,10 @@ def _box_tris(o, a, b, c):
 def hardware():
     """Board-side parts in land coords (n, t, d): [(name, tris, colour, label)]."""
     conn = _box_tris(B3 - 8.0 * TC - 15.6 * UC - 1.6 * FC, 16.0 * TC, 4.5 * UC, -2.5 * FC)
-    h2 = HOLDER_SQ / 2
-    holder = np.concatenate([_box_tris(B3 - h2 * TC - h2 * UC, HOLDER_SQ * TC, HOLDER_SQ * UC, HOLDER_C * FC)] +
-                            [_cyl_tris(B3 + e * TC, FC, HOLDER_EAR_D / 2, 0.0, HOLDER_C) for e in (-HOLDER_EAR_C, HOLDER_EAR_C)])
+    h2, r2, e2 = HOLDER_SQ / 2, HOLDER_EAR_D / 2, HOLDER_EAR_C
+    holder = np.concatenate([_box_tris(B3 - h2 * TC - h2 * UC, HOLDER_SQ * TC, HOLDER_SQ * UC, HOLDER_C * FC),
+                             _box_tris(B3 - e2 * TC - r2 * UC, 2 * e2 * TC, 2 * r2 * UC, HOLDER_C * FC)] +
+                            [_cyl_tris(B3 + k * e2 * TC, FC, r2, 0.0, HOLDER_C) for k in (-1, 1)])
     screws = np.concatenate([_cyl_tris(B3 + t * TC + v * UC, FC, 1.0, -1.6, BOARD_SCREW_L - 1.6)
                              for t, v in BOARD_HOLES] +
                             [_cyl_tris(B3 + t * TC + v * UC, FC, 1.9, -3.2, -1.6) for t, v in BOARD_HOLES])
