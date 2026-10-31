@@ -322,7 +322,7 @@ def _front_rad(X, Y, xp):
 
 # power board support after the wide panel took H1 (user approved home:2175; spec home/v4-layout home:2160/2171):
 # H2 screw as before, a bottom-edge ledge and a top-edge hook on the flat -X wall. 45° faces for print (+d up).
-BRD_LEDGE = dict(y=(-31.0, -12.0), d=155.2, x_lip=41.4)   # stops short of the J3 plug (Yr -11..-1, to d 157)
+BRD_LEDGE = dict(y=(-24.0, -12.0), d=155.2, x_lip=41.4)   # stops short of the J3 plug (Yr -11..-1, to d 157)
 BRD_HOOK = dict(y=(-25.0, -14.0), d0=93.0, x_lip=40.9)
 
 
@@ -449,6 +449,10 @@ def _v4_root(root):
 
 
 _V3_PATCHES = [
+    # v3 door latch / hinge wall pads: v4 has neither (thumb-screw door), so their solid squares in the wall
+    # gyroid go (user 2026-10-31: a random solid square under the floor lock)
+    ("    Box(-X_OUT, -X_IN + 0.5, LATCH['yc'] - LATCH['w'] / 2 - 3, LATCH['yc'] + LATCH['w'] / 2 + 3, LATCH['d0'] - 3, LATCH['d1'] + 3),\n"
+     "    Box(X_IN - 0.5, X_OUT, HINGE['yc'] - 10, HINGE['yc'] + 10, DEPTH - HINGE['leaf'] - 3, BOT),   # latch / hinge pads\n", ''),
     ('PI_SHIFT = 6.0 ', f'PI_SHIFT = {PI_SHIFT_V4} '),
     # no wall switch (floor button): its pad and hole go
     ("    Box(*((-INF, 0.0) if _sw['side'] < 0 else (0.0, INF)), _sw['y'] - SWITCH_PAD_R, _sw['y'] + SWITCH_PAD_R,\n"
