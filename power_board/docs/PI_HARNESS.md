@@ -21,3 +21,18 @@ GPIO5/6 (pins 29/31) stay free for a future tracking-camera trigger.
 
 Power button lead (J4, JST-XH 4, pin 1 = bottom with USB-C up), ~15 cm to the switch pigtail (floor removal slack):
 green = C (1), yellow = NO (2), red = LED+ (3), black = LED- (4), white = NC (unused, taped).
+
+## Pi config (lidarpi, Debian 13, verified 2026-10-31)
+
+```
+dtparam=i2c_arm=on
+usb_max_current_enable=1
+dtoverlay=gpio-shutdown,gpio_pin=27,gpio_pull=off
+dtoverlay=gpio-poweroff,gpiopin=22,active_low=1
+```
+plus `i2c-dev` in /etc/modules-load.d/i2c-dev.conf (no /dev/i2c-1 without it).
+**gpio_pull=off, not down:** with the Pi 5's pull-down on, SW_SENSE (through 10 k from the 100 k / 27 k tap) read LOW with
+the switch latched, so gpio-shutdown would never see the switch-off edge. With no pull it reads high on, and the 27 k
+holds it low off.
+First readings (board A, bank, Pi idle, red on): INA226 at 0x40 (TI, die 0x2260), bus 15.10 V, shunt 2.48 mV = 0.25 A;
+EXT5V 5.00 V; throttled 0x0; KEEP_ALIVE (GPIO22) high; BUCK_PG high; PD_PG low (good); LIDAR_EN low.
