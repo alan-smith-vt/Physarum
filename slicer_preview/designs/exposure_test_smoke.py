@@ -11,3 +11,6 @@ BOTTOM_EXPOSURE_S = getattr(_E, 'BOTTOM_EXPOSURE_S', None)
 if BOTTOM_EXPOSURE_S is None:
     del BOTTOM_EXPOSURE_S
 PIECES = _E.PIECES
+
+# RESULT (user, 2026-10-31): winner = 80 % cell (2.8 s), top right. Pins on the 4 longest (3.5 .. 2.45 s), barely at
+# 70 %; 50 % failed outright. Set 2.8 s in pi_box_v4_core / _front_panel / _back_panel.

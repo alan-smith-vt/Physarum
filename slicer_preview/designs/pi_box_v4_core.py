@@ -528,7 +528,7 @@ ROOT = _g['ROOT']
 PI_SHIFT, PI_HOLES, BRD = _g['PI_SHIFT'], _g['PI_HOLES'], _g['BRD']
 X0, Z0, SIZE_X, SIZE_Z = _g['X0'], _g['Z0'], _g['SIZE_X'], _g['SIZE_Z']
 to_model = _g['to_model']
-SUPPORTS, EXPOSURE_S, BOTTOM_EXPOSURE_S = False, 2.3, 20.0
+SUPPORTS, EXPOSURE_S, BOTTOM_EXPOSURE_S = False, 2.8, 20.0   # smoky black + clear Tenacious 75/25: exposure_test_smoke winner 80 % of 3.5 s (2026-10-31)
 PIECES = [sdf_piece(SIZE_X, DEPTH, SIZE_Z, ROOT, to_model, x0=X0, y0=0.0, z0=Z0, aa=_g['AA'])]
 
 

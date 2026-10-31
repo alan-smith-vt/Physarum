@@ -12,7 +12,7 @@ from designs import pi_box_bat_back_panel_v3 as B3
 from designs.pi_box_v4_core import TONGUE_T, TONGUE_H, BACK_TONGUE_X
 
 SUPPORTS = False
-EXPOSURE_S = 2.3
+EXPOSURE_S = 2.8                                     # smoky black + clear Tenacious (exposure_test_smoke, 2026-10-31)
 BOTTOM_EXPOSURE_S = 20.0
 D_TIP = PV.D0 - TONGUE_H                        # tongue tip d (panel top edge at PV.D0)
 

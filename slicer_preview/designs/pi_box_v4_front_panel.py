@@ -6,6 +6,6 @@ os.environ['PI_BOX_V4_PI'] = 'flip'
 from designs import pi_box_v4_core as _C       # noqa: E402
 
 SUPPORTS = False
-EXPOSURE_S = 2.3
+EXPOSURE_S = 2.8                                     # smoky black + clear Tenacious (exposure_test_smoke, 2026-10-31)
 BOTTOM_EXPOSURE_S = 20.0
 PIECES = _C.FRONT_PANEL_PIECES
