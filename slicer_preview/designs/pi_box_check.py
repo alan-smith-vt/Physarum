@@ -58,7 +58,7 @@ def _parts():
         F = importlib.import_module('designs.pi_box_v4_floor')
         D = importlib.import_module('designs.pi_box_v4_door_a')
         out.append(('floor (v4 fixed)', lambda X, Y, d: F.floor_fixed(Y - C.Y_MIN, C.DEPTH + L.FLOOR_T - d, X + C.X_OUT),
-                    (-C.X_OUT, C.X_OUT), (C.Y_MIN, F.RIB_Y), (C.DEPTH - 5.0, C.DEPTH - 0.05)))
+                    (-C.X_OUT, C.X_OUT), (C.Y_MIN, F.RIB_Y), (C.DEPTH - (F._FH - L.FLOOR_T) - 0.5, C.DEPTH - 0.05)))   # full floor height (was d 175..180: missed the cradle walls, 2026-11-01)
         out.append(('door A (v4)', lambda X, Y, d: D.door(X + D.PLATE_X, d - D.D_TOP, Y - D.Y_LO),
                     (-D.PLATE_X, D.PLATE_X), (D.Y_LO, C.Y_MAX), (D.D_TOP + 0.05, C.DEPTH + 0.05)))
     if hasattr(C, 'PV'):                                           # v3: L-hook panels

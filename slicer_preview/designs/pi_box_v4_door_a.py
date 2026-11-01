@@ -39,7 +39,10 @@ D_TOP = TONGUE_D[0]
 TONGUE_LEAD = 2.0                        # hook tip (-Y, the leading end) tapers in over 2 mm
 Y_LO = RIB_Y + CLEAR + OVERSIZE
 GRIP = dict(x=25.0, y0=Y_MAX - 4.0, d1=PLATE_D[1] + 5.0)   # finger lip under the +Y end, |X| <= x
-SCREW_XY = (-41.1, 44.0)                 # core lock boss X -44.2..-38: Ø4 insert hole centred, ~0.9 walls
+# MIRROR (2026-11-01, see to_goo MIRROR_FIX): door A was printed before the fix, i.e. as the X-mirror of this design
+# with the screw at -41.1. Physically its screw sits at X +41.1, so the design now says so (lock boss moved to +X in
+# the core); the door is otherwise symmetric in X. Reprints from here match the printed door.
+SCREW_XY = (41.1, 44.0)                  # core lock boss X 38..44.2: Ø4 insert hole centred, ~0.9 walls
 CAPTIVE_D = 2.6                          # M3 thread cuts its way through once (hole() adds the resin comp)
 KNOB_H = 6.0                             # printed knob under the plate (pi_box_v4_thumb_knob, later)
 

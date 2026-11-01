@@ -43,6 +43,11 @@ OUT_DIR  = Path(__file__).parent / 'out'
 NUM_LAYERS_OFFSET = 195310
 
 
+# MIRROR_FIX (2026-11-01): the printer reads (image column, image row, layer away from the plate) with the opposite
+# handedness to the viewer's (x, z, y up), so every .goo before this date printed the MIRROR IMAGE of its design
+# (found on core v3: power board vs the Pi's USB-C). Each layer image is now flipped left-right on the plate, so the
+# print matches the viewer and the design frame. Parts printed before 2026-11-01 are mirrored (the v4 floor and door A
+# are kept that way on purpose: see FLOOR_MIRROR in designs/pi_box_v4_floor.py).
 def goo_encode_placed(img, x0, y0, plate_w, plate_h):
     """RLE-encode a small image placed on a large plate without allocating the full plate.
 
@@ -155,7 +160,7 @@ def _process_layer(args):
     """Worker function: slice one layer and RLE-encode it."""
     z, x0, y0, W_goo, H_goo = args
     img = make_global_slice(_pieces, _bounds, z)
-    rle = goo_encode_placed(img, x0, y0, W_goo, H_goo)
+    rle = goo_encode_placed(img[:, ::-1], W_goo - x0 - img.shape[1], y0, W_goo, H_goo)   # MIRROR_FIX
     return z, rle
 
 
@@ -166,7 +171,7 @@ def _encode_packed(args):
         img = packed
     else:
         img = np.unpackbits(packed, count=H * W).reshape(H, W) * np.uint8(255)
-    return z, goo_encode_placed(img, x0, y0, W_goo, H_goo)
+    return z, goo_encode_placed(img[:, ::-1], W_goo - x0 - W, y0, W_goo, H_goo)   # MIRROR_FIX
 
 
 def _gpu_slices(name, pieces, bounds, args):

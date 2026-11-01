@@ -1,4 +1,5 @@
-"""Fit strip for the v4 battery door (door APPROVED 2026-10-29): print this first, before the core and door.
+"""HISTORICAL (printed 2026-10-31, pre MIRROR_FIX: the printed strip is the X-mirror of this file; the door's screw
+is now at +X, so door_corner no longer carries the screw hole). Fit strip for the v4 battery door (door APPROVED 2026-10-29): print this first, before the core and door.
 
 Print this before the core/door: it tests the door's rail clearances and the thumb-screw lock at the real sizes.
   1. WALL: a -X wall stub (X -50..-46, Yr 28.5..52, d 165..180) with the battery rib stub, the closed door groove
@@ -21,7 +22,7 @@ C = RESIN_HOLE_COMP / 2
 WALL = dict(x0=-50.0, x1=-46.0, y0=28.5, y1=52.0, d0=165.0, d1=180.0)
 RIB = (28.5, 30.5)
 BOSS = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0)
-PIN = dict(x=D.SCREW_XY[0], y=D.SCREW_XY[1], dia=4.0, L=6.0)   # M3 insert Ø4 x 4 + 2 for the screw tip
+PIN = dict(x=-abs(D.SCREW_XY[0]), y=D.SCREW_XY[1], dia=4.0, L=6.0)   # M3 insert Ø4 x 4 + 2 for the screw tip
 FLARE = 1.0
 WEB_CLEAR = (1.8, 175.5)                         # core: 1.8 clear inside the wall face below d 175.5
 

@@ -36,7 +36,10 @@ PI_TOP_D_V4, PI_SHIFT_V4 = 55.0, 2.0              # shift 2: the +X lower post c
 FLIP = os.environ.get('PI_BOX_V4_PI') == 'flip'
 if FLIP:
     PI_TOP_D_V4 = 89.0                             # the port end (R.PI_FLIP_TOP); SD end at 89 + 85 = 174 (user: back up; the switch moves)
-BRD_Y0_V4, BRD_TOP_V4 = -43.0, 95.0                # power board Yr start (v3 -55.5): the -X round pulls the wall in
+# 2026-11-01 (user, after core v3): board shifted 22 toward the bank, straddling the web through a window knocked
+# out of it, so the measured lidar plug (21.5 off the PCB back) clears the stick tube (it reached X -22 at Yr -11..-1)
+# and the plug wires run under the Pi, clear of the GPIO harness. Same -X wall, same orientation (wire lengths).
+BRD_Y0_V4, BRD_TOP_V4 = -21.0, 95.0                # power board Yr start (v3 -55.5): the -X round pulls the wall in
                                                    # forward of Yr -32; its +Y edge passes the web (notched). Top d 95.
 # (a power board <-> UE300 side swap was modelled and reverted, user 2026-10-29 home:2102)
 
@@ -54,6 +57,7 @@ CART_CL = 0.2                                      # per side, + RESIN_HOLE_COMP
 CART_SCREWS = [(sc * 17.25, d) for sc in (-1, 1) for d in (31.0, 55.0)]   # (t, d) on the widened flange (CSK 6.5;
 # user home:2242): >= 1.6 wall to the opening; no bottom screw (the ribbon leaves there, home:2195)
 STUB_R, STUB_D = 7.1, 12.0
+CART_INSERT_HOLE = 3.2                             # M2 insert 2.8 OD (calipered 2026-11-01): pocket Ø3.2 + comp, teardrop
 CART_NUT_L = 2.5                                   # M2 insert, set from the pad's inner face, bottomed (a nut)
 
 # camera frame in land coords (n, d): optical axis f (out and up), board up u
@@ -105,6 +109,19 @@ def lpoly(s, planes, box):
 def lbox(s, n0, n1, t0, t1, d0, d1):
     return lpoly(s, [(-1, 0, 0, -n0), (1, 0, 0, n1), (0, -1, 0, -t0), (0, 1, 0, t1), (0, 0, -1, -d0), (0, 0, 1, d1)],
                  (n0, n1, t0, t1, d0, d1))
+
+
+def lteardrop(s, o, r, c0, c1):
+    """Horizontal hole along the land normal n (axis (1, 0, 0)) from o (n, t, d), radius r, n-range c0..c1, with a 45°
+    point toward +d (the print roof; the core prints flange down) so the hole doesn't bridge and sag undersize."""
+    def f(X, Y, d, xp):
+        n, t = _nt(s, X, Y)
+        vn, vt, vd = n - o[0], t - o[1], d - o[2]
+        circ = xp.sqrt(vt * vt + vd * vd) - r
+        wedge = xp.maximum((xp.abs(vt) + vd) / np.sqrt(2.0) - r, r / np.sqrt(2.0) - vd)   # from the 45° tangent points up
+        return xp.maximum(xp.minimum(circ, wedge), xp.maximum(c0 - vn, vn - c1))
+    pts = [(o[0] + c, o[1] + kt * r, o[2] + kd) for c in (c0, c1) for kt in (-1, 1) for kd in (-r, r * 1.5)]
+    return Fn(f, _aabb(s, pts))
 
 
 def lcyl(s, o, a, r, c0, c1):
@@ -189,9 +206,11 @@ def _cam_core():
         cuts.append(sub(lbox(s, PAD - 3.0, 23.0, -(8.5 + g), 8.5 + g, OPEN_D[1] - 0.5, 80.0),
                         _groove_keep()))      # the step rib + panel-tongue groove stay whole (user, home:2224)
         for t, d in CART_SCREWS:
-            cuts.append(lcyl(s, (SEAT, t, d), (1, 0, 0), (R.CAM_SCREW_CLEAR + R.RESIN_HOLE_COMP) / 2, -8.0, 8.0))
-            cuts.append(lcyl(s, (SEAT, t, d), (1, 0, 0), (R.CAM_INSERT_D + R.RESIN_HOLE_COMP) / 2,
-                             PAD - SEAT - 1.0, PAD - SEAT + CART_NUT_L))      # insert (nut) from the pad's inner face
+            # horizontal in print: teardrops (user 2026-11-01: the 2.8 OD inserts didn't enter the Ø3.35 pockets of core
+            # v3 on either side; horizontal holes print undersize/oval). Insert pocket Ø3.2 + comp.
+            cuts.append(lteardrop(s, (SEAT, t, d), (R.CAM_SCREW_CLEAR + R.RESIN_HOLE_COMP) / 2, -8.0, 8.0))
+            cuts.append(lteardrop(s, (SEAT, t, d), (CART_INSERT_HOLE + R.RESIN_HOLE_COMP) / 2,
+                                  PAD - SEAT - 1.0, PAD - SEAT + CART_NUT_L))  # insert (nut) from the pad's inner face
     return union(*pads), union(*cuts)
 
 
@@ -215,9 +234,16 @@ def _pad_support(s):
 # floor interface (home/v4-floor, 2026-10-29 decision home:1997/1998)
 DOOR_RAIL = dict(y0=30.5, d0=175.6, d1=178.4, depth=1.6)   # CLOSED groove: the 1.6 ledge below carries the door
 DOOR_WEB_CLEAR = 1.8
-PLUNGER = dict(x0=-46.0, x1=-38.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(-41.1, 44.0), dia=4.0, L=6.0)   # M3 insert (door thumb screw, user 2026-10-29)
-ETH_ADAPTER_V4 = dict(x=37.9, y=-15.0, wx=15.4, wy=23.7, h=53.0)   # uni USB-A GbE adapter, RJ45 down (measured 2026-10-31)
-FLOOR_BUTTON = (-33.0, 14.0)                       # floor power button (home:2092; moved for the 18.8 AC nut, home:2149)
+DOOR_EXTRA = {1: 0.15, -1: 0.0}   # extra per-face clearance by side (user 2026-11-01: door A very tight on the +X
+#   thumb-screw side of core v3, likely warp/rocking that high in the print): groove deeper + taller, web slot wider
+# 2026-11-01: door A was printed before the to_goo MIRROR_FIX, so its screw is at X +41.1 (door_a.SCREW_XY): the
+# lock boss moves to +X to keep that door. The floor is REPRINTED as designed.
+PLUNGER = dict(x0=38.0, x1=46.0, y0=38.0, y1=50.0, d0=168.0, d1=180.0, hole=(41.1, 44.0), dia=4.0, L=6.0)   # M3 insert (door thumb screw, user 2026-10-29)
+# 2026-11-01 (user): the +X web half moves WEB_DY toward the bank so the GbE adapter's front face (Yr -23.95) clears
+# the front panel's L-hook channel (to Yr -24.6); the adapter is GLUED to the web's Pi face (no floor cradle).
+WEB_DY = 1.5                                      # +X web: Yr 0..3 (the -X half stays at +-1.5)
+ETH_ADAPTER_V4 = dict(x=37.9, y=-12.1, wx=15.4, wy=23.7, h=53.0)   # uni USB-A GbE adapter, RJ45 down (measured 2026-10-31)
+FLOOR_BUTTON = (33.0, 14.0)                       # floor power button (home:2092; moved for the 18.8 AC nut, home:2149)
 FLOOR_BOSSES_V4 = [(-42.0, -18.0), (45.0, 6.5)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]   # front pair moved off the
 # rounds (wide front panel, user approved home:2136; floor home/v4-floor); the +X one stays X >= 41.5 (home:2135)
 
@@ -225,28 +251,30 @@ FLOOR_BOSSES_V4 = [(-42.0, -18.0), (45.0, 6.5)] + [(sx * 44.0, 24.0) for sx in (
 def _floor_iface():
     g = R.RESIN_HOLE_COMP / 2
     r = DOOR_RAIL
-    cuts = [Box(*sorted((s * (X_IN - 0.01), s * (X_IN + r['depth'] + g))), r['y0'], Y_MAX + 1, r['d0'] - g, r['d1'] + g)
+    e = DOOR_EXTRA
+    cuts = [Box(*sorted((s * (X_IN - 0.01), s * (X_IN + r['depth'] + g + e[s]))), r['y0'], Y_MAX + 1,
+                r['d0'] - g - e[s], r['d1'] + g + e[s])
             for s in (-1, 1)]
-    cuts += [inter(Box(*sorted((s * (X_IN - 0.01), s * (X_IN + r['depth'] + g + 1.0))), Y_MAX - 1.0, Y_MAX + 1,
-                       r['d0'] - g - 1.0, r['d1'] + g + 1.0),
-                   Half(s, -1, 0, X_IN + r['depth'] + g - (Y_MAX - 1.0)))  # 45° flare at the +Y mouth
+    cuts += [inter(Box(*sorted((s * (X_IN - 0.01), s * (X_IN + r['depth'] + g + e[s] + 1.0))), Y_MAX - 1.0, Y_MAX + 1,
+                       r['d0'] - g - e[s] - 1.0, r['d1'] + g + e[s] + 1.0),
+                   Half(s, -1, 0, X_IN + r['depth'] + g + e[s] - (Y_MAX - 1.0)))  # 45° flare at the +Y mouth
              for s in (-1, 1)]
     p = PLUNGER
     boss = inter(Box(p['x0'], p['x1'], p['y0'], p['y1'], p['d0'] - (p['x1'] - p['x0']), p['d1']),
-                 Half(1, 0, -1, -(X_IN + p['d0'] - (p['x1'] - p['x0']))))   # |X| + d >= 206: 45° top (print: underside)
-    cuts += [Box(*sorted((s * (X_IN - DOOR_WEB_CLEAR), s * (X_IN + 0.01))), r['y0'], Y_MAX + 1, 175.5, BOT + 1)
+                 Half(-1, 0, -1, -(X_IN + p['d0'] - (p['x1'] - p['x0']))))   # |X| + d >= 206: 45° top (print: underside)
+    cuts += [Box(*sorted((s * (X_IN - DOOR_WEB_CLEAR - DOOR_EXTRA[s]), s * (X_IN + 0.01))), r['y0'], Y_MAX + 1, 175.5, BOT + 1)
              for s in (-1, 1)]                     # the door's webs ride up inside each wall face (home:2006)
     # ...which leaves the cradle-rail bottoms (and the bits by the back panel channel) hanging as thin slabs off
     # the wall (user, 2026-10-29: remove them). Everything inboard of the web slot below d 175.5 goes, except the
     # lock boss (+-X), which keeps its insert depth.
     for s in (-1, 1):
         cuts += [Box(*sorted((s * 30.0, s * (X_IN - DOOR_WEB_CLEAR + 0.01))), y0, y1, 175.5, BOT + 1)
-                 for y0, y1 in ((r['y0'], Y_MAX + 1),) if s > 0]
+                 for y0, y1 in ((r['y0'], Y_MAX + 1),) if s < 0]
         cuts += [Box(*sorted((s * 30.0, s * (X_IN - DOOR_WEB_CLEAR + 0.01))), y0, y1, 175.5, BOT + 1)
-                 for y0, y1 in ((r['y0'], PLUNGER['y0']), (PLUNGER['y1'], Y_MAX + 1)) if s < 0]
+                 for y0, y1 in ((r['y0'], PLUNGER['y0']), (PLUNGER['y1'], Y_MAX + 1)) if s > 0]
         # the rail ends rise at 45° inboard from the web slot (cut d - |X| >= 131.3): brackets off the wall, not slabs
         x_s = X_IN - DOOR_WEB_CLEAR
-        for y0, y1 in (((r['y0'], Y_MAX + 1),) if s > 0 else ((r['y0'], PLUNGER['y0']), (PLUNGER['y1'], Y_MAX + 1))):
+        for y0, y1 in (((r['y0'], Y_MAX + 1),) if s < 0 else ((r['y0'], PLUNGER['y0']), (PLUNGER['y1'], Y_MAX + 1))):
             cuts.append(inter(Box(*sorted((s * 30.0, s * (x_s + 0.01))), y0, y1, 175.5 - (x_s - 30.0), 175.6),
                               Half(s, 0, -1, -(175.5 - x_s))))
         # where the groove/web cut passes the back-panel L-channel: a ~0.25 fin and a hook-rib strip (home:2051);
@@ -273,11 +301,44 @@ def _front_bosses():
     return union(*out)
 
 
+# ── Web as horizontal strips (user 2026-11-01; sketch designs/sketches/web_strips_sketch.png + user's red boxes) ──
+# The continuous web with its slots/notches is gone. Per half (tube skin |X| 23.5 .. wall X_IN), (d0, d1):
+#   both: strip A d 48..72 (25 tall; just above the board's J1/J2 plugs at d 73); above it open (the flange stiffens)
+#   -X:   solid d 158..180 under the power board (its J3 plug ends d 157)
+#   +X:   solid d 48..180 (user 2026-11-01: backs the Pi's +X upper mounting boss, X 26.5 d 112.5, which floated;
+#         the GbE adapter is glued against it), with the old cable slot X 28.5..45.5, d 76..98 cut back in
+# Each strip's flange-side edge (print underside: the core prints flange down) is a semicircular arch spanning the
+# half, springing from the tube and the wall: no flat bridge.
+WEB_STRIPS = {-1: [(48.0, 72.0), (158.0, BOT)], 1: [(48.0, BOT)]}
+WEB_HOLES = {1: [(31.0, 45.5, 76.0, 98.0)]}   # |X| range, d range; 45° pointed far (floor) end. X from 31: the Pi +X upper boss + gusset reach X 29.7 (user 2026-11-01)
+
+
+def _web_strips():
+    x0, x1 = R.WELL_R + 1.0, X_IN + 0.5                       # into the tube wall and the outer wall
+    xm, half = (R.WELL_R + R.TUBE_T + X_IN) / 2, (X_IN - R.WELL_R - R.TUBE_T) / 2
+    out = []
+    for s, strips in WEB_STRIPS.items():
+        yc = WEB_DY if s > 0 else 0.0
+        for d0, d1 in strips:
+            def f(X, Y, d, xp, s=s, d0=d0, d1=d1, yc=yc):
+                ax = s * X
+                u = xp.clip((ax - xm) / half, -1.0, 1.0)
+                edge = d0 + half * xp.sqrt(1.0 - u * u)            # arch: d0 at the springings, d0 + half at the crown
+                f = xp.maximum(xp.maximum(x0 - ax, ax - x1), xp.abs(Y - yc) - R.WEB_T / 2)
+                f = xp.maximum(f, xp.maximum(edge - d, d - d1))
+                return f * 0.7                                     # the arch term isn't 1-Lipschitz near the springing
+            out.append(Fn(f, (*sorted((s * x0, s * x1)), yc - R.WEB_T / 2, yc + R.WEB_T / 2, d0, d1)))
+    holes = [inter(Box(*sorted((s * hx0, s * hx1)), -INF, INF, hd0, hd1 + (hx1 - hx0) / 2),
+                   Half(-s, 0, 1, hd1 - hx0), Half(s, 0, 1, hd1 + hx1))
+             for s, hs in WEB_HOLES.items() for hx0, hx1, hd0, hd1 in hs]
+    return sub(union(*out), *holes)
+
+
 def _web_notch():
-    """Notch in the -X web for the power board's +Y edge and its parts (board X -43.5..-41.9, parts to ~-36)."""
+    """Window in the -X web for the power board, which straddles it (2026-11-01): wall to the tube's skin, from
+    25 above the board (J1/J2 plugs leave upward) to 3 below it (J3 plug + wires)."""
     w = (-R.WEB_T / 2 - 0.01, R.WEB_T / 2 + 0.01)
-    return union(Box(-X_IN - 0.01, -35.5, *w, BRD_TOP_V4 - 25.0, BRD_TOP_V4 + 62.0),   # J1/J2 plugs leave upward
-                 Box(-X_IN - 0.01, -19.0, *w, BRD_TOP_V4 + 48.0, BRD_TOP_V4 + 64.0))   # J3 plug + wires
+    return Box(-X_IN - 0.01, -(R.WELL_R + R.TUBE_T + 0.5), *w, BRD_TOP_V4 - 25.0, BRD_TOP_V4 + 63.0)
 
 
 # Panel top-edge tongue groove under the back panel-stop rim (user approved home:2130; sketch
@@ -322,8 +383,8 @@ def _front_rad(X, Y, xp):
 
 # power board support after the wide panel took H1 (user approved home:2175; spec home/v4-layout home:2160/2171):
 # H2 screw as before, a bottom-edge ledge and a top-edge hook on the flat -X wall. 45° faces for print (+d up).
-BRD_LEDGE = dict(y=(-24.0, -12.0), d=155.2, x_lip=41.4)   # stops short of the J3 plug (Yr -11..-1, to d 157)
-BRD_HOOK = dict(y=(-25.0, -14.0), d0=93.0, x_lip=40.9)
+BRD_LEDGE = dict(y=(-2.0, 10.0), d=155.2, x_lip=41.4)   # shifted with the board; short of the J3 plug
+BRD_HOOK = dict(y=(-3.0, 8.0), d0=93.0, x_lip=40.9)
 
 
 def _board_support():
@@ -442,10 +503,80 @@ def _v4_below(below, v3_cuts):
                  for bx, by in FLOOR_BOSSES_V4[:2]])
 
 
+# ── Snap-off tree supports under the cartridge-slot floors (user 2026-11-01; they sagged 1-2 mm on core v3) ──
+# Each slot floor (d ~67, ~19 x 33 per side, flat, facing the flange) is a 166 mm2 bridge in print. Trees as on the
+# door (pi_box_v4_blue_plate): a spiked foot on the slot's upper edge (d ~17.4, straight below), a vertical trunk,
+# one split into 4 branches at 35° off vertical, point tips dug 0.25 into the floor. Snapped out through the slot.
+# Trunks on a (n, t) grid in each camera's land frame; a trunk is kept only if its whole column is clear of resin
+# (2 mm margin) and both ends land on resin.
+TREE = dict(grid_n=tuple(np.arange(14.0, 36.0, 4.0)), grid_t=tuple(np.arange(-14.0, 14.1, 4.0)), split=2.0,
+            tan=np.tan(np.radians(35.0)), r_trunk=0.8, r_branch=0.6, r_tip=0.25, spike=1.5, dig=0.25, margin=1.0,
+            floor_min=65.0)   # tips only on the slot floor (d ~67), not the pad underside (d 60.5)
+
+
+def _rod(a, b, r0, r1):
+    """Tapered rod a -> b in rig (X, Yr, d), radius r0 at a, r1 at b (an SDF bound: scaled for the taper)."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    ab = b - a
+    L2 = float(ab @ ab)
+
+    def f(X, Y, d, xp):
+        k = xp.clip(((X - a[0]) * ab[0] + (Y - a[1]) * ab[1] + (d - a[2]) * ab[2]) / L2, 0.0, 1.0)
+        dx, dy, dz = X - a[0] - k * ab[0], Y - a[1] - k * ab[1], d - a[2] - k * ab[2]
+        return (xp.sqrt(dx * dx + dy * dy + dz * dz) - (r0 + (r1 - r0) * k)) * 0.9
+    r = max(r0, r1) + 0.5
+    return Fn(f, (min(a[0], b[0]) - r, max(a[0], b[0]) + r, min(a[1], b[1]) - r, max(a[1], b[1]) + r,
+                  min(a[2], b[2]) - r, max(a[2], b[2]) + r))
+
+
+def _slot_trees(body):
+    def solid(x, y, d):
+        return float(np.asarray(body(np.array([[x]]), np.array([[y]]), float(d), np, None, 0)).ravel()[0]) <= 0
+
+    T = TREE
+    rods, kept = [], []
+    for sx in (-1, 1):
+        for n in T['grid_n']:
+            for t in T['grid_t']:
+                xy = RC + n * N2 + t * T2
+                X, Y = sx * xy[0], xy[1]
+                top = next((d for d in np.arange(55.0, 75.0, 0.1) if solid(X, Y, d)), None)       # floor underside
+                if top is None or top < T['floor_min']:
+                    continue
+                tips_ok = all(next((d for d in np.arange(55.0, 75.0, 0.1) if solid(X + ex * T['split'], Y + ey * T['split'], d)),
+                                   0.0) >= T['floor_min'] for ex in (-1, 1) for ey in (-1, 1))
+                if not tips_ok:
+                    continue
+                bot = next((d for d in np.arange(top - 1.0, 5.0, -0.1) if solid(X, Y, d)), None)  # resin below
+                if bot is None or top - bot < 20.0:
+                    continue
+                # the column (incl. the 4 tips' spread) must be clear between the ends
+                r = T['split'] + T['margin']
+                ok = all(not solid(X + dx, Y + dy, d) for d in np.arange(bot + 2.0, top - 1.0, 2.0)
+                         for dx, dy in ((0, 0), (r, 0), (-r, 0), (0, r), (0, -r)))
+                if not ok:
+                    continue
+                kept.append((round(X, 1), round(Y, 1), round(bot, 1), round(top, 1)))
+                split_d = top - T['split'] * np.sqrt(2) / T['tan']
+                foot = (X, Y, bot - T['dig'])
+                rods.append(_rod(foot, (X, Y, bot + T['spike']), T['r_tip'], T['r_trunk']))         # spiked foot
+                rods.append(_rod((X, Y, bot + T['spike']), (X, Y, split_d), T['r_trunk'], T['r_trunk']))
+                for ex, ey in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+                    tip = (X + ex * T['split'], Y + ey * T['split'], top + T['dig'])
+                    rods.append(_rod((X, Y, split_d), tip, T['r_branch'], T['r_tip']))
+    global SLOT_TREES
+    SLOT_TREES = kept
+    return union(*rods)
+
+
+SLOT_TREES = []
+
+
 def _v4_root(root):
     pads, cam_cuts = _cam_core()
     _, floor_cuts = _floor_iface()
-    return sub(inter(root, ENVELOPE), cam_cuts, _front_channels(), floor_cuts, _driver_paths(), _rim_grooves(), _front_cuts())
+    body = sub(inter(root, ENVELOPE), cam_cuts, _front_channels(), floor_cuts, _driver_paths(), _rim_grooves(), _front_cuts())
+    return union(body, _slot_trees(body))
 
 
 _V3_PATCHES = [
@@ -464,7 +595,18 @@ _V3_PATCHES = [
     # uni USB-A GbE adapter replaces the UE300 (user, home:2158; spec home/v4-layout home:2160): seat ledge + overlay
     ("_a = ETH_ADAPTER\n", "_a = _V4.ETH_ADAPTER_V4\n"),
     ("UE300 = dict(x0=29.9, x1=45.9, y0=-27.6, y1=-1.6, d0=DEPTH - 71.0)",
-     "UE300 = dict(x0=29.9, x1=45.9, y0=-27.0, y1=-3.0, d0=DEPTH - 53.0)"),
+     "UE300 = dict(x0=29.9, x1=45.9, y0=-23.95, y1=-0.25, d0=DEPTH - 53.0)"),
+    # +X web half shifted WEB_DY toward the bank (2026-11-01), with its seat ledge, foot cut, floor-collar notch
+    ("webs = sub(union(*[sbox(s, WELL_R + 1, X_IN, -WEB_T / 2, WEB_T / 2) for s in (-1, 1)]),\n           *[web_slot(s, *ws) for s in (-1, 1) for ws in WEB_SLOTS])",
+     "webs = _V4._web_strips()   # 2026-11-01: strips, no slots"),
+    ("seat = inter(Box(_a['x'] - _a['wx'] / 2, _a['x'] + _a['wx'] / 2, -WEB_T / 2 - ETH_SEAT['reach'], -WEB_T / 2 + 0.5,",
+     "seat = inter(Box(_a['x'] - _a['wx'] / 2, _a['x'] + _a['wx'] / 2, _V4.WEB_DY - WEB_T / 2 - ETH_SEAT['reach'], _V4.WEB_DY - WEB_T / 2 + 0.5,"),
+    ("             Half(0, -1, -1, -(_seat_d - ETH_SEAT['reach'] - WEB_T / 2)))",
+     "             Half(0, -1, -1, -(_seat_d - ETH_SEAT['reach'] - WEB_T / 2 + _V4.WEB_DY)))"),
+    ("feet = union(*[inter(sbox(s, FOOT_X0, X_OUT, -WEB_T / 2 if s > 0 else -FOOT_Y, FOOT_Y,",
+     "feet = union(*[inter(sbox(s, FOOT_X0, X_OUT, _V4.WEB_DY - WEB_T / 2 if s > 0 else -FOOT_Y, FOOT_Y,"),
+    ("               Box(-X_IN, X_IN, -WEB_T / 2 - 0.5, WEB_T / 2 + 0.5))]))",
+     "               Box(-X_IN, X_IN, -WEB_T / 2 - 0.5, WEB_T / 2 + _V4.WEB_DY + 0.5))]))"),
     ("'TP-Link UE300 (as v2)'", "'uni USB-A GbE adapter 53 x 23.7 x 15.4 (measured)'"),
     # solid wall (no gyroid) round the wide front panel's hook channels, 3+ mm margin (user, home:2148), and on up
     # past the camera cartridges to the flange (home:2179)
@@ -472,7 +614,11 @@ _V3_PATCHES = [
      "    Box(-X_OUT, X_OUT, -WEB_PAD, WEB_PAD),\n"
      f"    Box(-X_OUT, X_OUT, {RC[1] - 3.0}, {RC[1] + 5.0 + 2.0 + 4.0}, TOP, BOT),\n"),
     ("        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 22.0),                                    # J3 + plug + wires",
-     "        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 11.0), bbox(42.0, 48.0, 52.0, 60.0, 0.0, 6.0),   # J3 plug; wires leave +Y (home:2127)"),
+     "        bbox(32.0, 42.0, 50.0, 62.0, 0.0, 19.9),                                    # J3 lidar plug 19.5 + 2 (measured 2026-11-01)"),
+    ("        bbox(7.0, 29.0, 52.0, 60.0, 0.0, 14.0),                                     # J5 + PH plug",
+     "        bbox(7.0, 29.0, 52.0, 60.0, 0.0, 10.4),                                     # J5 GPIO plug 10 + 2 (measured)"),
+    ("        bbox(0.5, 6.0, 34.0, 47.0, 0.0, 14.0),                                      # J4 + XH plug",
+     "        bbox(0.5, 6.0, 34.0, 47.0, 0.0, 11.9),                                      # J4 button plug 11.5 + 2 (measured)"),
     # -X trunk turn lifted to d 136: clears the floor button (home:2105)
     ("TRUNK = dict(yr=(3.5, 28.5), d=(14.0, 166.0),", "TRUNK = dict(yr=(3.5, 28.5), d={-1: (14.0, 136.0), 1: (14.0, 166.0)},"),
     ("""    rb = (t['yr'][1] - t['yr'][0] - t['cord']) / 2
@@ -489,6 +635,8 @@ _V3_PATCHES = [
     ("f'M12 trunk slack: 3 ellipse turns, 25 mm U (~{3 * np.pi * (3 * (ra + rb) - np.sqrt((3 * ra + rb) * (ra + 3 * rb))) / 10:.0f} cm)'",
      "'M12 trunk slack: 3 ellipse turns, 25 mm U (-X d 14..136, +X d 14..166)'"),
     ('PI_PORT_D = 102.0 ', 'PI_PORT_D = PI_TOP_D + 88.0 '),
+    # M12 slack loops dropped (user 2026-11-01: loop it outside the case if needed)
+    ("    add('m12_trunk', np.concatenate(coils),", "    None and add('m12_trunk', np.concatenate(coils),"),
     ('FLOOR_BOSSES = _L2.FLOOR_BOSSES ', 'FLOOR_BOSSES = _V4.FLOOR_BOSSES_V4 '),
     ("HINGE_WALL_HOLES = [(HINGE['yc'] + dy, DEPTH - 7.0) for dy in (-5.0, 5.0)]",
      "HINGE_WALL_HOLES = []"),
@@ -570,7 +718,7 @@ def _floor_button_overlay():
                            R._cyl((x, y, 0.0), 'z', 8.75, -(face + 1.8), -(face + 0.05), 32)])  # bezel Ø17.5 x 1.8 (measured)
     nut = R._cyl((x, y, 0.0), 'z', 9.4, -DEPTH + 0.05, -(DEPTH - 2.5), 32)                    # M16 nut 18.8 AC (measured)
     out = []
-    for name, t, op, label in (('power_switch', tris, 0.8, 'power switch, 16 mm latching (15 V line), floor (-33, 14)'),
+    for name, t, op, label in (('power_switch', tris, 0.8, 'power switch, 16 mm latching (15 V line), floor (33, 14)'),
                                ('power_switch_nut', nut, 0.35, 'nut 18.8 AC (measured)')):
         path = R.OVERLAY_DIR / f'{name}.stl'
         R._write_stl(path, R.to_print(t))
@@ -580,7 +728,9 @@ def _floor_button_overlay():
 
 # Cable route (Ø3, rig (X, Yr, d)); overlay only. J4 -> floor button: PROVISIONAL (home/v4-power-button owns it)
 CABLE_ROUTES = [
-    ('J4 -> floor button', [(-29, -40, 141), (-40, -40, 141), (-40, 8, 140), (-33, 14, 140)]),
+    ('J4 -> floor button', [(-29, -12.3, 132), (-29, 0, 140), (-23, 12, 140), (-12, 26, 150), (12, 26, 150),
+                            (30, 20, 150), (33, 14, 141)]),   # under the board, through the web window, round the
+    # tube on the bank side (Yr 26: tube r 23.5, bank from 30.8) to the +X button (2026-11-01)
 ]
 
 
@@ -593,15 +743,32 @@ def _cable_route_overlays():
 
 
 # Pi power: flat 90° USB-C adapter (user home:2146; home/v4-layout home:2156), rig (X, Yr, d), all [MEASURE]
-USBC_PLUG = [(30.0, 39.0, -41.0, -34.0, 156.0, 169.0),    # plug body, 9 out of the port
-             (32.0, 39.0, -41.0, -34.0, 141.0, 156.0)]    # up-turned cable boot (toward the flange)
+# MEASURED 2026-11-01 (user): the plugged-in 90° adapter reaches 11.5 past the Pi's board edge (X 28) and is 25 long,
+# turning UP (toward the flange / lidar), d ~167 -> ~142; then the cable's own USB-C plug goes into its end [MEASURE].
+USBC_PLUG = [(28.0, 39.5, -41.0, -34.0, 142.0, 167.0),   # adapter body
+             (30.0, 38.0, -40.5, -34.5, 120.0, 142.0)]   # cable plug + boot [MEASURE: ~22 assumed]
+
+
+# Pi 5 GPIO header (board bx 7..58, by 49.5..55.5) with the soldered harness: rigid female ends to 17 off the PCB
+# back (user 2026-11-01) + 3 for the wires leaving them
+GPIO_HARNESS = dict(bx=(7.0, 58.0), by=(49.5, 55.5), h=20.0)
+
+
+def _gpio_overlay():
+    g = GPIO_HARNESS
+    (xa, da), (xb, db) = R.pi_pt(g['bx'][0], g['by'][0]), R.pi_pt(g['bx'][1], g['by'][1])
+    tris = R._box(min(xa, xb), max(xa, xb), R.PCB_YR - g['h'], R.PCB_YR, -max(da, db), -min(da, db))
+    path = R.OVERLAY_DIR / 'pi_gpio_harness.stl'
+    R._write_stl(path, R.to_print(tris))
+    return [dict(file=path.relative_to(R.ROOT).as_posix(), color='#8e44ad', opacity=0.8,
+                 label='Pi GPIO harness: female ends 17 + wires 3 off the PCB back (measured)')]
 
 
 def _usbc_overlay():
     path = R.OVERLAY_DIR / 'usbc_plug_envelope.stl'
     R._write_stl(path, R.to_print(np.concatenate([R._box(x0, x1, y0, y1, -d1, -d0) for x0, x1, y0, y1, d0, d1 in USBC_PLUG])))
     return [dict(file=path.relative_to(R.ROOT).as_posix(), color='#e74c3c', opacity=0.8,
-                 label='Pi USB-C: flat 90° adapter, plug 9 + up-turned boot 15 [MEASURE]')]
+                 label='Pi USB-C: 90° adapter 11.5 x 25 (measured), turns up; cable plug 22 [MEASURE]')]
 
 
 # Ethernet adapter's USB-A plug (in the flipped Pi's USB3 port, pointing up) and its Ø4 braided cord (R >= 10 bends;
@@ -622,7 +789,32 @@ def _eth_overlays():
     return out
 
 
-OVERLAYS = _v4_overlays() + _floor_button_overlay() + _cable_route_overlays() + _usbc_overlay() + _eth_overlays()
+OVERLAYS = _v4_overlays() + _floor_button_overlay() + _cable_route_overlays() + _usbc_overlay() + _gpio_overlay() + _eth_overlays()
+
+# legend groups (viewer: one click hides a whole group; 2026-11-01)
+OVERLAY_GROUPS = {
+    'Pi': ('pi5', 'cooler', 'pi_plugs', 'usbc_plug_envelope', 'pi_gpio_harness'),
+    'Power board': ('power_board', 'power_board_parts'),
+    'Ethernet': ('ue300', 'eth_usba_plug', 'eth_cord'),
+    'Power button': ('power_switch', 'power_switch_nut', 'cable_routes'),
+    'Power bank': ('battery',),
+    'Lidar + mount': ('mid360s', 'base_plate', 'standoffs', 'box_spacers', 'coupler', 'monopod', 'm12_plug', 'm12_trunk'),
+    'Cameras': ('v4_',),
+    'Printed parts': ('asm_',),
+}
+
+
+def group_overlays(ovs):
+    for ov in ovs:
+        stem = ov['file'].rsplit('/', 1)[-1][:-4]
+        for g, names in OVERLAY_GROUPS.items():
+            if any(stem == n or (n.endswith('_') and stem.startswith(n)) for n in names):
+                ov['group'] = g
+                break
+    return ovs
+
+
+OVERLAYS = group_overlays(OVERLAYS)
 
 
 # ── v4 front panel (plain; the styling comes later): v3's L-hook edge on the narrow front, |X| <= XE + hook ──

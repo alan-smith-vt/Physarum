@@ -111,7 +111,12 @@ def back_mask(X, y, d):
     if y < B3.RING_DEPTH:                                              # MagSafe ring recess in the outer face
         r = np.hypot(X - RING_C[0], d - RING_C[1])
         s &= ~((r >= B3.RING_ID / 2) & (r <= B3.RING_OD / 2 + PV.RESIN_HOLE_COMP / 2))
-    return s | tongue_mask(X, y, d)
+    s = s | tongue_mask(X, y, d)
+    # door A's webs run up inside each wall through the panel channels (core: 1.8 clear below d 175.5): the panel's
+    # hook/neck corners stop short of them (assembly check 2026-11-01)
+    from designs import pi_box_v4_door_a as _D
+    s = s & ~((np.abs(X) >= _D.HX - _D.WEB_T - 0.3) & (np.asarray(d) >= 175.3))
+    return s
 
 
 PIECES = [implicit_piece(PV.D1 - D_TIP, PANEL_T + PV.HOOK, 2 * PV.HALF_W,

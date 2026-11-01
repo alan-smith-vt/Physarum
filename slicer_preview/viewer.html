@@ -279,12 +279,48 @@
     legend.innerHTML = '<div style="color:#777">overlays (O: all, click: one)</div>';
     document.body.appendChild(legend);
   }
+  // Groups (2026-11-01): overlays with ov.group share a legend header; clicking the header hides/shows all of them,
+  // the arrow expands the member list (collapsed by default), members still toggle one by one.
+  const groups = {};
+  function groupFor(name) {
+    if (groups[name]) return groups[name];
+    const g = { parts: [], vis: true };
+    const head = document.createElement('div');
+    const arrow = document.createElement('span');
+    arrow.textContent = '▸ ';
+    arrow.style.cursor = 'pointer';
+    const label = document.createElement('span');
+    label.textContent = name;
+    label.style.cssText = 'cursor:pointer;color:#ddd';
+    head.append(arrow, label);
+    const body = document.createElement('div');
+    body.style.cssText = 'display:none;padding-left:14px';
+    legend.append(head, body);
+    arrow.onclick = () => {
+      const open = body.style.display === 'none';
+      body.style.display = open ? 'block' : 'none';
+      arrow.textContent = open ? '▾ ' : '▸ ';
+    };
+    label.onclick = () => {
+      g.vis = !g.vis;
+      for (const [parts, row] of g.parts) {
+        for (const m of parts) m.visible = g.vis;
+        row.style.opacity = g.vis ? 1 : 0.35;
+      }
+      label.style.opacity = g.vis ? 1 : 0.35;
+      requestRender();
+    };
+    g.body = body;
+    groups[name] = g;
+    return g;
+  }
   for (const ov of (meta.overlays || [])) {
     const row = document.createElement('div');
     row.style.cursor = 'pointer';
     row.innerHTML = `<span style="display:inline-block;width:10px;height:10px;margin-right:6px;` +
       `background:${ov.color || '#4488cc'}"></span>${ov.label || ov.file}`;
-    legend.appendChild(row);
+    const grp = ov.group ? groupFor(ov.group) : null;
+    (grp ? grp.body : legend).appendChild(row);
     ovLoader.load('/stl/' + ov.file, (geometry) => {
       geometry.computeVertexNormals();
       // opacity 1 → opaque and depth-written (cables), so the translucent overlays,
@@ -312,6 +348,7 @@
         overlayGroup.add(m);
         return m;
       });
+      if (grp) grp.parts.push([parts, row]);
       row.onclick = () => {
         const vis = !parts[0].visible;
         for (const m of parts) m.visible = vis;

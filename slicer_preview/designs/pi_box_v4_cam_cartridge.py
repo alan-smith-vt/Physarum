@@ -172,8 +172,20 @@ RIBBON_SLOT = dict(t=8.5, c=(-4.6, 1.0), b=(-24.0, -15.5))   # approved 2026-10-
 ribbon_slot = inter(Box(0.0, LAND + 12.0, -RIBBON_SLOT['t'], RIBBON_SLOT['t'], 0.0, H_TOP),
                     bplane(FC, RIBBON_SLOT['c'][1], 1), bplane(FC, -RIBBON_SLOT['c'][0], -1),
                     bplane(UC, RIBBON_SLOT['b'][1], 1), bplane(UC, -RIBBON_SLOT['b'][0], -1))
+# FFC connector relief (user 2026-11-01): the connector sits on the board's FRONT (lens side), 16 x 4.5 x 2.5 at either
+# end; the pocket in front of the board was only CAM_BOSS_H (2.0) tall, so connector-up it clipped the pod by ~1 mm.
+# Both ends cleared to 3.3 off the board face (connector 2.5 + ribbon + slop), t +-8.6, u 10.6 .. past the pocket end.
+# The top end (connector-up: the ribbon leaves the connector and folds over the board end) is notched deeper and
+# further out, to be safe (user 2026-11-01): 5.0 off the board face, out to u 20.
+CONN_RELIEF = {-1: dict(t=8.6, u=(10.6, 16.5), f=(-0.1, 3.3)), 1: dict(t=9.0, u=(9.4, 20.0), f=(-0.1, 5.0))}
+#   top end starts at u 9.4 (cut 1.35 down into the pod's top face in front of the connector; user 2026-11-01). Clear of
+#   the bosses (to u 9.25) and insert slots (to u ~7.9).
+conn_relief = union(*[obox(B3 + k * sum(r['u']) / 2 * UC + sum(r['f']) / 2 * FC, (TC, UC, FC),
+                           (r['t'], (r['u'][1] - r['u'][0]) / 2, (r['f'][1] - r['f'][0]) / 2))
+                      for k, r in CONN_RELIEF.items()])
 cuts = union(
     ribbon_slot,
+    conn_relief,
     holder_cut(-0.5, HOLDER_C, RESIN_HOLE_COMP / 2),         # lens holder: square + housing tabs along the 25 side
     axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, -0.5, POD_C[1] - 6.0),   # barrel: round, from the board face (the Ø15 cap passes the holder zone; user 2026-10-31)
     axis_cyl(B3, FC, (BARREL_D + RESIN_HOLE_COMP) / 2, POD_C[1] - 6.01, POD_C[1] + 1.0),   # ...round for the last 6 (no notch in the eye)
@@ -313,7 +325,7 @@ def _box_tris(o, a, b, c):
 
 def hardware():
     """Board-side parts in land coords (n, t, d): [(name, tris, colour, label)]."""
-    conn = _box_tris(B3 - 8.0 * TC - 15.6 * UC - 1.6 * FC, 16.0 * TC, 4.5 * UC, -2.5 * FC)
+    conn = _box_tris(B3 - 8.0 * TC - 15.6 * UC, 16.0 * TC, 4.5 * UC, 2.5 * FC)          # on the board FRONT (user 2026-11-01)
     h2, r2, e2 = HOLDER_SQ / 2, HOLDER_EAR_D / 2, HOLDER_EAR_C
     holder = np.concatenate([_box_tris(B3 - h2 * TC - h2 * UC, HOLDER_SQ * TC, HOLDER_SQ * UC, HOLDER_C * FC),
                              _box_tris(B3 - e2 * TC - r2 * UC, 2 * e2 * TC, 2 * r2 * UC, HOLDER_C * FC)] +
@@ -336,8 +348,8 @@ def hardware():
                           _box_tris(e1 - 8.0 * TC, 16.0 * TC, (e2 - e1), np.array([0.0, 0.0, 0.3])),
                           _box_tris(e2 - 8.0 * TC, 16.0 * TC, (e3 - e2), np.array([0.3, 0.0, 0.0]))])
     board_up = _box_tris(B3 - 12.5 * TC - 8.25 * UC - 1.6 * FC, 25 * TC, 23.85 * UC, 1.6 * FC)       # 180° about the lens
-    conn_up = _box_tris(B3 - 8.0 * TC + 15.6 * UC - 1.6 * FC, 16.0 * TC, -4.5 * UC, -2.5 * FC)
-    return [('v4_cam_connector', conn, '#f1c40f', 'board FFC connector (back, bottom edge)'),
+    conn_up = _box_tris(B3 - 8.0 * TC + 15.6 * UC, 16.0 * TC, -4.5 * UC, 2.5 * FC)
+    return [('v4_cam_connector', conn, '#f1c40f', 'board FFC connector (front face, bottom edge)'),
             ('v4_cam_board_up', board_up, '#a9dfbf', 'ALTERNATIVE pose: board turned 180° (connector up), proposal'),
             ('v4_cam_connector_up', conn_up, '#f9e79f', 'ALTERNATIVE pose: connector at the top edge'),
             ('v4_cam_holder', holder, '#566573', 'lens holder 13 sq x 3.5, ears 21.7 (measured; ears along the 25 side)'),
