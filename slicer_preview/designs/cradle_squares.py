@@ -7,9 +7,10 @@ Last time (uniform normal gap 0.05..0.20) the flat MIDDLE debonded mid-print and
 scarred). So the gap now depends on the face angle th (0 at the middle, 41.8° at the edges), measured normal to the face:
     gap(th) = G_MID + (G_EDGE - G_MID) * sin(th) / sin(41.8°)
   - G_MID 0.05 / 0.10 / 0.15: small, so overcure tacks the flat middle (printed first) to the bed;
-  - G_EDGE 0.40 / 0.60: 2-3x the 0.20 that still bonded, so the flanks release;
+  - G_EDGE 0.20 / 0.40: 0.20 = the last coupon's only releasing gap (lightly scarred; baseline, maybe ideal with 60 %
+    gray), 0.40 = one step past it (user: don't jump so far that everything debonds);
   - interface gray: the top 0.3 mm of the bed under the face at 100 % or 60 % pixel gray (a weaker tack).
-Layout: 3 columns = G_MID (rising with +x); rows (-z first): G_EDGE 0.40 @100 %, 0.60 @100 %, 0.40 @60 %, 0.60 @60 %.
+Layout: 3 columns = G_MID (rising with +x); rows (-z first): G_EDGE 0.20 @100 %, 0.40 @100 %, 0.20 @60 %, 0.40 @60 %.
 ID: N dots on the shell's top, N = 1..12 in that order (row by row, left to right). Notch at each cell's -x, -z corner.
 Judge: middle stayed attached through the print (no warp), edges release by hand, texture even across the width.
 Clear blue + Tenacious, 2.3 s. Viewer: python generate.py cradle_squares (60 % pixels show darker).
@@ -24,7 +25,7 @@ BOTTOM_EXPOSURE_S = 20.0
 
 PERIOD, SHEET = 10.0, 0.3
 G_MIDS = (0.05, 0.10, 0.15)
-G_EDGES = (0.40, 0.60)
+G_EDGES = (0.20, 0.40)
 GRAYS = (255, 153)                     # 100 %, 60 %
 INTERFACE = 0.3                        # mm of bed under the face printed at the cell's gray
 HALF, SIDE = 20.0, 20.0                # cell: face chord 40 (x, the full +-41.8° of the cartridge face) x 20 long (z)
