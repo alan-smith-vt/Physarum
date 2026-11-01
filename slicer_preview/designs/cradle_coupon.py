@@ -40,6 +40,7 @@ def _gyr_dist(x, y, z):
 
 
 LINE_W, MARK_DEPTH, DOT_R, DOT_PITCH = 0.5, 0.6, 0.45, 1.6
+EDGE = 0.5                       # bed kept in from the ends and band borders (island-free)
 
 
 def _marks(X, Z):
@@ -69,10 +70,13 @@ def solid(x, y, z):
     shell = inside & (r >= R - SHELL) & (r <= R) & (y <= YC)
     shell &= ~((X < -HALF_W + NOTCH) & (Z < NOTCH))                       # orientation notch
     shell &= ~(_marks(X, Z) & (r < R - SHELL + MARK_DEPTH))               # cell lines + ID dots, on the top face
-    band = np.clip(np.floor(Z / (LENGTH / len(GAPS))).astype(int), 0, len(GAPS) - 1)
-    gap = np.asarray(GAPS)[band]
+    bl = LENGTH / len(GAPS)                                               # gap per band; within EDGE of a border
+    lo = np.clip(np.floor((Z - EDGE) / bl).astype(int), 0, len(GAPS) - 1)  # take the larger of the two (no thin
+    hi = np.clip(np.floor((Z + EDGE) / bl).astype(int), 0, len(GAPS) - 1)  # ledge left hanging at the step)
+    gap = np.maximum(np.asarray(GAPS)[lo], np.asarray(GAPS)[hi])
     sheet = np.where(X < 0, SHEETS[0], SHEETS[1])
-    below = inside & (r > R) & (y < YC)                                   # under the face (its shadow)
+    below = inside & (r > R) & (y < YC)                                   # under the face (its shadow), kept EDGE
+    below &= (np.abs(X) <= HALF_W - EDGE) & (Z >= EDGE) & (Z <= LENGTH - EDGE)   # in from the ends (no corner specks)
     bed = below & (r >= R + gap) & ((y <= FOOT) | (_gyr_dist(X, y, Z) <= sheet / 2))
     return shell | bed
 
