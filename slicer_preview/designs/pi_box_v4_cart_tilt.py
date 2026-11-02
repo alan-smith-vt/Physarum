@@ -50,8 +50,19 @@ def to_tree(x, y, z):
     return tuple(X * E1[i] + Y * UP[i] + Z * E2[i] for i in range(3))
 
 
+# Trim (user 2026-11-01): everything past the picked face's plane goes (the two flange tips stood 0.88 proud), so the
+# face sits flat on the plate. Print-only: the cartridge model itself is unchanged.
+TRIM = STAND == 'picked' and _PICK.exists()
+if TRIM:
+    _pk = __import__('json').loads(_PICK.read_text())
+    _TN, _TOFF = np.array(_pk['normal']), float(np.dot(_pk['normal'], _pk['point']))
+
+
 def _root(xp, n, t, h):
-    return xp.asarray(K.ROOT(n, t, h, xp, None, 0)) <= 0
+    s = xp.asarray(K.ROOT(n, t, h, xp, None, 0)) <= 0
+    if TRIM:
+        s = s & (_TN[0] * n + _TN[1] * t + _TN[2] * h <= _TOFF)
+    return s
 
 
 def _sample(y0):
