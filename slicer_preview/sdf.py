@@ -65,7 +65,7 @@ class Box(Node):
         qx = xp.abs(X - self.c[0]) - self.h[0]
         qy = xp.abs(Y - self.c[1]) - self.h[1]
         qd = abs(d - self.c[2]) - self.h[2]
-        out = xp.sqrt(xp.maximum(qx, 0) ** 2 + xp.maximum(qy, 0) ** 2 + max(qd, 0.0) ** 2)
+        out = xp.sqrt(xp.maximum(qx, 0) ** 2 + xp.maximum(qy, 0) ** 2 + (max(qd, 0.0) if np.isscalar(qd) else xp.maximum(qd, 0.0)) ** 2)   # d may be an array (face-up parts)
         return out + xp.minimum(xp.maximum(xp.maximum(qx, qy), qd), 0)
 
 
