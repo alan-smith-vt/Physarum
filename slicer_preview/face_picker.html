@@ -20,9 +20,12 @@ const renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 2000);
+camera.position.set(80, 60, 80);          // not on the target: a zero-length orbit radius breaks OrbitControls
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.9));
 const dl = new THREE.DirectionalLight(0xffffff, 0.6); dl.position.set(1, 2, 1.5); scene.add(dl);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.1;
+renderer.domElement.style.touchAction = 'none';
 let mesh, geom, pick = null;
 new THREE.STLLoader().load('/pick_mesh/' + name + '.stl', (g) => {
   geom = g.toNonIndexed ? g.toNonIndexed() : g;
@@ -88,5 +91,5 @@ document.getElementById('use').onclick = async () => {
   document.getElementById('saved').textContent = r.ok ? 'saved' : 'save failed';
 };
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-(function loop() { requestAnimationFrame(loop); renderer.render(scene, camera); })();
+(function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
 </script></body></html>
