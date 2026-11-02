@@ -1,0 +1,92 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>face picker</title>
+<style>
+body{margin:0;overflow:hidden;background:#0c0e12;font:13px system-ui,sans-serif;color:#ddd}
+#ui{position:fixed;top:10px;left:10px;background:rgba(0,0,0,.65);padding:10px 12px;border-radius:5px;max-width:360px;line-height:1.6}
+button{background:#2e86c1;color:#fff;border:0;border-radius:4px;padding:6px 12px;cursor:pointer;margin-top:6px}
+button:disabled{background:#444;cursor:default} .k{color:#888}
+</style></head><body>
+<div id="ui"><b>Face picker</b> <span class="k" id="name"></span><br>
+<span class="k">click a face. Drag to orbit, scroll to zoom.</span><br>
+<div id="info">no face selected</div>
+<button id="use" disabled>use this face as the print base</button> <span id="saved"></span></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script>
+const name = location.pathname.split('/').pop();
+document.getElementById('name').textContent = name;
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 2000);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.9));
+const dl = new THREE.DirectionalLight(0xffffff, 0.6); dl.position.set(1, 2, 1.5); scene.add(dl);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+let mesh, geom, pick = null;
+new THREE.STLLoader().load('/pick_mesh/' + name + '.stl', (g) => {
+  geom = g.toNonIndexed ? g.toNonIndexed() : g;
+  geom.computeVertexNormals();
+  const n = geom.attributes.position.count;
+  geom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(0.75), 3));
+  mesh = new THREE.Mesh(geom, new THREE.MeshLambertMaterial({vertexColors: true, side: THREE.DoubleSide}));
+  scene.add(mesh);
+  geom.computeBoundingBox(); const c = geom.boundingBox.getCenter(new THREE.Vector3());
+  const r = geom.boundingBox.getSize(new THREE.Vector3()).length();
+  controls.target.copy(c); camera.position.copy(c).add(new THREE.Vector3(r, r * 0.6, r)); controls.update();
+});
+// per-triangle data
+function tri(i) {
+  const p = geom.attributes.position;
+  const a = new THREE.Vector3().fromBufferAttribute(p, 3 * i), b = new THREE.Vector3().fromBufferAttribute(p, 3 * i + 1),
+        c = new THREE.Vector3().fromBufferAttribute(p, 3 * i + 2);
+  const n = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a));
+  const area = n.length() / 2; n.normalize();
+  return {a, b, c, n, area, ctr: a.clone().add(b).add(c).divideScalar(3)};
+}
+function select(i0) {
+  const t0 = tri(i0), col = geom.attributes.color, N = geom.attributes.position.count / 3;
+  // a plane fitted to the clicked area: normal from the neighbourhood (marching-cubes faces are faceted)
+  const cos = Math.cos(THREE.MathUtils.degToRad(8));
+  let nsum = new THREE.Vector3(), cnt = 0;
+  for (let i = 0; i < N; i++) {
+    const t = tri(i);
+    if (t.ctr.distanceTo(t0.ctr) < 3 && t.n.dot(t0.n) > cos) { nsum.addScaledVector(t.n, t.area); cnt++; }
+  }
+  const nrm = nsum.normalize(), off = nrm.dot(t0.ctr);
+  let area = 0, sum = new THREE.Vector3(), w = 0;
+  for (let i = 0; i < N; i++) {
+    const t = tri(i);
+    const on = t.n.dot(nrm) > Math.cos(THREE.MathUtils.degToRad(5)) && Math.abs(nrm.dot(t.ctr) - off) < 0.35;
+    const v = on ? [0.9, 0.25, 0.2] : [0.75, 0.75, 0.75];
+    for (let k = 0; k < 3; k++) col.setXYZ(3 * i + k, ...v);
+    if (on) { area += t.area; sum.addScaledVector(t.ctr, t.area); w += t.area; }
+  }
+  col.needsUpdate = true;
+  pick = {normal: [nrm.x, nrm.y, nrm.z], point: [sum.x / w, sum.y / w, sum.z / w], area: area};
+  // how far other material sticks out past this plane (would stop it sitting flat)
+  const p = geom.attributes.position; let worst = 0;
+  for (let i = 0; i < p.count; i++) worst = Math.max(worst, nrm.x * p.getX(i) + nrm.y * p.getY(i) + nrm.z * p.getZ(i) - off);
+  document.getElementById('info').innerHTML =
+    `face area <b>${area.toFixed(0)} mm²</b><br>outward normal (${pick.normal.map(v => v.toFixed(3)).join(', ')})<br>` +
+    (worst > 0.3 ? `<span style="color:#e74c3c">other material sticks out ${worst.toFixed(2)} mm past this plane: it won't sit flat</span>`
+                 : `<span style="color:#2ecc71">nothing sticks out past it: sits flat</span>`);
+  pick.protrusion = worst;
+  document.getElementById('use').disabled = false;
+}
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(); let down;
+renderer.domElement.addEventListener('pointerdown', e => down = [e.clientX, e.clientY]);
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!mesh || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;    // a drag, not a click
+  mouse.set(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObject(mesh)[0];
+  if (hit) select(hit.faceIndex);
+});
+document.getElementById('use').onclick = async () => {
+  const r = await fetch('/pick/' + name, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(pick)});
+  document.getElementById('saved').textContent = r.ok ? 'saved' : 'save failed';
+};
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+(function loop() { requestAnimationFrame(loop); renderer.render(scene, camera); })();
+</script></body></html>

@@ -83,6 +83,28 @@ def stl(filename):
                      mimetype="application/octet-stream")
 
 
+# ── face picker (2026-11-01): python face_pick.py <design> first; the choice goes to out/pick/<design>.json ──
+PICK_DIR = os.path.join(SCRIPT_DIR, 'out', 'pick')
+
+
+@app.route("/pick/<name>", methods=["GET", "POST"])
+def pick_page(name):
+    from flask import request
+    if request.method == "POST":
+        os.makedirs(PICK_DIR, exist_ok=True)
+        with open(os.path.join(PICK_DIR, f'{name}.json'), 'w') as f:
+            json.dump(request.get_json(), f, indent=1)
+        return {"ok": True}
+    if not os.path.isfile(os.path.join(PICK_DIR, f'{name}.stl')):
+        return f"No mesh for '{name}': run  python face_pick.py {name}", 404
+    return send_from_directory(SCRIPT_DIR, "face_picker.html")
+
+
+@app.route("/pick_mesh/<name>")
+def pick_mesh(name):
+    return send_from_directory(PICK_DIR, name, mimetype="application/octet-stream")
+
+
 @app.route("/<name>")
 def design_page(name):
     if name.endswith('.js'):

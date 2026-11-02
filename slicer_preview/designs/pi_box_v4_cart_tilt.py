@@ -20,7 +20,8 @@ SUPPORTS = False
 EXPOSURE_S = 2.3
 BOTTOM_EXPOSURE_S = 20.0
 
-STAND = 'end'                                # user 2026-11-01: the large flat end face
+STAND = 'picked'                             # 'picked': the face clicked in the face picker (server.py /pick/<design>)
+_PICK = Path(__file__).resolve().parents[1] / 'out' / 'pick' / 'pi_box_v4_cam_cartridge.json'
 SAMP, MIN_SPAN, GRID = 0.2, 2.0, 2.0
 TIP_R, TIP_DIG, TIP_L, COL_R, FOOT_R, FOOT_L = 0.25, 0.25, 1.5, 0.6, 1.2, 1.0
 CLEAR, GAP = 0.4, 6.0
@@ -29,9 +30,14 @@ _CACHE = Path(__file__).resolve().parents[1] / 'out' / 'cart_tilt_cache.npz'
 
 UP = {'bottom': np.array([1.0, 0.0, 1.0]) / np.sqrt(2),         # the chin end's 45° countersink face (61 mm2)
       'top': np.array([1.0, 0.0, -1.0]) / np.sqrt(2),           # the brow end's 45° face (3 mm2: no)
-      'end': np.array([0.0, 0.0, -1.0])}[STAND]                  # the cap's flat top end (~277 mm2), user's pick
+      'end': np.array([0.0, 0.0, -1.0]),                        # the cap's flat top end (~277 mm2)
+      'slope': np.array([np.cos(np.radians(312.75)), 0.0, np.sin(np.radians(312.75))]),
+      'picked': (-np.array(__import__('json').loads(_PICK.read_text())['normal']) if _PICK.exists() else None)}[STAND]
+#   (~265 mm2): the face tilts up and away from the plate (user's pick, 2026-11-01)
 #   tree (n, t, h); found by scanning plate directions for contact area (2026-11-01)
-E1 = np.array([0.0, 1.0, 0.0])
+UP = UP / np.linalg.norm(UP)
+E1 = np.array([0.0, 1.0, 0.0]) - UP[1] * UP                     # x: along t, made perpendicular to UP
+E1 = E1 / np.linalg.norm(E1)
 E2 = np.cross(UP, E1)
 _CORNERS = np.array([[a, b, c] for a in (K.N0, K.N1) for b in (K.T0, K.T1) for c in (0.0, K.H_TOP)])
 _P = _CORNERS @ np.stack([E1, UP, E2], 1)                         # print (x, y, z) of the tree box corners
@@ -60,7 +66,7 @@ def _sample(y0):
 
 
 def _plan():
-    src = Path(K.__file__).stat().st_mtime + Path(__file__).stat().st_mtime
+    src = Path(K.__file__).stat().st_mtime + Path(__file__).stat().st_mtime + (_PICK.stat().st_mtime if _PICK.exists() else 0)
     if _CACHE.exists():
         c = np.load(_CACHE)
         if float(c['src']) == src:
