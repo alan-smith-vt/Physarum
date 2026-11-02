@@ -1,4 +1,57 @@
-# Rig v4: core reprint, handoff 2026-11-01
+# Rig v4: state at end of 2026-11-01 (blue resin out until Tue 11-04)
+
+## Where things stand
+**Nothing is printing.** Blue resin is used up; more arrives Tuesday. Smoky resin is fine.
+
+| Part | Resin | File | State |
+|---|---|---|---|
+| **Camera cartridges ×2** | blue, 2.3 s | `out/pi_box_v4_cart_tilt.goo` (design `pi_box_v4_cart_tilt`) | **Ready to upload** (user approved the model 11-01) |
+| **Floor** | blue, 2.3 s | design `pi_box_v4_floor` | Not exported yet. Reprint as designed (button +X, nut clearance, no cradle) |
+| **Core v4** | smoky, 2.8 s | `out/pi_box_v4_core_v4.goo` (214 MB, 3600 layers) | **Ready to upload** (exported 11-01, mirror fix proven) |
+| Panels (front / back) | smoky | `pi_box_v4_front_panel`, `pi_box_v4_back_panel` | Not printed, not exported |
+
+**Order the user set:** blue first (cartridges, then the floor if there's enough), then switch to smoky for the core.
+The core *could* go first while blue is out, if the user wants the printer busy: ask.
+
+## Camera cartridges: printed on an end face (decided 11-01)
+- **Not face down.** The cradle (face-down supports) is a side quest (`CRADLE_SUPPORT_TESTS.md`). The cartridges are the
+  rig's "eyes", so the R30 face must not be touched by supports.
+- `designs/pi_box_v4_cart_tilt.py`, `STAND = 'picked'`:
+  - Each cartridge stands on the face the user clicked in the **face picker** (`out/pick/pi_box_v4_cam_cartridge.json`).
+    It's the large flat face with outward normal (-1, 0, 1)/√2 in the cartridge tree frame: 340 mm², with the R30 face
+    tilted away from the plate.
+  - **Print-only trim:** the two flange tips that stood 0.88 mm past that plane are cut off (1.9 mm³ total, ~0.5 mm
+    slivers at the flange ends, on the pod's back edge). The cartridge model itself is unchanged.
+  - **Elephant's foot:** 45° × 0.5 mm bevel round the plate face (`EF_CH`). Plate contact 347 mm² at layer 1.
+  - **Supports, auto-generated:** 308 tapered columns to the plate + 20 standing on the part (tip 0.25 dug 0.25, shaft
+    0.6, foot 1.2); 62 small spots left to bridge (red overlay in the viewer). Cached in `out/cart_tilt_cache.npz`
+    (rebuilt when the cartridge, this file or the pick changes).
+  - Includes the 11-01 cartridge changes: FFC connector relief (3.3 deep at the bottom end; 5.0 deep, u 9.4..20 at the
+    top end).
+  - **No fit strip** (user): print, check the inserts/lens bore, adjust for a reprint if needed. Lens cap vs elephant's
+    foot was a face-down problem; on this orientation it should be gone.
+- Viewer: `/pi_box_v4_cart_tilt`. Alternatives in the file: `STAND = 'end' / 'slope' / 'bottom'`.
+
+## New tools (11-01)
+- **Face picker:** `python face_pick.py <design>` then http://localhost:5555/pick/<design>. Click a face: it shows the
+  area, and whether anything sticks out past the plane. "Use this face" saves `out/pick/<design>.json`.
+- **Printer monitor:** `python printer_monitor.py` → http://localhost:5556 (read-only: progress, ETA, temps, snapshot).
+- `PREVIEW_SCALE=6 python generate.py <design>` for fine features (slow, heavy in the browser).
+- `sdf.Box` now accepts an array third coordinate (needed for parts sliced along another axis).
+
+## When we're back
+1. Load blue → upload + print `pi_box_v4_cart_tilt.goo` (ask before print) → check the inserts, bores, connector relief.
+2. Floor: `python to_goo.py pi_box_v4_floor --gpu` → review → print (blue, if the resin lasts).
+3. Smoky → upload `pi_box_v4_core_v4.goo` (~20 min) → print (~10.5 h). Check: the support trees in the cartridge slots
+   snap out; the M2 pad inserts (3.2 teardrop pockets) fit; the power board (-X wall, shifted 22 toward the bank,
+   straddling the web) clears the Pi with the real harness; the GbE adapter glues in clear of the front panel channel;
+   the door slides (+0.15 on the thumb-screw side). Decisions in detail below.
+4. Cradle side quest: the 10 mm flat / 40° square matrix (see `CRADLE_SUPPORT_TESTS.md`). Coupon #5's under-water cure
+   result (does it keep the thin gyroid clear?) to be noted there.
+
+---
+
+# Rig v4: core reprint, handoff 2026-11-01 (day)
 
 Power board: `power_board/docs/PI_HARNESS.md`. The 2026-10-31 handoff is kept below for history.
 
