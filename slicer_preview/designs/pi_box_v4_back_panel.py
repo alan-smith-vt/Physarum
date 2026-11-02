@@ -26,7 +26,8 @@ def tongue_mask(X, y, d):
 
 
 _FACE = B3._FACE                                 # outer face Yr (interior toward -Y)
-WIN_HEAD = B3.WIN[2] - B3.BRACE / 2             # above this: panes gyroid-filled; below: the open window (user home:2279)
+WIN_HEAD = PV.D1 - 30.0 - B3.BRACE / 2          # head bar centre: window open to 30 from the base (user 2026-11-02:
+#                                                bank screen 5.6..29 from the base edge); gyroid above, open below
 RING_C = (0.0, 100.0)                           # MagSafe ring centre (user 2026-10-30: up a little from 108.5),
 #                                                held by four swoops (above, below, both sides)
 
@@ -87,30 +88,17 @@ def _arc(X, d, p0, p1, pm, w=B3.BRACE):
 
 
 def frame_mask(X, y, d):
-    """v3 frame, MagSafe disc and braces, without the window's vertical bar (user home:2279)."""
+    """Frame (sides, top, bottom) + the window head bar. MagSafe disc, swoops and logo bar removed (user 2026-11-02:
+    the phone mounts on the stick, not the panel)."""
     s = PV.panel_mask(X, y, d)
-    cx, cd = RING_C
-    r = np.hypot(X - cx, d - cd)
-    ring = (r <= B3.DISC_R) & (r >= B3.RING_ID / 2 - 1.5)              # MagSafe annulus only, open middle
-    keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME) | ring
-    top, bot, IN = PV.D0 + B3.FRAME, WIN_HEAD, B3.IN_X                 # (user home:2302) open panes, no gyroid:
-    R0, lt = B3.DISC_R, LOGO_BOT                                       # side swoops flank the disc and merge with
-    for p0, p1, pm in [((-IN, lt), (-IN, bot), (cx - R0 + SWOOP_BITE, cd)),   # its rim: four concave swoops,
-                       ((IN, lt), (IN, bot), (cx + R0 - SWOOP_BITE, cd)),     # sides from the box corners to the
-                       ((-IN, lt), (IN, lt), (cx, cd - R0 + SWOOP_BITE)),     # window-head ends, top from the box
-                       ((-IN, bot), (IN, bot), (cx, cd + R0 - SWOOP_BITE))]:  # base, bottom from the window head
-        keep |= _arc(X, d, p0, p1, pm)
-    keep |= B3._seg(X, d, (-IN, bot), (IN, bot))                       # window head
-    keep |= B3._seg(X, d, (-IN, lt), (IN, lt))                         # top swoops' base bar (d 60)
+    keep = (np.abs(X) >= B3.IN_X) | (d <= PV.D0 + B3.FRAME) | (d >= PV.D1 - B3.FRAME)
+    keep |= B3._seg(X, d, (-B3.IN_X, WIN_HEAD), (B3.IN_X, WIN_HEAD))   # window head
     return s & keep
 
 
 def back_mask(X, y, d):
     s = frame_mask(X, y, d) | (PV.panel_mask(X, y, d, gyroid_face=(_FACE, -1)) & (d <= WIN_HEAD))   # gyroid everywhere
     # above the window head, round the swoops and in the ring; window open; SGH removed (user 2026-10-30)
-    if y < B3.RING_DEPTH:                                              # MagSafe ring recess in the outer face
-        r = np.hypot(X - RING_C[0], d - RING_C[1])
-        s &= ~((r >= B3.RING_ID / 2) & (r <= B3.RING_OD / 2 + PV.RESIN_HOLE_COMP / 2))
     s = s | tongue_mask(X, y, d)
     # door A's webs run up inside each wall through the panel channels (core: 1.8 clear below d 175.5): the panel's
     # hook/neck corners stop short of them (assembly check 2026-11-01)
@@ -122,3 +110,50 @@ def back_mask(X, y, d):
 PIECES = [implicit_piece(PV.D1 - D_TIP, PANEL_T + PV.HOOK, 2 * PV.HALF_W,
                          lambda x, y, z: back_mask(z - PV.HALF_W, y, x + D_TIP),
                          x0=-(PV.D1 - D_TIP) / 2, z0=-PV.HALF_W)]
+
+
+# ── print-only (user 2026-11-02): 1 mm elephant's-foot bevel round the outline + needles under the tongue ──
+EF_CH = 1.0                                      # 45° x 1.0 round the plate face's OUTER outline (holes untouched)
+NEEDLE = dict(r0=0.5, r1=0.15, dig=0.1, pitch=4.0, inset=1.0)   # cone radii at plate / tip, tip dug into the tongue
+_T_LOW = PANEL_T / 2 - (TONGUE_T / 2 - PV.PRINT_GROW)            # tongue underside height above the plate
+_N_D = D_TIP + (TONGUE_T / 2 - PV.PRINT_GROW) + NEEDLE['inset']  # needle d: 1 mm in from the flat underside's start
+_a, _b = BACK_TONGUE_X[0] + 1.0, BACK_TONGUE_X[1] - 1.0      # 1 mm in from each tongue end: both corners get one
+_n = int(np.ceil((_b - _a) / NEEDLE['pitch'])) + 1             # evenly spaced, pitch <= 4
+_N_X = [sx * v for sx in (-1, 1) for v in np.linspace(_a, _b, _n)]
+
+
+def _needles(x, y, z):
+    top = _T_LOW + NEEDLE['dig']
+    if y > top:
+        return np.zeros(np.broadcast_shapes(x.shape, z.shape), bool)
+    r = NEEDLE['r0'] + (NEEDLE['r1'] - NEEDLE['r0']) * min(y / _T_LOW, 1.0)
+    d, X = x + D_TIP, z - PV.HALF_W
+    s = np.zeros(np.broadcast_shapes(x.shape, z.shape), bool)
+    for xn in _N_X:
+        s |= (d - _N_D) ** 2 + (X - xn) ** 2 <= r * r
+    return s
+
+
+def _print_piece(piece):
+    import geometry as g
+    from scipy.ndimage import distance_transform_edt, binary_fill_holes
+    base = piece['make_slice']
+    k = int(EF_CH / g.LY_MM)
+    cache = {}
+    x = ((np.arange(piece['W']) + 0.5) * g.PX_MM)[None, :]
+    z = ((np.arange(piece['H']) + 0.5) * g.PZ_MM)[:, None]
+
+    def make_slice(layer, *a, **kw):
+        out = base(layer, *a, **kw)
+        y = (layer + 0.5) * g.LY_MM
+        if y < EF_CH:
+            if 'dist' not in cache:
+                cache['dist'] = distance_transform_edt(binary_fill_holes(base(k) > 0), sampling=(g.PZ_MM, g.PX_MM))
+            out = np.where(cache['dist'] >= EF_CH - y, out, 0).astype(out.dtype)
+        return np.where(_needles(x, y, z), 255, out).astype(out.dtype)
+    p = dict(piece, make_slice=make_slice)
+    p.pop('solid_fn', None)                      # to_goo --gpu would skip both: CPU export only
+    return p
+
+
+PIECES = [_print_piece(p) for p in PIECES]

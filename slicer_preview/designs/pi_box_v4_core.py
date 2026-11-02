@@ -468,7 +468,11 @@ def front_panel_rig(X, Y, d):
     face = FRONT_FACE                                                        # centre strip (+ 10 into the wide part)
     if d <= STEP + 10.0:
         y = Y - face
-        s |= front_panel_mask(np.broadcast_to(X, s.shape), y, d)
+        # inner face flush with the wide part's (PT 3.2 - 2G = 2.85 thick; PANEL_T - G was 3.0, a 0.15 ledge
+        # at the join, user 2026-11-02); the hook zone in the channel keeps its full thickness
+        flush = (Y <= RC[1] - (R_FRONT - PT + G)) | ((ax >= _FRONT_NECK_X - 0.01) & (d <= STEP))   # hooks end at
+        # the step, where the core's channel ends (they ran 10 mm past it in the overlap, user 2026-11-02)
+        s |= front_panel_mask(np.broadcast_to(X, s.shape), y, d) & flush
         ty = np.abs(y - (R.PANEL_T - TONGUE_T / 2))
         dt = PV.D0 - TONGUE_H                                                # its top tongue into the rim
         if dt <= d < PV.D0 + 1.0:
