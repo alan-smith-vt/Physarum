@@ -166,6 +166,13 @@ Reduce the problem before reintroducing curves:
    plate (several dozen), for example:
    - **flat:** gap 0.10 / 0.15 × face skin gray 100–60 % in small steps × contact 0.05 / 0.10 × body 0.15 / 0.20;
    - **40°:** gap 0.20–0.50 × skin gray × contact.
+   - **The contact spectrum (user):** needles (~0 % contact) → gyroid (~1–5 %) → **solid sheet (100 %, peeled off)**. A
+     sheet could leave the best finish, but with full contact the joint strength is the only control. At 100 % gray the
+     flat cliff (2 layers weld, 3 layers lose the face) leaves no peel window. **Gray moves the cliff**, so 80 % with a
+     1- or 2-layer gap may be exactly "tacked everywhere, peels". Add to the flat matrix: **sheet** and
+     **perforated sheet** (holes ~2 mm pitch: less suction, drains), gap **1 / 2 layers × face gray 100 / 90 / 80 / 70 /
+     60 %**. The 1-layer, 100 % cell is the known-weld control. Watch for suction on lifts and peel force from the
+     sheet's full cross-section.
 2. **Calibrate each case on its own** until each releases cleanly at the face with an even texture.
 3. **Interpolate** gap, gray and contact by face angle between the two solutions.
 4. **Only then reintroduce curves** (the R30 cells), to check curve-specific effects: curling and warp, peel load on a
