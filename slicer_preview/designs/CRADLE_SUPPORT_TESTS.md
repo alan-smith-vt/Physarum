@@ -1,5 +1,9 @@
 # Cradle supports for curved faces printed face down: test log
 
+**Status (user, 2026-11-01): a long-running SIDE QUEST, not on the critical path.** The camera cartridges (the rig's
+"eyes", cosmetic) will be printed **face up** with conventional supports behind, plus a round or two of compensation
+calibration so their inserts still fit. The cradle work continues until it works and gets used later.
+
 Goal (user, 2026-11-01): a support system for printing curved, visible faces **face down**, so the camera cartridges
 (R30 face) and later parts can be printed in that orientation without tipping them vertical, which would affect
 other tolerances. Requirements: the support crushes or crumbles off **by hand**, and leaves an **even, bed-like
