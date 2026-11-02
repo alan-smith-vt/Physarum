@@ -20,14 +20,17 @@ SUPPORTS = False
 EXPOSURE_S = 2.3
 BOTTOM_EXPOSURE_S = 20.0
 
-STAND = 'bottom'
+STAND = 'end'                                # user 2026-11-01: the large flat end face
 SAMP, MIN_SPAN, GRID = 0.2, 2.0, 2.0
 TIP_R, TIP_DIG, TIP_L, COL_R, FOOT_R, FOOT_L = 0.25, 0.25, 1.5, 0.6, 1.2, 1.0
 CLEAR, GAP = 0.4, 6.0
 EF_CH = 0.5                                  # elephant's-foot bevel: 45° x 0.5 round the plate face (20 s bottom layers)
 _CACHE = Path(__file__).resolve().parents[1] / 'out' / 'cart_tilt_cache.npz'
 
-UP = np.array([1.0, 0.0, 1.0 if STAND == 'bottom' else -1.0]) / np.sqrt(2)   # tree (n, t, h)
+UP = {'bottom': np.array([1.0, 0.0, 1.0]) / np.sqrt(2),         # the chin end's 45° countersink face (61 mm2)
+      'top': np.array([1.0, 0.0, -1.0]) / np.sqrt(2),           # the brow end's 45° face (3 mm2: no)
+      'end': np.array([0.0, 0.0, -1.0])}[STAND]                  # the cap's flat top end (~277 mm2), user's pick
+#   tree (n, t, h); found by scanning plate directions for contact area (2026-11-01)
 E1 = np.array([0.0, 1.0, 0.0])
 E2 = np.cross(UP, E1)
 _CORNERS = np.array([[a, b, c] for a in (K.N0, K.N1) for b in (K.T0, K.T1) for c in (0.0, K.H_TOP)])

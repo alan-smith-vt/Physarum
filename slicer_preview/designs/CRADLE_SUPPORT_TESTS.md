@@ -145,7 +145,17 @@ All coupons are a slice of the cartridge's **R30 face, 3 mm shell**, printed fac
 
 - **Judge:** the root held; the bed crushes off; the break is **at the face** (no stubs); finish in the middle and on
   the sides.
-- **Results:** *(to fill in)*
+- **Results (2026-11-01): every cell failed.** The ribs, shell and gyroids printed fine (and looked very good), but **no
+  curved face printed in any cell**: the gyroids end in empty space. That includes the 100 % / 100 % cells, so face gray
+  isn't the cause.
+- **Takeaway:**
+  - Contact 0.10 at a middle gap of **0.10 (2 layers) doesn't hold the face's floating first layer**. That matches #3
+    #9 (G_MID 0.10 + contact 0.10: failed).
+  - The cells that attached with thin contacts all had G_MID **0.05 (1 layer)**: #3 column 1, #4.
+  - **With thin contacts, the middle needs a 1-layer gap,** and gray has to bring the weld down from there, not up from
+    2 layers.
+- **Post-processing note:** a 5 s IPA dip followed by an immediate water rinse turned the thin gyroids **opaque white**.
+  Curing one coupon under water (10 min) to see whether the clear mesh can be preserved.
 
 ## What we understand so far
 1. **The flat middle prints first, as a floating layer.** It's joined to the bed only by the face's overcure, which cures
