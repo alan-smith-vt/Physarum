@@ -27,11 +27,11 @@ BORDER = 4.0                                   # solid frame inside the wall lin
 
 def panel_mask(X, y, d, gyroid_face=None):
     """X rig, y off the outer face toward the interior (0 .. PANEL_T + HOOK), d rig depth."""
-    s = np.ones(np.broadcast_shapes(np.shape(X), np.shape(d)), bool)
+    s = np.ones(np.broadcast_shapes(np.shape(X), np.shape(y), np.shape(d)), bool)   # y may be an array (standing prints)
     body = y <= PANEL_T - PRINT_GROW
     hook = (y <= PANEL_T + HOOK - PRINT_GROW) & (np.abs(X) >= NECK_X)
     s &= (np.abs(X) <= HALF_W) & (body | hook) & (y >= 0) & (d >= D0) & (d <= D1)
-    yy = min(y, PANEL_T + HOOK - y)
+    yy = np.minimum(y, PANEL_T + HOOK - y)
     s &= d >= D0 + PANEL_LEAD - yy                                   # lead-in on the top (leading) edge
     s &= np.abs(X) <= HALF_W - np.maximum(PANEL_LEAD - (d - D0), 0.0)   # and its corners
     if gyroid_face is not None:

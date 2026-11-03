@@ -837,5 +837,5 @@ def front_panel_mask(X, y, d):
 
 # the wide front panel as a printable piece (print up = toward the flange: floor edge on the plate, tongues up)
 FRONT_PANEL_PIECES = [implicit_piece(2 * X_OUT, DEPTH - FRONT_PANEL_D0, RC[1] + NECK_L + HOOK_W + 1.0 - Y_MIN,
-                                     lambda x, y, z: front_panel_rig(x - X_OUT, z + Y_MIN, DEPTH - y),
+                                     lambda x, y, z: front_panel_rig(x - X_OUT, z + Y_MIN, DEPTH - 0.1 - y),   # floor end (d 179.9) on layer 0 (was 0.1 up, 2026-11-02)
                                      x0=-X_OUT, z0=Y_MIN)]
