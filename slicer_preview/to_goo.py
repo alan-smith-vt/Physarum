@@ -183,7 +183,7 @@ def _gpu_slices(name, pieces, bounds, args):
         cp.broadcast_shapes = np.broadcast_shapes
     if any('solid_fn' not in p and 'slice_xp' not in p for p in pieces):
         sys.exit("--gpu needs implicit or SDF pieces (solid_fn / slice_xp); this design has others")
-    if any('slice_xp' not in p for p in pieces):        # mask pieces: run their numpy code on cupy
+    if any('slice_xp' not in p or p.get('mask_np') for p in pieces):   # mask pieces: run their numpy code on cupy
         for mod in [m for k, m in sys.modules.items() if k.startswith('designs.') and getattr(m, 'np', None) is np]:
             mod.np = cp
     gray = any(p.get('aa') for p in pieces)

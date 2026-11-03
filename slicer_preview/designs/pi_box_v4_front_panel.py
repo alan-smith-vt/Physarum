@@ -29,26 +29,5 @@ else:
 EF_CH = 0.5          # elephant's foot: 45° x 0.5 bevel round the plate face (user 2026-11-02), print only
 
 
-def _ef_bevel(piece):
-    import geometry as g
-    from scipy.ndimage import distance_transform_edt
-    base = piece['make_slice']
-    k = int(EF_CH / g.LY_MM)                         # first layer whose centre is >= EF_CH
-    cache = {}
-
-    def make_slice(layer, *a, **kw):
-        out = base(layer, *a, **kw)
-        y = (layer + 0.5) * g.LY_MM
-        if y >= EF_CH:
-            return out
-        if 'dist' not in cache:
-            ref = base(k, *a, **kw) > 0
-            cache['dist'] = distance_transform_edt(ref, sampling=(g.PZ_MM, g.PX_MM))
-        return np.where(cache['dist'] >= EF_CH - y, out, 0).astype(out.dtype)
-    out = dict(piece, make_slice=make_slice)
-    out.pop('solid_fn', None)                          # to_goo --gpu would skip the bevel: CPU export only
-    return out
-
-
-import numpy as np    # noqa: E402
-PIECES = [_ef_bevel(p) for p in PIECES]
+from designs.print_post import bevel_piece    # noqa: E402
+PIECES = [bevel_piece(p, EF_CH) for p in PIECES]   # CPU + GPU (to_goo --gpu)

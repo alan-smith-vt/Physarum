@@ -122,38 +122,17 @@ _n = int(np.ceil((_b - _a) / NEEDLE['pitch'])) + 1             # evenly spaced, 
 _N_X = [sx * v for sx in (-1, 1) for v in np.linspace(_a, _b, _n)]
 
 
-def _needles(x, y, z):
+def _needles(x, y, z, xp=np):
     top = _T_LOW + NEEDLE['dig']
     if y > top:
-        return np.zeros(np.broadcast_shapes(x.shape, z.shape), bool)
+        return xp.zeros((1, 1), bool)
     r = NEEDLE['r0'] + (NEEDLE['r1'] - NEEDLE['r0']) * min(y / _T_LOW, 1.0)
     d, X = x + D_TIP, z - PV.HALF_W
-    s = np.zeros(np.broadcast_shapes(x.shape, z.shape), bool)
+    s = xp.zeros(xp.broadcast_shapes(x.shape, z.shape), bool)
     for xn in _N_X:
-        s |= (d - _N_D) ** 2 + (X - xn) ** 2 <= r * r
+        s |= (d - _N_D) ** 2 + (X - float(xn)) ** 2 <= r * r
     return s
 
 
-def _print_piece(piece):
-    import geometry as g
-    from scipy.ndimage import distance_transform_edt, binary_fill_holes
-    base = piece['make_slice']
-    k = int(EF_CH / g.LY_MM)
-    cache = {}
-    x = ((np.arange(piece['W']) + 0.5) * g.PX_MM)[None, :]
-    z = ((np.arange(piece['H']) + 0.5) * g.PZ_MM)[:, None]
-
-    def make_slice(layer, *a, **kw):
-        out = base(layer, *a, **kw)
-        y = (layer + 0.5) * g.LY_MM
-        if y < EF_CH:
-            if 'dist' not in cache:
-                cache['dist'] = distance_transform_edt(binary_fill_holes(base(k) > 0), sampling=(g.PZ_MM, g.PX_MM))
-            out = np.where(cache['dist'] >= EF_CH - y, out, 0).astype(out.dtype)
-        return np.where(_needles(x, y, z), 255, out).astype(out.dtype)
-    p = dict(piece, make_slice=make_slice)
-    p.pop('solid_fn', None)                      # to_goo --gpu would skip both: CPU export only
-    return p
-
-
-PIECES = [_print_piece(p) for p in PIECES]
+from designs.print_post import bevel_piece    # noqa: E402
+PIECES = [bevel_piece(p, EF_CH, fill_holes=True, extra=_needles) for p in PIECES]   # CPU + GPU (to_goo --gpu)
