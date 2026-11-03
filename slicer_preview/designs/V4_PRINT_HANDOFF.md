@@ -1,3 +1,64 @@
+# Rig v4: state at end of 2026-11-02 (night)
+
+## Printing overnight
+**`pi_box_v4_plate_set.goo`** (smoky, 2.8 s, 3600 layers, ~10.5 h, started ~late evening 11-02): core v4 (unchanged,
+same model as `out/pi_box_v4_core_v4.goo`) + **front panel standing** + **back panel standing**, all on one plate.
+Design `designs/pi_box_v4_plate_set.py`: panels turned 90° (rotation, not mirror) into the free strips either side of
+the core, 3 mm gaps. Peak layer 6,961 mm² (layer 52). **User: keep this core whatever happens;** if a panel doesn't fit,
+compensate and reprint the panel.
+
+**Morning checks:**
+- All three footprints on the plate. The front panel's floor end was 0.1 mm up (started at layer 2) until a fix tonight
+  (`FRONT_PANEL_PIECES` shifted 0.1, now on layer 0, verified in the .goo).
+- Back panel standing: the 16 window columns and 4 ledge spikes printed and snap off; rails full height on both sides.
+- Core: support trees in the cartridge slots snap out; then the panel fits in the core channels (see older checks below).
+- Popping during the flange layers (0–4 mm): quiet = the new film fixed it.
+
+## What happened today
+- **New FEP film** (user, 11-02): the old one popped loudly on big layers (lost tension). `exposure_test_smoke` re-exported
+  (post-mirror-fix) and printed on the new film: **winner #3 = 80 % = 2.8 s again**, so nothing changes. Bases measured
+  ~1.3 mm (design 1.5) evenly across the plate, so the plate is level; ~0.2 mm short at the plate is the squeezed first layers.
+- **Back panel printed flat (old film), failed:** body 3.4–4.0 mm thick (should be ~3.2), rail edge 4.2–4.5 (should be
+  ~5.2); one rail nearly gone (BL corner worst). Not warp (~1 mm), not exposure. Best theory: the slack film deflected
+  under the 5,600 mm² body layers (body overgrew), then the sudden 5,600 → 400 mm² step to the rails left Z behind
+  the real top, squeezing the first rail layers. Tilt-release peel may add the side bias. **Fix: panels print standing.**
+- **Back panel redesigned** (`pi_box_v4_back_panel.py` flat; `pi_box_v4_back_panel_standing.py` standing):
+  - MagSafe disc, ring recess, swoops and logo bar **removed**: the phone mounts on the stick (C-clamp + magnet plate), not the panel.
+  - Gyroid fill above the window; window open **5–30 mm from the base edge** (bank screen 5.6–29 mm).
+  - Standing version: window corners R4, 16 snap-off columns under the head bar, 2 spikes under each side ledge
+    (hook corners stop at d 175.3 for door A's webs, so they start 4.6 mm up), 0.5 mm EF bevel.
+  - Flat version keeps 20 needles under the tongue (both corners) + 1 mm outline bevel.
+- **Front panel:** centre strip's inner face trimmed flush with the rounds (it was 0.15 proud: the line in the render);
+  its hooks end at the step (d 72) where the core channel ends (they ran 10 mm past); 0.5 mm EF bevel; prints standing.
+- **GPU export for mask pieces with print post-processing:** `designs/print_post.py` `bevel_piece(piece, ef,
+  fill_holes, extra)` gives an EF bevel + extra solids (needles/spikes) as both `make_slice` (numpy) and `slice_xp` (cupy).
+  Verified: back panel GPU .goo **byte-identical** to the CPU export (4.4 s vs 254 s). Plate set GPU export ~9 min
+  (**close the viewer tab while exporting**: it competes for the GPU and slowed one run ~3×).
+- **Uploading during a print is fine:** core upload ran at 0.17 vs 0.19 MB/s idle, and the running print's timing didn't change.
+- `pi_box_bat_panel_v3.panel_mask` is now array-safe in y (standing prints); scalar callers unchanged.
+
+## Gotchas (11-02)
+- `to_goo --gpu` repoints every `designs.*` module's `np` at cupy: a helper that tests `xp is np` must keep numpy under
+  another name (`print_post` uses `_np`).
+- An implicit piece whose solid stops 0.1 short of the piece's bottom starts in mid-air: check layer 0 of every piece
+  in the .goo (decode with `chromosome/goo_punch_hole_v2.goo_decode`).
+- `sdcp.py` discovery can miss once ("No SDCP printer answered"); just retry.
+
+## Side quest: chain textile for resin (11-02)
+- Source: **3DSLA "Metal Textile"** (Thingiverse 6029077, CC BY 4.0; 3DSLA = Russian metal-printing firm, printed in
+  AlSi10Mg on a RussianSLM FACTORY; 3dsla.ru is gone; Printables 500880 is a re-upload). Local copy
+  `C:\Users\Alan\Documents\3d_prints\testing\3DSLA_MetallTextile_1200_Elements.stl` (+ the 2025-07-17 .ctb).
+- Geometry: 675 identical links (5,484 tris each), hex lattice pitch 6.6 mm (file units = 0.1 mm), link ~10 × 10.5 × 20 mm,
+  standing upright between a bottom and a top ball; links interlock because the pitch is less than the link width.
+  ~30 % of down-facing area is steeper than 45° from vertical (round-strand undersides).
+- `designs/textile_patch.py` (4 × 4 links from the mesh + a 1.5 mm spike under every ball; viewer /textile_patch) and
+  `textile_patch_60.py` (SQUASH 0.6: 12.2 mm links). Interlock scan (100 pull-out directions per neighbour): **locked
+  at every squash 1.0–0.5**; min clearance 0.81 → 0.64 mm. Squash's real cost is flatter overhangs and slimmer strands
+  in Z. Ideas not done: rebuild as parametric SDF (smooth strands, fillets at the balls, ≥0.7 mm strands), island
+  check per layer, coupon at 2–3 heights; a flat-printed panel with the textile tied into its window frame.
+
+---
+
 # Rig v4: state at end of 2026-11-01 (blue resin out until Tue 11-04)
 
 ## Where things stand
