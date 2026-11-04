@@ -11,6 +11,7 @@ Elephant's foot: a 45° x EF_CH bevel round the plate face (from the SDF of the 
 Two cartridges, the second mirrored (t -> -t). Viewer: python generate.py pi_box_v4_cart_tilt. Blue, 2.3 s.
 """
 from pathlib import Path
+import math
 import numpy as np
 from scipy import ndimage
 from geometry import implicit_piece
@@ -63,6 +64,31 @@ def _root(xp, n, t, h):
     if TRIM:
         s = s & (_TN[0] * n + _TN[1] * t + _TN[2] * h <= _TOFF)
     return s
+
+
+COARSE, BAND = 4, 0.25     # coarse-to-fine: the tree on every COARSE-th pixel, then full-res only within BAND mm of the
+#   threshold (2026-11-03: full-frame tree evaluation was ~0.26 s/layer per cartridge on the GPU). BAND >> the 0.05 mm
+#   block half-diagonal, for distance fields that aren't exact; the export was checked byte-identical.
+
+
+def _tree_le(xp, x, y, z, c):
+    """K.ROOT <= c on the (h, W) slice grid x (1, W), z (h, 1)."""
+    H, W = z.shape[0], x.shape[1]
+    o = COARSE // 2
+    xc, zc = x[:, o::COARSE], z[o::COARSE]
+    if xc.shape[1] < 2 or zc.shape[0] < 2:
+        return xp.broadcast_to(xp.asarray(K.ROOT(*to_tree(x, y, z), xp, None, 0)) <= c, (H, W))
+    v = xp.asarray(K.ROOT(*to_tree(xc, y, zc), xp, None, 0)) - c
+    def up(a):                                      # coarse block -> its COARSE x COARSE pixels, cropped to (H, W)
+        a = xp.repeat(xp.repeat(a, COARSE, axis=0), COARSE, axis=1)
+        a = xp.pad(a, ((o, max(H - o - a.shape[0], 0)), (o, max(W - o - a.shape[1], 0))), mode='edge')
+        return a[:H, :W]
+    out = up(v <= 0)
+    near = up(xp.abs(v) < BAND)
+    i, j = xp.nonzero(near)
+    if i.size:
+        out[i, j] = xp.asarray(K.ROOT(*to_tree(x[0, j], y, z[i, 0]), xp, None, 0)) <= c
+    return out
 
 
 def _sample(y0):
@@ -133,12 +159,21 @@ def _xp(a):
 
 def _solid(x, y, z):
     xp = _xp(x)
-    s = _root(xp, *to_tree(x, y, z))
+    s = _tree_le(xp, x, y, z, 0.0)
+    if TRIM:
+        n, t, h = to_tree(x, y, z)
+        s = s & (_TN[0] * n + _TN[1] * t + _TN[2] * h <= _TOFF)
     if y < EF_CH:                                   # 45° bevel: keep what is >= (EF_CH - y) inside the section at EF_CH
-        n, t, h = to_tree(x, EF_CH, z)
-        s = s & (xp.asarray(K.ROOT(n, t, h, xp, None, 0)) <= -(EF_CH - y))
+        s = s & _tree_le(xp, x, EF_CH, z, -(EF_CH - y))
+    # Support columns: each disc is stamped into a small window round its column (2026-11-03), not tested against the
+    # whole slice (328 full-frame passes per layer made the GPU export 8.7 min). x is (1, W), z is (h, 1), evenly spaced
+    # (x may run backwards: the mirrored piece passes _W - x).
+    s = xp.array(xp.broadcast_to(s, (z.shape[0], x.shape[1])))
+    xs, zs = x[0], z[:, 0]
+    x0, z0 = float(xs[0]), float(zs[0])
+    dx = float(xs[1] - xs[0]) if xs.shape[0] > 1 else 1.0
+    dz = float(zs[1] - zs[0]) if zs.shape[0] > 1 else 1.0
     for px, py, pz, pb in PTS:
-        r2 = (x - px) ** 2 + (z - pz) ** 2
         top = py + TIP_DIG
         if y > top:
             continue
@@ -152,7 +187,14 @@ def _solid(x, y, z):
             continue
         if y > top - TIP_L:
             r = TIP_R + (COL_R - TIP_R) * (top - y) / TIP_L
-        s = s | (r2 <= r * r)
+        ja, jb = sorted(((px - r - x0) / dx, (px + r - x0) / dx))
+        ia, ib = sorted(((pz - r - z0) / dz, (pz + r - z0) / dz))
+        j0, j1 = max(math.floor(ja), 0), min(math.ceil(jb) + 1, s.shape[1])
+        i0, i1 = max(math.floor(ia), 0), min(math.ceil(ib) + 1, s.shape[0])
+        if j0 >= j1 or i0 >= i1:
+            continue
+        w = s[i0:i1, j0:j1]
+        w |= (x[:, j0:j1] - px) ** 2 + (z[i0:i1] - pz) ** 2 <= r * r
     return s
 
 
