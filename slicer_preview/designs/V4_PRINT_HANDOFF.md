@@ -4,6 +4,9 @@ Rig 1 is **Alnilam** (fleet names: `RIG_NAMES.md` at the repo root). Plate set (
 perfectly and everything assembles; blue resin refilled. Exposure: smoky 80 % (2.8 s) won again on the new FEP, so blue
 stays at 2.3 s without a recalibration (the floor plate is the canary).
 
+**Resin colour (user):** the refill mixed with the smoky residue left in the vat and came out a clearer, darker
+turquoise, much better than the lighter, cloudier blue-only mix; worth repeating on purpose (a splash of smoky).
+
 **Printed / printing (blue, 2.3 s):**
 1. `pi_box_v4_floor_plate.goo` (design `pi_box_v4_floor_plate`): floor + 3 glue-in standing lips. Printed.
 2. `pi_box_v4_door_cart_plate.goo` (design `pi_box_v4_door_cart_plate`, 770 layers, ~2.2 h): both cartridges
