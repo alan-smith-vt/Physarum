@@ -1,3 +1,37 @@
+# Rig v4: state 2026-11-03 (evening)
+
+Rig 1 is **Alnilam** (fleet names: `RIG_NAMES.md` at the repo root). Plate set (core + both panels, smoky) printed
+perfectly and everything assembles; blue resin refilled. Exposure: smoky 80 % (2.8 s) won again on the new FEP, so blue
+stays at 2.3 s without a recalibration (the floor plate is the canary).
+
+**Printed / printing (blue, 2.3 s):**
+1. `pi_box_v4_floor_plate.goo` (design `pi_box_v4_floor_plate`): floor + 3 glue-in standing lips. Printed.
+2. `pi_box_v4_door_cart_plate.goo` (design `pi_box_v4_door_cart_plate`, 770 layers, ~2.2 h): both cartridges
+   (`cart_tilt`, unchanged) + door A reprint standing on its grip end. Printing.
+
+**Standing lips** (sketch `sketches/pi_box_v4_floor_lips_sketch.png`, option B): the M3 thumb screw stands 6.5 proud of
+the door plate vs the old 5.3 grip lip, so the rig rocked. Now everything stands on one plane at d 190.7 (1.1 below the
+screw tip): floor side rails (X 43.5..50, Yr -30..28, R3.5 notches round the M3 button heads) + front bar (X +-18) as
+separate lips glued into grooves; the door's full-width standing lip (|X| <= 46) is part of the door.
+- Grooves (floor outside face): 4.2 x 1.7, 0.3 mouth bevel, square breaks at the screw bosses and the RJ45 opening,
+  solid floor round them. Tongues 3.6 x 1.4 (0.3/face, 0.3 under the tip). Lips print foot down, 0.5 EF bevel.
+- **Join plan (user):** wash + dry, a bead of the same blue resin in each groove, press in, wipe squeeze-out, stand the
+  floor on its lips on glass, UV-tack, then full cure (the wet resin lets all lips settle onto one plane).
+
+**Door A changes** (`pi_box_v4_door_a.py`; core unchanged): CLEAR 0.2 -> 0.1 (web 0.275/face), tongues 2.4 (-X) /
+2.7 (+X) tall (up/down slop 1.15-1.45 -> 0.75 total), Ø3.2 slide-through screw hole (no longer captive), standing lip,
+"Alnilam" engraved 0.5 deep in Old English in the -X strip opposite the screw (`NAME`, `NAME_FLIP = True` reads right
+from outside; font shortlist `sketches/pi_box_v4_door_name_final_sketch.png`, review design `pi_box_v4_door_names`).
+
+**Checks when it comes off:** cartridges as 11-01 (inserts, bores, connector relief); door slides with less wiggle, M3
+slides through, name reads correctly, door lip level with the floor lips on glass.
+
+**Tooling (11-03):** `to_goo` trims empty top layers; `print_post.text_inside` (even-odd text fill: counters stay open);
+CPU exports over ~5 min are out (user): make designs `--gpu`-safe (fixed: door trees' `ab @ ab` needed cuBLAS). The
+door/cart plate still took 8.7 min on the GPU (cartridge support columns looped per layer).
+
+---
+
 # Rig v4: state at end of 2026-11-02 (night)
 
 ## Printing overnight

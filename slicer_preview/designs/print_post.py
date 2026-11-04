@@ -54,3 +54,13 @@ def bevel_piece(piece, ef, fill_holes=True, extra=None):
 
     out = dict(piece, slice_xp=slice_xp, make_slice=lambda layer, *a, **kw: slice_xp(layer, _np), mask_np=True)
     return out
+
+
+def text_inside(tp, pts):
+    """Points inside a matplotlib TextPath, even-odd per closed loop (2026-11-03): Path.contains_points on the whole
+    compound path fills letter counters (the inside of A, a, e) for some fonts; XOR over the loops keeps them open."""
+    from matplotlib.path import Path as _MPath
+    inside = _np.zeros(len(pts), bool)
+    for poly in tp.to_polygons(closed_only=True):
+        inside ^= _MPath(poly).contains_points(pts)
+    return inside

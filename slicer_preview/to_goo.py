@@ -274,6 +274,14 @@ def main(name, gpu=False):
                 print(f"  {done}/{N_SLICES} layers  ({len(rle):,} bytes RLE)  "
                       f"[{elapsed:.1f}s, ~{eta:.0f}s remaining]", flush=True)
 
+    # Trim empty layers off the top (a piece's box can be taller than its solid; the printer still steps through
+    # empty layers, ~10 s each). An empty plate encodes to 6 bytes of RLE (2026-11-03).
+    n_full = N_SLICES
+    while N_SLICES > 1 and len(results[N_SLICES - 1]) <= 6:
+        N_SLICES -= 1
+    if N_SLICES < n_full:
+        print(f"Trimmed {n_full - N_SLICES} empty top layers: {N_SLICES} left")
+
     # Assemble layers in order
     new_layers = []
     for z in range(N_SLICES):

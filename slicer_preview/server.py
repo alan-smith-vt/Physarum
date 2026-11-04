@@ -25,6 +25,9 @@ ALIASES = {
     'v3panel': 'pi_box_bat_panel_v3',          # front panel, L-hook edges
     'v3back': 'pi_box_bat_back_panel_v3',      # back panel: MagSafe recess, braces, window
     'bumper': 'bumper_coupon',                 # gyroid crush-pad coupon (generated at PREVIEW_SCALE 8)
+    'v4doornames': 'pi_box_v4_door_names',      # door name font review (2026-11-03)
+    'v4doorcart': 'pi_box_v4_door_cart_plate',  # cartridges + door A standing (2026-11-03)
+    'v4floorplate': 'pi_box_v4_floor_plate',   # floor + glue-in lips (2026-11-03)
     'v4floor': 'pi_box_v4_floor',              # v4 fixed floor (UNAPPROVED)
     'v4door': 'pi_box_v4_door_a',              # v4 battery door, option A (UNAPPROVED)
     'v4fit': 'pi_box_v4_door_fit',             # door rail + plunger fit strip (UNAPPROVED)

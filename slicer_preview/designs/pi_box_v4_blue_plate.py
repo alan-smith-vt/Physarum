@@ -26,9 +26,9 @@ DIG = 0.25                                  # support tips sink this far into th
 
 def _seg(x, y, z, a, b, r0, r1):
     """Tapered rod a -> b (radius r0 at a, r1 at b) at print height y; x (1, W), z (H, 1)."""
-    a, b = np.asarray(a, float), np.asarray(b, float)
-    ab = b - a
-    k = np.clip(((x - a[0]) * ab[0] + (y - a[1]) * ab[1] + (z - a[2]) * ab[2]) / (ab @ ab), 0.0, 1.0)
+    a, b = [float(v) for v in a], [float(v) for v in b]       # plain floats: under --gpu np is cupy, and a cupy
+    ab = [b[i] - a[i] for i in range(3)]                      # `ab @ ab` needs cuBLAS (not installed), 2026-11-03
+    k = np.clip(((x - a[0]) * ab[0] + (y - a[1]) * ab[1] + (z - a[2]) * ab[2]) / sum(c * c for c in ab), 0.0, 1.0)
     dx, dy, dz = x - a[0] - k * ab[0], y - a[1] - k * ab[1], z - a[2] - k * ab[2]
     return dx * dx + dy * dy + dz * dz <= (r0 + (r1 - r0) * k) ** 2
 
@@ -115,13 +115,16 @@ def door_stand(x, y, z):
     inY = (Yr <= Y_MAX) & (Yr >= D.Y_LO)
     web = (d < D.PLATE_D[0]) & (aX >= D.HX - D.WEB_T) & (aX <= D.HX)
     lead = max(D.TONGUE_LEAD - (Yr - D.Y_LO), 0.0)
-    hook = (d >= D.TONGUE_D[0]) & (d <= D.TONGUE_D[1]) & (aX >= D.HX - D.WEB_T) & (aX <= D.TONGUE_X - lead)
+    hook = np.zeros_like(web)
+    for sd, (t0, t1) in D.TONGUE_D.items():               # per-side tongue height (door_a, 2026-11-03)
+        hook = hook | ((d >= t0) & (d <= t1) & (sd * X >= D.HX - D.WEB_T) & (sd * X <= D.TONGUE_X - lead))
     plate = (d >= D.PLATE_D[0]) & (d <= D.PLATE_D[1]) & (aX <= D.PLATE_X)
     grip = (d > D.PLATE_D[1]) & (d <= D.GRIP['d1']) & (aX <= D.GRIP['x']) & (Yr >= D.GRIP['y0'])
     s = (web | hook | plate | grip) & inY & (d >= D.D_TOP)
     wx0, wx1, wy0, wy1 = PORT_WINDOW
     s &= ~((X >= wx0) & (X <= wx1) & (Yr >= wy0) & (Yr <= wy1))
-    s &= ~hole(*D.SCREW_XY, D.CAPTIVE_D, X, Yr)
+    s &= ~hole(*D.SCREW_XY, D.SCREW_D, X, Yr)
+    s &= ~(D.name_mask(X, Yr) & (d > D.PLATE_D[1] - D.NAME['depth']) & (d <= D.PLATE_D[1]))   # rig name
     for a, b, r0, r1 in TREES:
         if min(a[1], b[1]) - r0 <= y <= max(a[1], b[1]) + r0:
             s = s | _seg(x, y, z, a, b, r0, r1)

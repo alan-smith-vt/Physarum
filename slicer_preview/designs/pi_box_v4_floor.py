@@ -25,6 +25,10 @@ SWITCH_XY, SWITCH_D, SWITCH_SEAT = (33.0, 14.0), 16.0, 24.0   # +X bank side (20
 _ROUND = '((np.abs({x}) <= _V4.ROUND_C[0]) | ({y} >= _V4.ROUND_C[1]) | ' \
          '(np.hypot(np.abs({x}) - _V4.ROUND_C[0], {y} - _V4.ROUND_C[1]) <= _V4.R_FRONT{m}))'
 _PATCHES = [
+    # glue-in lips (2026-11-03): solid plate 1.5 mm round each groove
+    ('    req |= np.hypot(XX, YY) <= COLLAR_R1 + 2.0\n',
+     '    req |= np.hypot(XX, YY) <= COLLAR_R1 + 2.0\n'
+     '    req |= binary_dilation(_V4.lip_groove(XX, YY), iterations=int(round(1.5 / step)))\n'),
     ('FLOOR_BOSSES = [(sx * 44.0, Y_MIN + 10.5) for sx in (-1, 1)] + [(sx * 44.0, 24.0) for sx in (-1, 1)]',
      'FLOOR_BOSSES = _V4.FLOOR_BOSSES_V4\nPINS = [q for q in PINS if q not in _V4.DROP_PINS]'),
     ('LATCH_EARS = True', 'LATCH_EARS = False'),
@@ -77,6 +81,61 @@ MIN_PANE = 150.0                            # also the two thin strips by the re
 # patches, if ever needed again: a90a30b.
 
 
+# Glue-in standing lips (user 2026-11-03, sketches/pi_box_v4_floor_lips_sketch.png option B): the rig stands on a
+# plane LIP_H below the floor's outside face, 1 mm below the door's M3 thumb screw (6.5 proud of the door plate).
+# Tongue-and-groove, part depth: groove GROOVE_W x GROOVE_D in the 3 mm floor (inside the solid perimeter band, no
+# gyroid); the lip's body seats on the floor face by its shoulders, so the shoulders (not the tongue tip) set the
+# height. Grooves sit off-centre in the body (inboard), ~0.6 of floor outboard even at the 1 mm bottom-edge chamfer.
+# Fit (user 2026-11-03): RESIN_HOLE_COMP 0.35 is the LOOSE insert fit (padded with resin dust), too much here. Door A
+# (0.375/face designed) slides perfectly, so a glue fit is a bit tighter: 0.3/face designed (4.2 groove, 3.6 tongue).
+# Depth 1.7 vs tongue 1.4: 0.3 under the tongue for the roof's downward overcure. 0.3 x 45° mouth bevel vs EF.
+LIP_H = 7.7                       # body, floor face -> table (door lip: 7.5 below its plate, which is 0.2 lower)
+LIP_W = 6.5
+GROOVE_W, GROOVE_D, GROOVE_MOUTH = 4.2, 1.7, 0.3
+TONGUE_W, TONGUE_L, TONGUE_END_GAP = 3.6, 1.4, 0.3   # tongue segments 0.3 short of each groove end
+from designs.pi_box_bat_rig import ADAPTER_JACK, RESIN_HOLE_COMP          # noqa: E402
+ETH_JACK_C = (37.9, -12.1)        # = the ETH_ADAPTER patch's x, y (RJ45 opening centre)
+MIN_RUN = 8.0                     # shorter groove scraps are dropped (too little to glue)
+NOTCH_R = 3.5                    # M3 button head Ø5.7 (ISO 7380), + clearance / hex key; groove breaks NOTCH_R + 1
+# each lip: (axis, body lo/hi across, groove centre across, run lo/hi along); 'X' = runs along Yr at fixed X
+LIPS = [('X', (-50.0, -43.5), -46.0, (-30.0, 28.0)),
+        ('X', (43.5, 50.0), 46.0, (-30.0, 28.0)),
+        ('Y', (-62.0, -55.5), -58.0, (-18.0, 18.0))]
+
+
+def lip_groove(X, Yr, grow=0.0):
+    """True where the floor's outside face is grooved (rig X, Yr); grow widens it (the mouth bevel)."""
+    g = np.zeros(np.broadcast_shapes(np.shape(X), np.shape(Yr)), bool)
+    w = GROOVE_W / 2 + grow
+    for lo, hi, c, ax in groove_runs():
+        a, r = (X, Yr) if ax == 'X' else (Yr, X)
+        g = g | ((np.abs(a - c) <= w) & (r >= lo - grow) & (r <= hi + grow))
+    return g
+
+
+def groove_runs():
+    """Groove segments (lo, hi along the run, groove centre across, axis): each lip's run with square breaks of
+    +-(NOTCH_R + 1) at the screw bosses on its line, and beside the RJ45 opening (+X groove's inner edge would run
+    0.5 into it) with 1.5 margin. The tongue segments match these, TONGUE_END_GAP shorter at each end."""
+    (jx, jy), (jw, jh) = ETH_JACK_C, ADAPTER_JACK
+    out = []
+    for ax, _body, c, (r0, r1) in LIPS:
+        cuts = []
+        for bx, by in FLOOR_BOSSES_V4:
+            a, r = (bx, by) if ax == 'X' else (by, bx)
+            if abs(a - c) <= GROOVE_W / 2 + NOTCH_R + 1.0:
+                cuts.append((r - NOTCH_R - 1.0, r + NOTCH_R + 1.0))
+        if ax == 'X' and c > 0 and abs(c - jx) <= jw / 2 + GROOVE_W / 2 + 1.5 + RESIN_HOLE_COMP:
+            m = jh / 2 + 1.5 + RESIN_HOLE_COMP
+            cuts.append((jy - m, jy + m))
+        lo = r0
+        for a, b in sorted(cuts) + [(r1, r1)]:
+            if min(a, r1) - lo >= MIN_RUN:
+                out.append((lo, min(a, r1), c, ax))
+            lo = max(lo, b)
+    return out
+
+
 def _load():
     src = Path(__file__).with_name('pi_box_bat_lids.py').read_text(encoding='utf-8')
     for a, b in _PATCHES:
@@ -90,7 +149,15 @@ def _load():
 
 _g = _load()
 SUPPORTS, EXPOSURE_S, BOTTOM_EXPOSURE_S = False, 2.3, 20.0
-floor_fixed = _g['floor_fixed']
+_floor_fixed_v4 = _g['floor_fixed']
+
+def floor_fixed(x, y, z):
+    s = _floor_fixed_v4(x, y, z)
+    if y < GROOVE_D:                                   # y = 0 is the outside face (on the build plate)
+        s = s & ~lip_groove(z - _g['X_OUT'], x + _g['Y_MIN'], max(GROOVE_MOUTH - y, 0.0))
+    return s
+
+
 _LF = RIB_Y - DOOR_GAP - _g['Y_MIN']
 _FH = _g['_FH']
 _XO = _g['X_OUT']
