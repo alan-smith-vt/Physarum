@@ -7,7 +7,7 @@ light (continuous, DeWalt belt pack, low-profile head on the GoPro, optional add
 Numbers marked **(est.)** are back-of-envelope estimates from this session, not measurements or datasheet values.
 
 ## Next step
-Bench test the LED and driver: bench supply -> LDH-65-1750W -> CXB3590, LED on the 69 mm heatsink with a fan.
+First run planned for 2026-11-17 (see "First bench run" below). Then bench test the LED and driver: bench supply -> LDH-65-1750W -> CXB3590, LED on the 69 mm heatsink with a fan.
 The test has to answer three things (see "Bench test" below): how dimming behaves above 17.7 V input, whether DIM-
 may share a ground with the input, and where the output sags at low input voltage.
 
@@ -77,6 +77,50 @@ Along the positive wire: DeWalt 20V adapter -> fuse (~10 A, at the adapter) -> p
 - To find out: dimming behaviour from 15 V up to 21 V input; the voltage across DIM+ and DIM- as the pot turns
   (loading); whether DIM- can be tied to Vin-; the input voltage where the output sags.
 - Safety: ~10,000 lm from a 30 mm disc. Point it at a wall or into a box.
+
+## First bench run: full brightness, no dimming (plan, 2026-11-16)
+In hand: bench supply, driver, LED, 69 mm heatsink, paste. Missing: 9 V battery, 10k pot, a standalone fan (the
+5015 blowers can't run: the supply's single output feeds the driver). So this run is full brightness only; the
+dimming questions wait for the pot and battery.
+
+**Prep at home (night of 2026-11-16)**
+- Solder ~22 AWG stranded leads (enough to keep the driver off to the side) to the LED's two front pads. Tin pads and
+  wire first. Stranded, not solid: solid levers on the joints and can lift a pad or crack the ceramic.
+- Mark the LED+ lead (red tape or a knot).
+- No alligator clips on the LED pads: a slip can short the driver output (destroys it) or hot-plug the LED onto up
+  to 60 V; the teeth also sit next to the yellow emitter. The bench supply can't drive the LED directly either
+  (30 V max, LED needs ~35.5 V).
+
+**Assembly at the office**
+- LED on the heatsink with MX-4, clamped on the white border only. Tape the leads to the heatsink so pulls land on
+  the tape, not the pads.
+- LED leads to the driver output with WAGO 221 levers (22 AWG is in range; strip ~11 mm, tug test). Red driver
+  lead to LED+, black to LED-. Keep the WAGOs off the heatsink. **Make or break a WAGO only with the supply output
+  off, then wait a few seconds** (the output cap can hold up to 60 V after an over-voltage trip).
+- DIM+ (blue) and DIM- (white) left open = 100 %. Insulate their ends separately.
+- Supply to the driver input (red/black) with alligator clips: fine there.
+
+**Setting the supply's current limit** (the A display shows actual draw, so it reads 0 with no load)
+1. Nothing connected; voltage ~1-2 V, current knob at minimum.
+2. Clip the supply's red and black leads together, output on: CC lights and the A display shows the limit.
+3. Turn the current knob to 5.0 A. Output off, unclip, set 15.0 V.
+Only short the supply's own leads, never the driver output.
+
+**Eye safety:** ~10,000 lm from a 30 mm disc; never look straight at it (sunglasses don't make staring safe).
+Point it at a wall or ceiling ~1 m+ away, or face down onto a light surface ~15 cm+ below with the fins up (good
+for convection; don't rest it on the fins). Cardboard shield between you and the emitter, kept ~15-20 cm+ from the
+LED face (~20 W of light heats whatever is close). Bounce light is safe. To check it's lit, look at the bounce or
+through a phone camera.
+
+**Run**
+1. Output off; connect everything; 15.0 V, 5 A limit.
+2. Output on. Expect CV mode, ~4.4 A. CC lit means the driver wants more than 5 A: output off and check.
+3. Record with a multimeter: input voltage at the driver's wires (not the supply display), input current
+   (supply), LED voltage at the pads (~35.5 V expected).
+4. **No fan, so bursts of ~30-60 s.** Stop at ~70 °C heatsink base (IR thermometer), or when a finger can't stay
+   on the fin edge for 2-3 s. Any desk/USB fan across the fins allows longer runs. Never leave it unattended.
+5. Optional: step the input down from 15 V to find where the output sags (raise the limit to ~7 A below 13 V, or
+   the supply's own limit will look like a driver sag).
 
 ## Water loop (design intent, nothing modelled)
 Loop order: pump -> LED block -> heatsink block -> reservoir -> pump. Expected flow 1.2-1.5 L/min (est., from a
